@@ -3,10 +3,3135 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MG Portones</title>
+    <meta name="theme-color" content="#0f2a44" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>MG Portones | Gestion Operativa</title>
+    <style>
+      :root {
+        --navy: #0f2a44;
+        --blue: #1d4f7a;
+        --steel: #64748b;
+        --line: #d9e2ec;
+        --bg: #f6f8fb;
+        --white: #ffffff;
+        --ok: #0f766e;
+        --warn: #b45309;
+        --danger: #b91c1c;
+        --shadow: 0 16px 40px rgba(15, 42, 68, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: #172033;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 268px 1fr;
+      }
+
+      .sidebar {
+        background: var(--navy);
+        color: var(--white);
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--navy);
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .brand p {
+        margin: 2px 0 0;
+        color: #bfd1df;
+        font-size: 12px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav button,
+      .logout {
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #d9e7f2;
+        padding: 12px;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .nav button.active,
+      .nav button:hover,
+      .logout:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+      }
+
+      .main {
+        padding: 22px;
+        min-width: 0;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+
+      .topbar h2 {
+        margin: 0;
+        font-size: 28px;
+        color: var(--navy);
+      }
+
+      .topbar p {
+        margin: 4px 0 0;
+        color: var(--steel);
+      }
+
+      .status-pill,
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 7px 11px;
+        background: #e8eef5;
+        color: #244158;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ok);
+      }
+
+      .offline .dot {
+        background: var(--warn);
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .panel,
+      .card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      .stat-label {
+        margin: 0;
+        color: var(--steel);
+        font-size: 13px;
+      }
+
+      .stat-value {
+        margin: 8px 0 0;
+        font-size: 30px;
+        font-weight: 900;
+        color: var(--navy);
+      }
+
+      .content-grid {
+        grid-template-columns: 1.6fr 1fr;
+        align-items: start;
+      }
+
+      .panel-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .panel-header h3 {
+        margin: 0;
+        color: var(--navy);
+      }
+
+      .panel-body {
+        padding: 16px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 13px;
+        background: var(--blue);
+        color: #fff;
+        font-weight: 800;
+      }
+
+      .btn.secondary {
+        background: #e8eef5;
+        color: #17324a;
+      }
+
+      .btn.danger {
+        background: var(--danger);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+      }
+
+      th,
+      td {
+        padding: 13px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: #50657a;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .report-drawer {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: var(--bg);
+        overflow: auto;
+      }
+
+      .report-drawer header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--navy);
+        color: #fff;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .report-drawer h3 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .report-form {
+        width: min(980px, 100%);
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .report-form .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .report-form input,
+      .report-form select,
+      .report-form textarea {
+        min-height: 48px;
+        font-size: 16px;
+      }
+
+      .report-form .btn {
+        min-height: 52px;
+        font-size: 16px;
+      }
+
+      .camera-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .lock-note {
+        border: 1px solid #bdd7c7;
+        border-radius: 8px;
+        background: #eef8f2;
+        color: #17623d;
+        padding: 12px;
+        font-weight: 800;
+      }
+
+      .history-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .parts-picker {
+        display: grid;
+        gap: 10px;
+      }
+
+      .part-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 96px auto;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        background: #fbfdff;
+      }
+
+      .part-row label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #172033;
+      }
+
+      .part-row input[type="checkbox"] {
+        width: auto;
+      }
+
+      .part-search-results {
+        display: grid;
+        gap: 8px;
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      .part-result {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfdff;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .selected-parts {
+        display: grid;
+        gap: 8px;
+      }
+
+      .mini-calendar {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        min-width: 170px;
+        background: #fff;
+      }
+
+      .mini-calendar .month {
+        background: var(--navy);
+        color: #fff;
+        padding: 7px 10px;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .mini-calendar .day {
+        padding: 12px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: 900;
+        color: var(--navy);
+      }
+
+      .autosave-note {
+        color: #d7e7f5;
+        font-weight: 800;
+      }
+
+      .photo-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-width: 120px;
+      }
+
+      .photo-strip img {
+        width: 58px;
+        height: 58px;
+        object-fit: cover;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #eef4f8;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(15, 42, 68, 0.42);
+        display: grid;
+        place-items: center;
+        padding: 16px;
+      }
+
+      .modal {
+        width: min(620px, 100%);
+        max-height: calc(100vh - 32px);
+        overflow: auto;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .modal.wide {
+        width: min(980px, 100%);
+      }
+
+      .modal.fullscreen {
+        width: min(1120px, 100%);
+        min-height: calc(100vh - 32px);
+      }
+
+      .modal header {
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .modal header h3 {
+        margin: 0;
+        color: var(--navy);
+      }
+
+      .modal-body {
+        padding: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: #42576b;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 11px 12px;
+        background: #fff;
+        color: #172033;
+      }
+
+      textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .list-item {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: #fbfdff;
+      }
+
+      .list-item strong {
+        color: var(--navy);
+      }
+
+      .login {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+      }
+
+      .login-hero {
+        background: var(--navy);
+        color: white;
+        padding: 52px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .login-hero h1 {
+        margin: 20px 0 14px;
+        max-width: 680px;
+        font-size: 48px;
+        line-height: 1.05;
+      }
+
+      .login-hero p {
+        max-width: 620px;
+        color: #d5e2ed;
+        font-size: 18px;
+      }
+
+      .login-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+      }
+
+      .login-card {
+        width: min(440px, 100%);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 24px;
+      }
+
+      .login-card h2 {
+        color: var(--navy);
+        margin-top: 0;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .signature {
+        height: 120px;
+        border: 1px dashed #8aa0b5;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: repeating-linear-gradient(135deg, #f8fafc, #f8fafc 10px, #eef4f8 10px, #eef4f8 20px);
+        color: #37536b;
+        font-weight: 800;
+      }
+
+      .mobile-top {
+        display: none;
+        background: var(--navy);
+        color: #fff;
+        padding: 12px 16px;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      @media (max-width: 900px) {
+        .shell,
+        .login {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: fixed;
+          inset: 0 auto 0 0;
+          width: 286px;
+          z-index: 20;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease;
+        }
+
+        body.menu-open .sidebar {
+          transform: translateX(0);
+        }
+
+        .mobile-top {
+          display: flex;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+
+        .main {
+          padding: 16px;
+        }
+
+        .stats,
+        .content-grid,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .login-hero {
+          padding: 34px 22px;
+        }
+
+        .login-hero h1 {
+          font-size: 34px;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .report-form {
+          padding: 14px;
+        }
+
+        .camera-actions,
+        .history-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media print {
+        .sidebar,
+        .mobile-top,
+        .topbar,
+        .toolbar,
+        .no-print {
+          display: none !important;
+        }
+
+        .shell {
+          display: block;
+        }
+
+        .main {
+          padding: 0;
+        }
+
+        .panel,
+        .card {
+          box-shadow: none;
+          border-color: #999;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div id="app"></div>
+
+    <script>
+      const users = [
+        { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: true, createdAt: today(-120) },
+        { id: 2, username: 'tecnico1', password: 'tecnico123', role: 'technician', name: 'Carlos Mendez', phone: '8888-1111', email: 'carlos@mgportones.cr', vehicle: 'MOV-01', active: true, createdAt: today(-90) },
+        { id: 4, username: 'tecnico2', password: 'tecnico123', role: 'technician', name: 'Luis Vega', phone: '8888-2222', email: 'luis@mgportones.cr', vehicle: 'MOV-03', active: true, createdAt: today(-70) },
+        { id: 3, username: 'cliente1', password: 'cliente123', role: 'client', name: 'Sofia Ramirez', phone: '8888-1010', email: 'sofia@example.com', active: true, clientId: 1, createdAt: today(-60) }
+      ];
+
+      const seed = {
+        jobs: [
+          { id: 1, ticket: 'B-1042', clientId: 1, client: 'Sofia Ramirez', technicianId: 2, technician: 'Carlos Mendez', vehicle: 'MOV-01', status: 'Finalizado', priority: 'Media', date: today(-1), address: 'Escazu, San Jose', phone: '8888-1010', email: 'sofia@example.com', description: 'Cambio de resortes y ajuste de motor LiftMaster', materials: 'Resorte torsion 2" x1', warranty: 'Activa', signed: true, gps: '9.9325,-84.0820', arrival: '08:10', departure: '10:20' },
+          { id: 2, ticket: 'B-1043', clientId: 2, client: 'Condominio Robles', technicianId: 2, technician: 'Carlos Mendez', vehicle: 'MOV-01', status: 'Trabajando', priority: 'Alta', date: today(0), address: 'Santa Ana', phone: '2222-3333', email: 'admin@robles.cr', description: 'Instalacion de puerta seccional industrial', materials: 'Sensor fotoelectrico x1', warranty: 'Pendiente', signed: false, gps: '9.9325,-84.0820', arrival: '14:30', departure: '' },
+          { id: 3, ticket: 'B-1031', clientId: 3, client: 'Bodega Norte', technicianId: 4, technician: 'Luis Vega', vehicle: 'MOV-03', status: 'Garantia', priority: 'Alta', date: today(-3), address: 'Heredia', phone: '8700-4433', email: '', description: 'Motor quemado, requiere tarjeta logica', materials: 'Tarjeta logica LiftMaster x1', warranty: 'Activa', signed: false, gps: '9.9981,-84.1170', arrival: '11:00', departure: '' }
+        ],
+        clients: [
+          { id: 1, name: 'Sofia Ramirez', phone: '8888-1010', email: 'sofia@example.com', address: 'Escazu, San Jose' },
+          { id: 2, name: 'Condominio Robles', phone: '2222-3333', email: 'admin@robles.cr', address: 'Santa Ana' },
+          { id: 3, name: 'Bodega Norte', phone: '8700-4433', email: '', address: 'Heredia' }
+        ],
+        users: users,
+        vehicles: [
+          { id: 1, code: 'MOV-01', name: 'Unidad Norte', plate: 'CL-1023', technicianId: 2, technician: 'Carlos Mendez', active: true, notes: 'Unidad principal para trabajos residenciales' },
+          { id: 2, code: 'MOV-02', name: 'Unidad Oeste', plate: 'CL-2044', technicianId: null, technician: 'Sin asignar', active: true, notes: 'Disponible para asignacion' },
+          { id: 3, code: 'MOV-03', name: 'Unidad Industrial', plate: 'CL-3310', technicianId: 4, technician: 'Luis Vega', active: true, notes: 'Herramientas para portones industriales' }
+        ],
+        inventory: [
+          { vehicle: 'MOV-01', part: 'Resorte torsion 2"', qty: 2, min: 3 },
+          { vehicle: 'MOV-01', part: 'Control remoto universal', qty: 9, min: 4 },
+          { vehicle: 'MOV-01', part: 'Sensor fotoelectrico', qty: 5, min: 3 },
+          { vehicle: 'MOV-03', part: 'Tarjeta logica LiftMaster', qty: 0, min: 2 },
+          { vehicle: 'MOV-04', part: 'Rodines industriales', qty: 12, min: 6 }
+        ],
+        appointments: [
+          { id: 1, client: 'Sofia Ramirez', technician: 'Carlos Mendez', date: today(2), hour: '09:00', status: 'Confirmada' },
+          { id: 2, client: 'Condominio Robles', technician: 'Carlos Mendez', date: today(0), hour: '14:30', status: 'Pendiente' }
+        ],
+        warranties: [
+          { id: 1, ticket: 'B-1042', clientId: 1, client: 'Sofia Ramirez', technicianId: 2, technician: 'Carlos Mendez', vehicle: 'MOV-01', start: today(-1), end: today(364), status: 'Activa', approval: 'Aprobada' },
+          { id: 2, ticket: 'B-1005', clientId: 3, client: 'Bodega Sur', technicianId: null, technician: 'Sin asignar', vehicle: '', start: today(-400), end: today(-35), status: 'Vencida', approval: 'Pendiente' }
+        ],
+        maintenances: [
+          { id: 1, clientId: 1, client: 'Sofia Ramirez', nextDate: today(12), technicianId: 2, technician: 'Carlos Mendez', status: 'Pendiente', notes: 'Lubricacion y revision de sensores' },
+          { id: 2, clientId: 2, client: 'Condominio Robles', nextDate: today(3), technicianId: 2, technician: 'Carlos Mendez', status: 'Pendiente', notes: 'Mantenimiento trimestral de puerta seccional' }
+        ],
+        notifications: [
+          { id: 1, role: 'admin', text: 'Inventario bajo en MOV-01: Resorte torsion 2"', type: 'Inventario' },
+          { id: 2, role: 'technician', technicianId: 2, text: 'Nuevo trabajo asignado: B-1043', type: 'Trabajo' }
+        ],
+        movements: [],
+        auditLogs: [],
+        syncQueue: []
+      };
+
+      const navByRole = {
+        admin: ['dashboard', 'reportes', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'usuarios', 'auditoria'],
+        technician: ['dashboard', 'reportes', 'inventario', 'citas'],
+        client: ['dashboard', 'reportes', 'citas', 'garantias']
+      };
+
+      const labels = {
+        dashboard: 'Dashboard',
+        reportes: 'Reportes',
+        inventario: 'Inventario',
+        moviles: 'Moviles',
+        citas: 'Citas',
+        garantias: 'Garantias',
+        mantenimientos: 'Mantenimientos',
+        clientes: 'Clientes',
+        busqueda: 'Busqueda',
+        usuarios: 'Usuarios',
+        auditoria: 'Auditoria'
+      };
+
+      const state = {
+        user: JSON.parse(localStorage.getItem('mg_user') || 'null'),
+        data: JSON.parse(localStorage.getItem('mg_data') || 'null') || seed,
+        view: 'dashboard',
+        reportFormOpen: false,
+        reportParts: [],
+        modal: null
+      };
+
+      normalizeData();
+
+      function today(offset) {
+        const date = new Date();
+        date.setDate(date.getDate() + offset);
+        return date.toISOString().slice(0, 10);
+      }
+
+      function save() {
+        localStorage.setItem('mg_data', JSON.stringify(state.data));
+      }
+
+      function normalizeData() {
+        state.data.users ||= users;
+        state.data.vehicles ||= [
+          { id: 1, code: 'MOV-01', name: 'Unidad Norte', plate: 'CL-1023', technicianId: 2, technician: 'Carlos Mendez', active: true, notes: 'Unidad principal para trabajos residenciales' },
+          { id: 2, code: 'MOV-02', name: 'Unidad Oeste', plate: 'CL-2044', technicianId: null, technician: 'Sin asignar', active: true, notes: 'Disponible para asignacion' },
+          { id: 3, code: 'MOV-03', name: 'Unidad Industrial', plate: 'CL-3310', technicianId: 4, technician: 'Luis Vega', active: true, notes: 'Herramientas para portones industriales' }
+        ];
+        state.data.maintenances ||= [];
+        state.data.notifications ||= [];
+        state.data.movements ||= [];
+        state.data.auditLogs ||= [];
+        state.data.users = state.data.users.map((user) => ({
+          phone: '',
+          email: '',
+          active: true,
+          createdAt: today(-30),
+          ...user
+        }));
+        users.forEach((user) => {
+          if (!state.data.users.some((item) => item.id === user.id)) state.data.users.push(user);
+        });
+        state.data.users = state.data.users.filter((user, index, list) => (
+          index === list.findIndex((item) => item.username === user.username || item.id === user.id)
+        ));
+        state.data.vehicles = state.data.vehicles.filter((vehicle, index, list) => (
+          index === list.findIndex((item) => item.code === vehicle.code)
+        ));
+        state.data.jobs = (state.data.jobs || []).map((job) => {
+          const cleanJob = { ...job };
+          delete cleanJob.cost;
+          cleanJob.priority ||= 'Media';
+          cleanJob.materials ||= '';
+          cleanJob.notes ||= '';
+          cleanJob.photos ||= { before: [], after: [] };
+          cleanJob.photos.before ||= [];
+          cleanJob.photos.after ||= [];
+          cleanJob.signed ||= false;
+          cleanJob.pdfStatus ||= cleanJob.signed ? 'Generado' : 'Pendiente';
+          cleanJob.gps ||= '';
+          cleanJob.arrival ||= '';
+          cleanJob.departure ||= '';
+          return cleanJob;
+        });
+        state.data.inventory = (state.data.inventory || []).map((item, index) => {
+          const currentId = String(item.id || '');
+          const safeId = currentId && !/['"<>\s]/.test(currentId) ? currentId : `inv-${index}-${String(item.vehicle || 'movil').replace(/\W+/g, '-')}`;
+          return {
+            ...item,
+            id: safeId
+          };
+        });
+        state.data.warranties = (state.data.warranties || []).map((warranty, index) => ({
+          id: warranty.id || index + 1,
+          clientId: warranty.clientId || null,
+          technicianId: warranty.technicianId || null,
+          technician: warranty.technician || 'Sin asignar',
+          vehicle: warranty.vehicle || '',
+          approval: warranty.approval || (warranty.technicianId ? 'Aprobada' : 'Pendiente'),
+          ...warranty
+        }));
+        updateWarrantyStatuses();
+        updateMaintenanceNotifications();
+        updateAppointmentNotifications();
+        save();
+      }
+
+      function appUsers() {
+        return state.data.users || users;
+      }
+
+      function setUser(user) {
+        state.user = user;
+        localStorage.setItem('mg_user', JSON.stringify(user));
+        render();
+      }
+
+      function scopedJobs() {
+        if (!state.user) return [];
+        if (state.user.role === 'admin') return state.data.jobs;
+        if (state.user.role === 'client') return state.data.jobs.filter((job) => job.clientId === state.user.clientId);
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return state.data.jobs.filter((job) => job.technicianId === state.user.id && new Date(job.date) >= sevenDaysAgo);
+      }
+
+      function scopedInventory() {
+        if (state.user.role === 'admin') return state.data.inventory;
+        return state.data.inventory.filter((item) => item.vehicle === state.user.vehicle);
+      }
+
+      function inventoryForVehicle(vehicle) {
+        return state.data.inventory.filter((item) => item.vehicle === vehicle);
+      }
+
+      function reportVehicleForUser(user) {
+        return user?.vehicle || state.data.vehicles.find((vehicle) => vehicle.technicianId === user?.id)?.code || '';
+      }
+
+      function formatCurrency(value) {
+        return new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'USD' }).format(value || 0);
+      }
+
+      function technicians() {
+        return appUsers().filter((user) => user.role === 'technician' && user.active !== false);
+      }
+
+      function statuses() {
+        return ['Pendiente', 'Asignado', 'En camino', 'Trabajando', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado', 'Cancelado'];
+      }
+
+      function technicianStatuses() {
+        return ['Pendiente', 'Asignado', 'En camino', 'Trabajando', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado'];
+      }
+
+      function finalStatuses() {
+        return ['Finalizado', 'Completado', 'Cerrado'];
+      }
+
+      function isJobLocked(job) {
+        return job.signed || finalStatuses().includes(job.status);
+      }
+
+      function canEditJob(job) {
+        if (!state.user || !job) return false;
+        if (state.user.role === 'admin') return true;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return state.user.role === 'technician' && job.technicianId === state.user.id && new Date(job.date) >= sevenDaysAgo && !isJobLocked(job);
+      }
+
+      function priorities() {
+        return ['Baja', 'Media', 'Alta', 'Urgente'];
+      }
+
+      function warrantyOptions() {
+        return ['Pendiente', 'Activa', 'Sin garantia', 'Vencida'];
+      }
+
+      function visibleNotifications() {
+        return state.data.notifications.filter((notification) => {
+          if (notification.role === 'admin') return state.user.role === 'admin';
+          if (notification.role === 'technician') return state.user.role === 'technician' && notification.technicianId === state.user.id;
+          return notification.role === state.user.role;
+        });
+      }
+
+      function warrantyStatus(endDate) {
+        const todayDate = new Date(today(0));
+        const end = new Date(endDate);
+        const daysLeft = Math.ceil((end - todayDate) / 86400000);
+        if (daysLeft < 0) return 'Vencida';
+        if (daysLeft <= 30) return 'Proxima a vencer';
+        return 'Activa';
+      }
+
+      function updateWarrantyStatuses() {
+        state.data.warranties.forEach((warranty) => {
+          warranty.status = warrantyStatus(warranty.end);
+          if (warranty.status === 'Proxima a vencer') {
+            addUniqueNotification('admin', `Garantia proxima a vencer: ${warranty.ticket} · ${warranty.client}`, 'Garantia');
+          }
+        });
+      }
+
+      function updateMaintenanceNotifications() {
+        state.data.maintenances.forEach((item) => {
+          const daysLeft = Math.ceil((new Date(item.nextDate) - new Date(today(0))) / 86400000);
+          if (item.status === 'Pendiente' && daysLeft <= 7) {
+            addUniqueNotification('admin', `Mantenimiento pendiente: ${item.client} · ${item.nextDate}`, 'Mantenimiento');
+          }
+        });
+      }
+
+      function updateAppointmentNotifications() {
+        (state.data.appointments || []).forEach((item) => {
+          const daysLeft = Math.ceil((new Date(item.date) - new Date(today(0))) / 86400000);
+          if (item.status !== 'Completada' && daysLeft >= 0 && daysLeft <= 2) {
+            addUniqueNotification('admin', `Cita proxima: ${item.client} · ${item.date} ${item.hour}`, 'Cita');
+          }
+        });
+      }
+
+      function addUniqueNotification(role, text, type, technicianId = null) {
+        const exists = state.data.notifications.some((notification) => notification.role === role && notification.text === text && notification.technicianId === technicianId);
+        if (!exists) {
+          state.data.notifications.unshift({ id: Date.now() + Math.random(), role, technicianId, text, type });
+        }
+      }
+
+      function logAudit(action, entity, beforeValue = null, afterValue = null) {
+        state.data.auditLogs ||= [];
+        state.data.auditLogs.unshift({
+          id: Date.now() + Math.random(),
+          user: state.user?.name || 'Sistema',
+          role: state.user?.role || 'system',
+          action,
+          entity,
+          before: beforeValue ? JSON.stringify(beforeValue).slice(0, 240) : '',
+          after: afterValue ? JSON.stringify(afterValue).slice(0, 240) : '',
+          date: new Date().toISOString()
+        });
+      }
+
+      function logFieldChanges(entity, beforeValue, afterValue, fields) {
+        fields.forEach((field) => {
+          const beforeField = beforeValue?.[field] ?? '';
+          const afterField = afterValue?.[field] ?? '';
+          if (String(beforeField) === String(afterField)) return;
+          logAudit(`Modificar ${field}`, entity, { [field]: beforeField }, { [field]: afterField });
+        });
+      }
+
+      function icon(name) {
+        const icons = {
+          dashboard: '▦',
+        reportes: '▤',
+        inventario: '▧',
+        moviles: '▣',
+        citas: '◷',
+        garantias: '✓',
+        mantenimientos: '↻',
+        clientes: '◎',
+          busqueda: '⌕',
+          usuarios: '◉'
+        };
+        return icons[name] || '•';
+      }
+
+      function render() {
+        if (!state.user) return renderLogin();
+
+        document.body.classList.remove('menu-open');
+        const online = navigator.onLine;
+        document.getElementById('app').innerHTML = `
+          <div class="mobile-top">
+            <strong>MG Portones</strong>
+            <button class="btn secondary" onclick="document.body.classList.toggle('menu-open')">Menu</button>
+          </div>
+          <div class="shell">
+            <aside class="sidebar">
+              <div class="brand">
+                <div class="brand-mark">MG</div>
+                <div>
+                  <h1>MG Portones</h1>
+                  <p>Operacion y servicios</p>
+                </div>
+              </div>
+              <nav class="nav">
+                ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
+              </nav>
+              <div style="margin-top:auto; display:grid; gap:10px;">
+                <span class="status-pill ${online ? '' : 'offline'}"><span class="dot"></span>${online ? 'En linea' : 'Modo offline'} · ${state.data.syncQueue.length} pendientes</span>
+                <button class="logout" onclick="logout()">Cerrar sesion</button>
+              </div>
+            </aside>
+            <main class="main">
+              <header class="topbar">
+                <div>
+                  <h2>${labels[state.view]}</h2>
+                  <p>${state.user.name} · ${roleName(state.user.role)}${state.user.vehicle ? ' · ' + state.user.vehicle : ''}</p>
+                </div>
+                <div class="toolbar">
+                  <button class="btn secondary" onclick="syncNow()">Sincronizar</button>
+                  <button class="btn" onclick="newReportShortcut()">Nuevo reporte</button>
+                </div>
+              </header>
+              ${viewMarkup()}
+              ${modalMarkup()}
+            </main>
+          </div>
+        `;
+      }
+
+      function roleName(role) {
+        return role === 'admin' ? 'Administrador' : role === 'technician' ? 'Tecnico' : 'Cliente';
+      }
+
+      function renderLogin() {
+        document.getElementById('app').innerHTML = `
+          <section class="login">
+            <div class="login-hero">
+              <div class="brand">
+                <div class="brand-mark">MG</div>
+                <div>
+                  <h1 style="font-size:18px; margin:0;">MG Portones</h1>
+                  <p>Gestion profesional de servicio tecnico</p>
+                </div>
+              </div>
+              <h1>Control completo para reparacion e instalacion de puertas de garaje</h1>
+              <p>Administra tecnicos, clientes, moviles, inventario, citas, garantias, reportes con fotos, firmas y PDFs desde una experiencia rapida para movil y escritorio.</p>
+            </div>
+            <div class="login-panel">
+              <form class="login-card" onsubmit="login(event)">
+                <h2>Iniciar sesion</h2>
+                <p style="color:var(--steel);">Usa admin/admin123, tecnico1/tecnico123 o cliente1/cliente123.</p>
+                <label>Usuario<input name="username" autocomplete="username" required /></label>
+                <br />
+                <label>Contrasena<input name="password" type="password" autocomplete="current-password" required /></label>
+                <br />
+                <button class="btn" style="width:100%;">Entrar</button>
+              </form>
+            </div>
+          </section>
+        `;
+      }
+
+      function viewMarkup() {
+        const views = {
+          dashboard: dashboardView,
+          reportes: reportsView,
+          inventario: inventoryView,
+          moviles: vehiclesView,
+          citas: appointmentsView,
+          garantias: warrantiesView,
+          mantenimientos: maintenancesView,
+          clientes: clientsView,
+          busqueda: searchView,
+          usuarios: usersView,
+          auditoria: auditView
+        };
+        return views[state.view]();
+      }
+
+      function modalMarkup() {
+        if (!state.modal) return '';
+        const modal = state.modal;
+        const templates = {
+          inventoryAdjust: inventoryAdjustModal,
+          inventoryCreate: inventoryCreateModal,
+          inventoryTransfer: inventoryTransferModal,
+          vehicleInventory: vehicleInventoryModal,
+          vehicleEdit: vehicleEditModal,
+          vehicleAssign: vehicleAssignModal,
+          jobEdit: jobEditModal,
+          jobAssign: jobAssignModal,
+          warrantyOpen: warrantyOpenModal,
+          userEdit: userEditModal,
+          userDelete: userDeleteModal,
+          clientEdit: clientEditModal,
+          clientDelete: clientDeleteModal
+        };
+        return `
+          <div class="modal-backdrop">
+            <section class="modal ${modal.fullscreen ? 'fullscreen' : modal.wide ? 'wide' : ''}">
+              <header>
+                <h3>${modal.title}</h3>
+                <button class="btn secondary" onclick="closeModal()">Cerrar</button>
+              </header>
+              <div class="modal-body">${templates[modal.type]?.(modal) || ''}</div>
+            </section>
+          </div>
+        `;
+      }
+
+      function inventoryAdjustModal(modal) {
+        const item = state.data.inventory.find((part) => part.id === modal.id);
+        if (!item) return '<p>Producto no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitInventoryAdjust(event, '${item.id}')">
+            <label>Movil<input value="${item.vehicle}" disabled /></label>
+            <label>Producto<input value="${item.part}" disabled /></label>
+            <label>Cantidad actual<input value="${item.qty}" disabled /></label>
+            <label>Nueva cantidad<input name="qty" type="number" min="0" value="${item.qty}" required /></label>
+            <label>Minimo<input name="min" type="number" min="0" value="${item.min}" required /></label>
+            <button class="btn full">Guardar ajuste</button>
+          </form>
+        `;
+      }
+
+      function inventoryCreateModal(modal) {
+        const vehicle = modal.vehicle || state.user.vehicle || state.data.vehicles[0]?.code || '';
+        return `
+          <section class="report-form" style="padding:0; width:100%;">
+            <form class="form-grid" onsubmit="createInventoryItem(event)">
+              <input type="hidden" name="vehicle" value="${vehicle}" />
+              <div class="list-item full">
+                <strong>Nuevo producto para ${vehicle || 'movil sin asignar'}</strong><br>
+                Esta entrada queda registrada en bitacora con tecnico, fecha, accion y cantidad.
+              </div>
+              <label>Movil<input value="${vehicle || 'Sin asignar'}" disabled /></label>
+              <label>Producto / repuesto<input name="part" autofocus required /></label>
+              <label>Cantidad inicial<input name="qty" type="number" min="0" required /></label>
+              <label>Stock minimo<input name="min" type="number" min="0" value="3" required /></label>
+              <label class="full">Nota de ingreso<textarea name="note" placeholder="Compra, reposicion, inventario inicial..."></textarea></label>
+              <button class="btn full">Guardar producto</button>
+            </form>
+          </section>
+        `;
+      }
+
+      function inventoryTransferModal(modal) {
+        const item = state.data.inventory.find((part) => part.id === modal.id);
+        if (!item) return '<p>Producto no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitInventoryTransfer(event, '${item.id}')">
+            <label>Producto<input value="${item.part}" disabled /></label>
+            <label>Origen<input value="${item.vehicle}" disabled /></label>
+            <label>Destino<select name="toVehicle" required>${state.data.vehicles.filter((vehicle) => vehicle.code !== item.vehicle).map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
+            <label>Cantidad disponible<input value="${item.qty}" disabled /></label>
+            <label class="full">Cantidad a transferir<input name="qty" type="number" min="1" max="${item.qty}" value="1" required /></label>
+            <button class="btn full">Transferir producto</button>
+          </form>
+        `;
+      }
+
+      function vehicleInventoryModal(modal) {
+        const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
+        if (!vehicle) return '<p>Movil no encontrada.</p>';
+        const items = state.data.inventory.filter((item) => item.vehicle === vehicle.code);
+        return `
+          <div class="list">
+            <label>Buscar en inventario ${vehicle.code}<input oninput="filterVehicleInventory('${vehicle.code}', this.value)" placeholder="Producto, codigo o repuesto" /></label>
+            <div id="vehicleInventoryRows">
+            ${items.map((item) => `
+              <div class="list-item">
+                <strong>${item.part}</strong><br>
+                Cantidad: ${item.qty} · Minimo: ${item.min} · <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
+                <div class="toolbar" style="margin-top:10px;">
+                  <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
+                  <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
+                  <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>
+                </div>
+              </div>
+            `).join('') || '<div class="list-item">Sin inventario registrado.</div>'}
+            </div>
+            <form class="form-grid" onsubmit="createInventoryItem(event)">
+              <input type="hidden" name="vehicle" value="${vehicle.code}" />
+              <label>Producto<input name="part" required /></label>
+              <label>Cantidad<input name="qty" type="number" min="0" required /></label>
+              <label>Minimo<input name="min" type="number" min="0" value="3" required /></label>
+              <button class="btn full">Agregar a ${vehicle.code}</button>
+            </form>
+          </div>
+        `;
+      }
+
+      function jobEditModal(modal) {
+        const job = state.data.jobs.find((item) => item.id === modal.id);
+        if (!job) return '<p>Reporte no encontrado.</p>';
+        if (state.user.role === 'technician') return technicianJobEditModal(job);
+        return `
+          <form class="form-grid" onsubmit="submitJobEdit(event, ${job.id})">
+            <label>Boleta<input name="ticket" value="${job.ticket || ''}" required /></label>
+            <label>Fecha<input name="date" type="date" value="${job.date || today(0)}" required /></label>
+            <label>Cliente<input name="client" value="${job.client || ''}" required /></label>
+            <label>Telefono<input name="phone" value="${job.phone || ''}" required /></label>
+            <label>Direccion<input name="address" value="${job.address || ''}" required /></label>
+            <label>Estado<select name="status">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
+            <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name} · ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+          <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
+            <label>Vence garantia<input name="warrantyEnd" type="date" value="${job.warrantyEnd || ''}" /></label>
+            <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
+            <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
+            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
+            <div class="full camera-actions">
+              <label>Agregar fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+              <label>Agregar fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+            </div>
+            <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
+            <button class="btn full">Guardar reporte</button>
+          </form>
+        `;
+      }
+
+      function technicianJobEditModal(job) {
+        return `
+          <form class="form-grid" onsubmit="submitJobEdit(event, ${job.id})">
+            <input type="hidden" name="ticket" value="${job.ticket || ''}" />
+            <input type="hidden" name="date" value="${job.date || today(0)}" />
+            <input type="hidden" name="client" value="${job.client || ''}" />
+            <input type="hidden" name="phone" value="${job.phone || ''}" />
+            <input type="hidden" name="address" value="${job.address || ''}" />
+            <input type="hidden" name="priority" value="${job.priority || 'Media'}" />
+            <input type="hidden" name="technicianId" value="${job.technicianId}" />
+            <input type="hidden" name="warranty" value="${job.warranty || ''}" />
+            <input type="hidden" name="warrantyEnd" value="${job.warrantyEnd || ''}" />
+            <div class="list-item full"><strong>${job.ticket}</strong><br>${job.client} · ${job.date}<br>El tecnico puede actualizar estado, descripcion, materiales, fotos y notas mientras el trabajo siga activo.</div>
+            <label>Estado<select name="status">${technicianStatuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
+            <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
+            <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
+            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
+            <div class="full camera-actions">
+              <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+              <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+            </div>
+            <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
+            <button class="btn full">Guardar reporte</button>
+          </form>
+        `;
+      }
+
+      function filterVehicleInventory(vehicleCode, query) {
+        const target = document.getElementById('vehicleInventoryRows');
+        if (!target) return;
+        const text = String(query || '').toLowerCase();
+        const items = state.data.inventory.filter((item) => item.vehicle === vehicleCode && (!text || item.part.toLowerCase().includes(text)));
+        target.innerHTML = items.map((item) => `
+          <div class="list-item">
+            <strong>${item.part}</strong><br>
+            Cantidad: ${item.qty} · Minimo: ${item.min} · <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
+            <div class="toolbar" style="margin-top:10px;">
+              <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
+              <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
+              <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>
+            </div>
+          </div>
+        `).join('') || '<div class="list-item">Sin resultados.</div>';
+      }
+
+      function warrantyOpenModal(modal) {
+        const warranty = state.data.warranties.find((item) => item.id === modal.id);
+        if (!warranty) return '<p>Garantia no encontrada.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitWarrantyOpen(event, ${warranty.id})">
+            <label>Boleta<input value="${warranty.ticket}" disabled /></label>
+            <label>Vencimiento<input value="${warranty.end}" disabled /></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === warranty.technicianId ? 'selected' : ''}>${tech.name} · ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option ${vehicle.code === warranty.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
+            <label class="full">Trabajo por garantia<textarea name="description" required>Atencion de garantia ${warranty.ticket}</textarea></label>
+            <button class="btn full">Abrir trabajo de garantia</button>
+          </form>
+        `;
+      }
+
+      function jobAssignModal(modal) {
+        const job = state.data.jobs.find((item) => item.id === modal.id);
+        if (!job) return '<p>Reporte no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitJobAssign(event, ${job.id})">
+            <label>Boleta<input value="${job.ticket}" disabled /></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name} · ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option ${vehicle.code === job.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
+            <button class="btn full">Asignar trabajo</button>
+          </form>
+        `;
+      }
+
+      function vehicleEditModal(modal) {
+        const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
+        if (!vehicle) return '<p>Movil no encontrada.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitVehicleEdit(event, ${vehicle.id})">
+            <label>Codigo<input name="code" value="${vehicle.code}" required /></label>
+            <label>Nombre<input name="name" value="${vehicle.name}" required /></label>
+            <label>Placa<input name="plate" value="${vehicle.plate || ''}" /></label>
+            <label>Estado<select name="active"><option value="true" ${vehicle.active ? 'selected' : ''}>Activa</option><option value="false" ${!vehicle.active ? 'selected' : ''}>Inactiva</option></select></label>
+            <label class="full">Observaciones<textarea name="notes">${vehicle.notes || ''}</textarea></label>
+            <button class="btn full">Guardar movil</button>
+          </form>
+        `;
+      }
+
+      function vehicleAssignModal(modal) {
+        const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
+        if (!vehicle) return '<p>Movil no encontrada.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitVehicleAssign(event, ${vehicle.id})">
+            <label>Movil<input value="${vehicle.code}" disabled /></label>
+            <label>Tecnico<select name="technicianId" required>${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === vehicle.technicianId ? 'selected' : ''}>${tech.name} · ${tech.username}</option>`).join('')}</select></label>
+            <button class="btn full">Asignar tecnico</button>
+          </form>
+        `;
+      }
+
+      function userEditModal(modal) {
+        const user = state.data.users.find((item) => item.id === modal.id);
+        if (!user) return '<p>Usuario no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitUserEdit(event, ${user.id})">
+            <label>Nombre<input name="name" value="${user.name || ''}" required /></label>
+            <label>Usuario<input name="username" value="${user.username || ''}" required /></label>
+            <label>Telefono<input name="phone" value="${user.phone || ''}" inputmode="tel" /></label>
+            <label>Correo<input name="email" value="${user.email || ''}" type="email" /></label>
+            <label>Rol<select name="role"><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option><option value="technician" ${user.role === 'technician' ? 'selected' : ''}>Tecnico</option><option value="client" ${user.role === 'client' ? 'selected' : ''}>Cliente</option></select></label>
+            <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option value="${vehicle.code}" ${vehicle.code === user.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
+            <label>Estado<select name="active"><option value="true" ${user.active !== false ? 'selected' : ''}>Activo</option><option value="false" ${user.active === false ? 'selected' : ''}>Inactivo</option></select></label>
+            <button class="btn full">Guardar usuario</button>
+          </form>
+        `;
+      }
+
+      function userDeleteModal(modal) {
+        const user = state.data.users.find((item) => item.id === modal.id);
+        if (!user) return '<p>Usuario no encontrado.</p>';
+        return `
+          <div class="list">
+            <div class="list-item"><strong>Eliminar usuario</strong><br>${user.name} · ${user.username}<br>Los trabajos anteriores se conservaran en el historial.</div>
+            <button class="btn danger" onclick="confirmUserDelete(${user.id})">Eliminar definitivamente</button>
+          </div>
+        `;
+      }
+
+      function clientEditModal(modal) {
+        const client = state.data.clients.find((item) => item.id === modal.id);
+        if (!client) return '<p>Cliente no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="submitClientEdit(event, ${client.id})">
+            <label>Nombre<input name="name" value="${client.name || ''}" required /></label>
+            <label>Telefono<input name="phone" value="${client.phone || ''}" inputmode="tel" required /></label>
+            <label>Correo<input name="email" value="${client.email || ''}" type="email" /></label>
+            <label class="full">Direccion<input name="address" value="${client.address || ''}" required /></label>
+            <button class="btn full">Guardar cliente</button>
+          </form>
+        `;
+      }
+
+      function clientDeleteModal(modal) {
+        const client = state.data.clients.find((item) => item.id === modal.id);
+        if (!client) return '<p>Cliente no encontrado.</p>';
+        return `
+          <div class="list">
+            <div class="list-item"><strong>Eliminar cliente</strong><br>${client.name}<br>Sus reportes anteriores quedan guardados con el nombre del cliente.</div>
+            <button class="btn danger" onclick="confirmClientDelete(${client.id})">Eliminar definitivamente</button>
+          </div>
+        `;
+      }
+
+      function dashboardView() {
+        const jobs = scopedJobs();
+        const lowStock = scopedInventory().filter((item) => item.qty <= item.min).length;
+        const alerts = visibleNotifications();
+        return `
+          <section class="grid stats">
+            ${stat('Trabajos del dia', jobs.filter((job) => job.date === today(0)).length)}
+            ${stat('Tecnicos activos', state.user.role === 'admin' ? technicians().length : 1)}
+            ${stat('Inventario bajo', lowStock)}
+            ${stat('Notificaciones', alerts.length)}
+          </section>
+          <br />
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
+              <div class="panel-body">${jobsTable(jobs)}</div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Alertas importantes</h3></div>
+              <div class="panel-body list">
+                ${alerts.map((alert) => `<div class="list-item"><strong>${alert.type}:</strong> ${alert.text}</div>`).join('')}
+                ${lowStock ? `<div class="list-item"><strong>Stock bajo:</strong> ${lowStock} repuestos requieren reposicion.</div>` : ''}
+                <div class="list-item"><strong>Offline:</strong> Los tecnicos pueden crear reportes y sincronizar al volver internet.</div>
+                <div class="list-item"><strong>Garantias:</strong> ${state.data.warranties.filter((w) => w.status === 'Activa').length} garantias activas.</div>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function stat(label, value) {
+        return `<article class="card"><p class="stat-label">${label}</p><p class="stat-value">${value}</p></article>`;
+      }
+
+      function reportsView() {
+        const jobs = scopedJobs();
+        return `
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Reportes de trabajo</h3>
+              <div class="toolbar">
+                ${state.user.role === 'admin' ? adminReportFilters() : ''}
+                <button class="btn secondary" onclick="window.print()">PDF / imprimir</button>
+                <button class="btn" onclick="openReportForm()">Crear reporte</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="reportResults">${jobsTable(jobs, true)}</div>
+            </div>
+          </section>
+          ${state.reportFormOpen ? reportFormMarkup() : ''}
+        `;
+      }
+
+      function adminReportFilters() {
+        return `
+          <input id="reportFilterText" oninput="filterReports()" placeholder="Cliente, boleta, tecnico o movil" />
+          <input id="reportFilterDate" type="date" onchange="filterReports()" />
+          <select id="reportFilterStatus" onchange="filterReports()">
+            <option value="">Todos los estados</option>
+            ${statuses().map((status) => `<option>${status}</option>`).join('')}
+          </select>
+        `;
+      }
+
+      function reportFormMarkup() {
+        const adminFields = state.user.role === 'admin' ? `
+          <label>Tecnico asignado
+            <select name="technicianId" onchange="updateReportInventoryFields()" required>
+              ${technicians().map((tech) => `<option value="${tech.id}">${tech.name} · ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}
+            </select>
+          </label>
+          <label>Prioridad
+            <select name="priority">${priorities().map((priority) => `<option>${priority}</option>`).join('')}</select>
+          </label>
+        ` : '';
+
+        return `
+          <section class="report-drawer">
+            <header>
+              <div>
+                <h3>${state.user.role === 'admin' ? 'Crear y asignar trabajo' : 'Nuevo reporte tecnico'}</h3>
+                <small>Clientes nuevos se registran automaticamente. <span id="autosaveStatus" class="autosave-note">Autoguardado listo</span></small>
+              </div>
+              <button class="btn secondary" onclick="closeReportForm()">Cerrar</button>
+            </header>
+            <form class="report-form" onsubmit="createReport(event)" oninput="autosaveReportDraft(event)">
+              <div class="form-grid">
+                <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="name" required /></label>
+                <label>Telefono<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="tel" required /></label>
+                <label>Correo opcional<input name="email" value="${reportDraftValue('email')}" type="email" autocomplete="email" /></label>
+                <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="street-address" required /></label>
+                <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
+                <label>Estado<select name="status">${statuses().map((s) => `<option>${s}</option>`).join('')}</select></label>
+                ${adminFields}
+                <label>Garantia<select name="warranty"><option>Pendiente</option><option>Activa</option><option>Sin garantia</option></select></label>
+                <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" /></label>
+                <label>Unidad garantia<select name="warrantyUnit"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
+                <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
+                <label>Tiempo trabajado<input name="time" placeholder="2h 30m" /></label>
+                <label>Hora llegada<input name="arrival" type="time" /></label>
+                <label>Hora salida<input name="departure" type="time" /></label>
+                <label class="full">Descripcion del trabajo<textarea name="description" required>${reportDraftValue('description')}</textarea></label>
+                <label class="full">Notas<textarea name="notes" placeholder="Observaciones internas del servicio">${reportDraftValue('notes')}</textarea></label>
+                <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user.role === 'admin' ? technicians()[0] : state.user)}</div>
+                <label class="full">Materiales adicionales<textarea name="materials" placeholder="Material no inventariado o nota adicional">${reportDraftValue('materials')}</textarea></label>
+                <div class="full camera-actions">
+                  <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+                  <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+                </div>
+                <div class="full signature">Firma digital capturada</div>
+                <div class="full lock-note">Al guardar con firma, el reporte queda bloqueado para tecnicos. Solo administracion puede modificarlo.</div>
+                <button class="btn full">Guardar y sincronizar</button>
+              </div>
+            </form>
+          </section>
+        `;
+      }
+
+      function reportInventoryFields(user) {
+        const vehicle = reportVehicleForUser(user);
+        const items = inventoryForVehicle(vehicle);
+
+        if (!vehicle) {
+          return '<div class="list-item"><strong>Repuestos usados</strong><br>Este tecnico no tiene movil asignada.</div>';
+        }
+
+        if (!items.length) {
+          return `<div class="list-item"><strong>Repuestos usados</strong><br>${vehicle} no tiene inventario registrado.</div>`;
+        }
+
+        return `
+          <label>Buscar repuestos de ${vehicle}<input id="partSearch" placeholder="Buscar por nombre, QR o codigo de barras" oninput="renderReportPartSearch('${vehicle}', this.value)" /></label>
+          <div class="toolbar">
+            <button type="button" class="btn secondary" onclick="scanPartCode('${vehicle}')">Escanear codigo</button>
+          </div>
+          <div id="partSearchResults" class="part-search-results">${reportPartSearchResults(vehicle, '')}</div>
+          <label>Repuestos agregados al reporte</label>
+          <div id="selectedReportParts" class="selected-parts">${selectedReportPartsMarkup()}</div>
+        `;
+      }
+
+      function reportPartSearchResults(vehicle, query) {
+        const text = String(query || '').toLowerCase();
+        const selectedIds = state.reportParts.map((part) => part.id);
+        if (!text) return '<div class="list-item">Escribe para buscar repuestos disponibles de esta movil.</div>';
+
+        const items = inventoryForVehicle(vehicle).filter((item) => (
+          item.qty > 0 &&
+          !selectedIds.includes(item.id) &&
+          (!text || item.part.toLowerCase().includes(text))
+        ));
+
+        return items.map((item) => `
+          <div class="part-result">
+            <div><strong>${item.part}</strong><br><small>Disponible: ${item.qty} · Minimo: ${item.min}</small></div>
+            <button type="button" class="btn secondary" onclick="addReportPart('${item.id}')">Agregar</button>
+          </div>
+        `).join('') || '<div class="list-item">No hay repuestos disponibles con esa busqueda.</div>';
+      }
+
+      function favoritePartsMarkup(vehicle) {
+        const counts = {};
+        (state.data.movements || []).forEach((move) => {
+          if (move.vehicle === vehicle && move.action === 'Consumo reporte') counts[move.material] = (counts[move.material] || 0) + Number(move.quantity || 1);
+        });
+        const favorites = Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 4)
+          .map(([part]) => inventoryForVehicle(vehicle).find((item) => item.part === part && item.qty > 0))
+          .filter(Boolean);
+
+        return favorites.map((item) => `
+          <div class="part-result">
+            <div><strong>${item.part}</strong><br><small>Disponible: ${item.qty}</small></div>
+            <button type="button" class="btn secondary" onclick="addReportPart('${item.id}')">Agregar</button>
+          </div>
+        `).join('') || '<div class="list-item">Los productos frecuentes apareceran conforme se usen en reportes.</div>';
+      }
+
+      function selectedReportPartsMarkup() {
+        return state.reportParts.map((part) => `
+          <div class="part-row">
+            <input type="hidden" name="usedPartId" value="${part.id}" />
+            <label><strong>${part.part}</strong><br><small>${part.vehicle} · Disponible: ${part.available}</small></label>
+            <input name="partQty-${part.id}" type="number" min="1" max="${part.available}" value="${part.quantity}" onchange="updateReportPartQty('${part.id}', this.value)" />
+            <button type="button" class="btn secondary" onclick="removeReportPart('${part.id}')">Quitar</button>
+          </div>
+        `).join('') || '<div class="list-item">Agrega solo los repuestos usados en este trabajo.</div>';
+      }
+
+      function reportDraftValue(name, fallback = '') {
+        const draft = JSON.parse(localStorage.getItem(`mg_report_draft_${state.user?.id || 'guest'}`) || '{}');
+        return draft[name] ?? fallback;
+      }
+
+      function jobsTable(jobs, actions = false) {
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Boleta</th><th>Cliente</th><th>Fecha</th><th>Tecnico</th><th>Movil</th><th>Prioridad</th><th>Estado</th><th>Garantia</th><th>Fotos</th><th>Firma</th>${actions ? '<th>Acciones</th>' : ''}</tr></thead>
+              <tbody>
+                ${jobs.map((job) => `
+                  <tr>
+                    <td><strong>${job.ticket}</strong></td>
+                    <td>${job.client}<br><small>${job.phone}</small></td>
+                    <td>${job.date}</td>
+                    <td>${job.technician}</td>
+                    <td>${job.vehicle}</td>
+                    <td>${job.priority || 'Media'}</td>
+                    <td><span class="pill">${job.status}</span></td>
+                    <td>${job.warranty}</td>
+                    <td>${jobPhotosMarkup(job)}</td>
+                    <td>${isJobLocked(job) ? '<span class="pill">Bloqueado</span>' : 'Pendiente'}</td>
+                    ${actions ? `<td><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="window.print()">PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${job.id})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${job.id})">Asignar</button>` : ''}</td>` : ''}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function jobPhotosMarkup(job) {
+        const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])].slice(0, 4);
+        if (!photos.length) return '<span class="pill">Sin fotos</span>';
+        return `<div class="photo-strip">${photos.map((photo) => `<img src="${photo.data}" alt="${photo.kind || 'Foto reporte'}" />`).join('')}</div>`;
+      }
+
+      function inventoryView() {
+        const items = scopedInventory();
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Inventario por movil</h3><span class="pill">${items.length} repuestos</span></div>
+              <div class="panel-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Movil</th><th>Repuesto</th><th>Cantidad</th><th>Minimo</th><th>Estado</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                      ${items.map((item) => `
+                        <tr>
+                          <td>${item.vehicle}</td>
+                          <td><strong>${item.part}</strong></td>
+                          <td>${item.qty}</td>
+                          <td>${item.min}</td>
+                          <td><span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span></td>
+                          <td><button class="btn secondary" onclick="adjustInventory('${item.id}')">Ajustar</button>${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button> <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>` : ''}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+                <br />
+                <h3 style="color:var(--navy);">Bitacora de movimientos</h3>
+                <div class="list">
+                  ${(state.data.movements || []).slice(0, 8).map((move) => `<div class="list-item"><strong>${move.material}</strong> · ${move.action || 'Consumo'} · ${move.quantity}<br>${move.technician} · ${move.vehicle} · ${move.date} · ${move.ticket || 'Sin boleta'} · ${move.before} → ${move.after}</div>`).join('') || '<div class="list-item">Sin movimientos registrados todavia.</div>'}
+                </div>
+              </div>
+            </div>
+            ${state.user.role === 'technician' ? `
+              <div class="panel">
+                <div class="panel-header"><h3>Agregar producto</h3></div>
+                <div class="panel-body">
+                  <button class="btn full" onclick="openInventoryCreate()">Agregar producto en pantalla completa</button>
+                </div>
+              </div>
+            ` : state.user.role === 'admin' ? `
+              <div class="panel">
+                <div class="panel-header"><h3>Agregar producto</h3></div>
+                <div class="panel-body">
+                  <form class="form-grid" onsubmit="createInventoryItem(event)">
+                    <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
+                    <label>Producto<input name="part" required /></label>
+                    <label>Cantidad<input name="qty" type="number" min="0" required /></label>
+                    <label>Minimo<input name="min" type="number" min="0" value="3" required /></label>
+                    <button class="btn full">Guardar producto</button>
+                  </form>
+                </div>
+              </div>
+            ` : ''}
+          </section>
+        `;
+      }
+
+      function vehiclesView() {
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Moviles / unidades</h3><span class="pill">${state.data.vehicles.length} unidades</span></div>
+              <div class="panel-body list">
+                ${state.data.vehicles.map((vehicle) => {
+                  const inventory = state.data.inventory.filter((item) => item.vehicle === vehicle.code);
+                  const movements = state.data.movements.filter((move) => move.vehicle === vehicle.code);
+                  return `<div class="list-item">
+                    <strong>${vehicle.code} · ${vehicle.name}</strong> <span class="pill">${vehicle.active ? 'Activa' : 'Inactiva'}</span><br>
+                    Placa: ${vehicle.plate || 'Sin placa'} · Tecnico: ${vehicle.technician || 'Sin asignar'}<br>
+                    ${vehicle.notes || 'Sin observaciones'}
+                    <div class="history-grid" style="margin-top:10px;">
+                      <div><strong>Inventario</strong><br>${inventory.map((item) => `${item.part}: ${item.qty}`).join('<br>') || 'Sin inventario'}</div>
+                      <div><strong>Movimientos</strong><br>${movements.slice(0, 4).map((move) => `${move.date} · ${move.material}`).join('<br>') || 'Sin movimientos'}</div>
+                    </div>
+                    <div class="toolbar" style="margin-top:12px;">
+                      <button class="btn secondary" onclick="editVehicle(${vehicle.id})">Editar</button>
+                      <button class="btn secondary" onclick="openVehicleInventory(${vehicle.id})">Inventario</button>
+                      <button class="btn secondary" onclick="toggleVehicle(${vehicle.id})">${vehicle.active ? 'Desactivar' : 'Activar'}</button>
+                      <button class="btn secondary" onclick="assignVehicleTechnician(${vehicle.id})">Asignar tecnico</button>
+                      <button class="btn danger" onclick="deleteVehicle(${vehicle.id})">Eliminar</button>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Agregar movil</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createVehicle(event)">
+                  <label>Codigo<input name="code" placeholder="MOV-04" required /></label>
+                  <label>Nombre<input name="name" required /></label>
+                  <label>Placa<input name="plate" /></label>
+                  <label>Tecnico<select name="technicianId"><option value="">Sin asignar</option>${technicians().map((tech) => `<option value="${tech.id}">${tech.name}</option>`).join('')}</select></label>
+                  <label class="full">Observaciones<textarea name="notes"></textarea></label>
+                  <button class="btn full">Guardar movil</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function appointmentsView() {
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Calendario de citas</h3></div>
+              <div class="panel-body list">
+                ${state.data.appointments.map((appt) => `<div class="list-item"><strong>${appt.date} ${appt.hour}</strong><br>${appt.client} · ${appt.technician}<br><span class="pill">${appt.status}</span></div>`).join('')}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Agendar cita</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createAppointment(event)">
+                  <label>Cliente<input name="client" required /></label>
+                  <label>Fecha<input name="date" type="date" required /></label>
+                  <label>Hora<input name="hour" type="time" required /></label>
+                  <label>Estado<select name="status"><option>Pendiente</option><option>Confirmada</option><option>Cancelada</option></select></label>
+                  <label class="full">Notas<textarea name="notes"></textarea></label>
+                  <button class="btn full">Guardar cita</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function warrantiesView() {
+        updateWarrantyStatuses();
+        const warranties = state.user.role === 'technician'
+          ? state.data.warranties.filter((warranty) => warranty.technicianId === state.user.id)
+          : state.data.warranties;
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Garantias</h3><span class="pill">${warranties.length} casos</span></div>
+              <div class="panel-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Boleta</th><th>Cliente</th><th>Inicio</th><th>Vencimiento</th><th>Estado</th><th>Aprobacion</th><th>Tecnico</th><th>Acciones</th></tr></thead>
+                    <tbody>${warranties.map((w) => `<tr><td>${w.ticket}</td><td>${w.client}</td><td>${warrantyCalendar(w.start)}</td><td>${warrantyCalendar(w.end)}</td><td><span class="pill">${w.status}</span><br><small>${warrantyDaysText(w.end)}</small></td><td>${w.approval}</td><td>${w.technician}</td><td>${w.status === 'Activa' || w.status === 'Proxima a vencer' ? `<button class="btn secondary" onclick="openWarrantyJob(${w.id})">Abrir garantia</button>` : 'Fuera de plazo'}</td></tr>`).join('')}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            ${state.user.role === 'admin' ? `
+              <div class="panel">
+                <div class="panel-header"><h3>Aprobar y asignar garantia</h3></div>
+                <div class="panel-body">
+                  <form class="form-grid" onsubmit="createWarrantyCase(event)">
+                    <label>Cliente<input name="client" required /></label>
+                    <label>Boleta<input name="ticket" value="G-${Math.floor(2000 + Math.random() * 900)}" required /></label>
+                    <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}">${tech.name} · ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+                    <label>Vencimiento<input name="end" type="date" value="${today(90)}" required /></label>
+                    <label class="full">Descripcion<textarea name="description" required></textarea></label>
+                    <button class="btn full">Aprobar garantia y asignar</button>
+                  </form>
+                </div>
+              </div>
+            ` : ''}
+          </section>
+        `;
+      }
+
+      function warrantyDaysLeft(endDate) {
+        return Math.ceil((new Date(endDate) - new Date(today(0))) / 86400000);
+      }
+
+      function warrantyDaysText(endDate) {
+        const days = warrantyDaysLeft(endDate);
+        if (days < 0) return 'Garantia vencida';
+        if (days === 0) return 'Vence hoy';
+        return `${days} dias restantes`;
+      }
+
+      function warrantyCalendar(dateText) {
+        if (!dateText) return 'Sin fecha';
+        const date = new Date(dateText);
+        const month = date.toLocaleDateString('es-CR', { month: 'short' });
+        const day = date.getDate();
+        return `<div class="mini-calendar"><div class="month">${month}</div><div class="day">${day}</div><small>${dateText}</small></div>`;
+      }
+
+      function maintenancesView() {
+        updateMaintenanceNotifications();
+        const rows = state.data.maintenances;
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Mantenimientos programados</h3><span class="pill">${rows.filter((item) => item.status === 'Pendiente').length} pendientes</span></div>
+              <div class="panel-body list">
+                ${rows.map((item) => {
+                  const daysLeft = Math.ceil((new Date(item.nextDate) - new Date(today(0))) / 86400000);
+                  return `<div class="list-item">
+                    <strong>${item.client}</strong> <span class="pill">${item.status}</span><br>
+                    Proxima fecha: ${item.nextDate} · ${daysLeft <= 7 ? 'Alerta activa' : `${daysLeft} dias restantes`}<br>
+                    Tecnico: ${item.technician || 'Sin asignar'}<br>${item.notes || ''}
+                    <div class="toolbar" style="margin-top:12px;">
+                      <button class="btn secondary" onclick="completeMaintenance(${item.id})">Completar</button>
+                      <button class="btn secondary" onclick="rescheduleMaintenance(${item.id})">Reprogramar</button>
+                    </div>
+                  </div>`;
+                }).join('') || '<div class="list-item">Sin mantenimientos programados.</div>'}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Programar mantenimiento</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createMaintenance(event)">
+                  <label>Cliente<select name="clientId">${state.data.clients.map((client) => `<option value="${client.id}">${client.name}</option>`).join('')}</select></label>
+                  <label>Proxima fecha<input name="nextDate" type="date" required /></label>
+                  <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}">${tech.name}</option>`).join('')}</select></label>
+                  <label class="full">Notas<textarea name="notes"></textarea></label>
+                  <button class="btn full">Guardar mantenimiento</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function clientsView() {
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Clientes</h3><span class="pill">${state.data.clients.length} clientes</span></div>
+              <div class="panel-body list">
+                ${state.data.clients.map((client) => {
+                  const history = state.data.jobs.filter((job) => job.clientId === client.id);
+                  const warranties = state.data.warranties.filter((warranty) => warranty.clientId === client.id || warranty.client === client.name);
+                  return `<div class="list-item">
+                    <strong>${client.name}</strong><br>${client.phone} · ${client.email || 'Sin correo'}<br>${client.address}
+                    <div class="history-grid" style="margin-top:10px;">
+                      <div><strong>Trabajos anteriores</strong><br>${history.map((job) => `${job.ticket} · ${job.technician} · ${job.materials || 'Sin materiales'}`).join('<br>') || 'Sin historial'}</div>
+                      <div><strong>Garantias</strong><br>${warranties.map((warranty) => `${warranty.ticket} · ${warranty.status}`).join('<br>') || 'Sin garantias'}</div>
+                    </div>
+                    <div class="toolbar" style="margin-top:12px;">
+                      <button class="btn secondary" onclick="editClient(${client.id})">Modificar</button>
+                      <button class="btn danger" onclick="deleteClient(${client.id})">Borrar</button>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Agregar cliente</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createClient(event)">
+                  <label>Nombre<input name="name" required /></label>
+                  <label>Telefono<input name="phone" inputmode="tel" required /></label>
+                  <label>Correo<input name="email" type="email" /></label>
+                  <label class="full">Direccion<input name="address" required /></label>
+                  <button class="btn full">Guardar cliente</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function usersView() {
+        const rows = appUsers();
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Usuarios del sistema</h3><span class="pill">${rows.length} usuarios</span></div>
+              <div class="panel-body list">
+                ${rows.map((user) => {
+                  const history = state.data.jobs.filter((job) => job.technicianId === user.id);
+                  const completed = history.filter((job) => job.status === 'Finalizado').length;
+                  return `<div class="list-item">
+                    <strong>${user.name}</strong> <span class="pill">${user.active === false ? 'Inactivo' : 'Activo'}</span><br>
+                    ${roleName(user.role)} · ${user.username} · ${user.phone || 'Sin telefono'} · ${user.email || 'Sin correo'}<br>
+                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong> · ' + history.length + ' trabajos · ' + completed + ' finalizados' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
+                    <div class="toolbar" style="margin-top:12px;">
+                      <button class="btn secondary" onclick="editUser(${user.id})">Modificar</button>
+                      <button class="btn secondary" onclick="toggleUser(${user.id})">${user.active === false ? 'Activar' : 'Desactivar'}</button>
+                      <button class="btn secondary" onclick="resetUserPassword(${user.id})">Resetear clave</button>
+                      ${user.role !== 'admin' ? '<button class="btn danger" onclick="deleteUser(' + user.id + ')">Borrar</button>' : ''}
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Agregar usuario</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createUser(event)">
+                  <label>Nombre<input name="name" required /></label>
+                  <label>Usuario<input name="username" required /></label>
+                  <label>Contrasena<input name="password" type="password" required /></label>
+                  <label>Rol<select name="role"><option value="technician">Tecnico</option><option value="client">Cliente</option><option value="admin">Administrador</option></select></label>
+                  <label>Telefono<input name="phone" inputmode="tel" /></label>
+                  <label>Correo<input name="email" type="email" /></label>
+                  <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
+                  <label class="full">Direccion cliente<input name="address" placeholder="Solo para cliente" /></label>
+                  <button class="btn full">Guardar usuario</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+      function searchView() {
+        return `
+          <section class="panel">
+            <div class="panel-header"><h3>Buscador avanzado admin</h3></div>
+            <div class="panel-body">
+              <div class="form-grid no-print">
+                <label>Cliente, boleta, tecnico, material o movil<input id="searchText" oninput="renderSearch()" placeholder="B-1042, Sofia, Carlos, MOV-01" /></label>
+                <label>Fecha<input id="searchDate" type="date" onchange="renderSearch()" /></label>
+                <label>Estado<select id="searchStatus" onchange="renderSearch()"><option value="">Todos</option>${statuses().map((status) => `<option>${status}</option>`).join('')}</select></label>
+                <label>Garantia<select id="searchWarranty" onchange="renderSearch()"><option value="">Todas</option><option>Activa</option><option>Pendiente</option><option>Sin garantia</option><option>Vencida</option></select></label>
+                <label>Movil<input id="searchVehicle" oninput="renderSearch()" placeholder="MOV-01" /></label>
+              </div>
+              <br />
+              <div id="searchResults">${jobsTable(state.data.jobs)}</div>
+            </div>
+          </section>
+        `;
+      }
+
+      function auditView() {
+        const rows = state.data.auditLogs || [];
+        return `
+          <section class="panel">
+            <div class="panel-header"><h3>Auditoria</h3><span class="pill">${rows.length} acciones</span></div>
+            <div class="panel-body list">
+              ${rows.map((item) => `<div class="list-item"><strong>${item.action}</strong> · ${item.entity}<br>${item.user} · ${new Date(item.date).toLocaleString()}<br><small>Antes: ${item.before || 'N/A'}</small><br><small>Despues: ${item.after || 'N/A'}</small></div>`).join('') || '<div class="list-item">Sin acciones registradas todavia.</div>'}
+            </div>
+          </section>
+        `;
+      }
+
+      function oldUsersView() {
+        const technicianRows = appUsers().filter((user) => user.role === 'technician');
+        return `
+          <section class="grid content-grid">
+            <div class="panel">
+              <div class="panel-header"><h3>Administracion de tecnicos</h3><span class="pill">${technicianRows.length} tecnicos</span></div>
+              <div class="panel-body list">
+                ${technicianRows.map((tech) => {
+                  const history = state.data.jobs.filter((job) => job.technicianId === tech.id);
+                  const completed = history.filter((job) => job.status === 'Finalizado').length;
+                  return `<div class="list-item">
+                    <strong>${tech.name}</strong> <span class="pill">${tech.active === false ? 'Inactivo' : 'Activo'}</span><br>
+                    ${tech.username} · ${tech.phone || 'Sin telefono'} · ${tech.email || 'Sin correo'}<br>
+                    Movil: <strong>${tech.vehicle || 'Sin asignar'}</strong> · Creado: ${tech.createdAt || 'Sin fecha'}
+                    <div class="history-grid" style="margin-top:10px;">
+                      <div><strong>Rendimiento</strong><br>${history.length} trabajos · ${completed} finalizados</div>
+                      <div><strong>Historial</strong><br>${history.slice(0, 4).map((job) => `${job.ticket} · ${job.status}`).join('<br>') || 'Sin trabajos'}</div>
+                    </div>
+                    <div class="toolbar" style="margin-top:12px;">
+                      <button class="btn secondary" onclick="editTechnician(${tech.id})">Editar</button>
+                      <button class="btn secondary" onclick="toggleTechnician(${tech.id})">${tech.active === false ? 'Activar' : 'Desactivar'}</button>
+                      <button class="btn secondary" onclick="resetTechnicianPassword(${tech.id})">Resetear clave</button>
+                      <button class="btn danger" onclick="deleteTechnician(${tech.id})">Eliminar</button>
+                    </div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Crear tecnico</h3></div>
+              <div class="panel-body">
+                <form class="form-grid" onsubmit="createTechnician(event)">
+                  <label>Nombre<input name="name" required /></label>
+                  <label>Usuario<input name="username" required /></label>
+                  <label>Contrasena<input name="password" type="password" required /></label>
+                  <label>Telefono<input name="phone" inputmode="tel" /></label>
+                  <label>Correo<input name="email" type="email" /></label>
+                  <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
+                  <button class="btn full">Guardar tecnico</button>
+                </form>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function login(event) {
+        event.preventDefault();
+        const data = new FormData(event.target);
+        const user = appUsers().find((item) => item.username === data.get('username') && item.password === data.get('password'));
+        if (!user) {
+          alert('Credenciales invalidas');
+          return;
+        }
+        if (user.active === false) {
+          alert('Usuario inactivo. Contacte al administrador.');
+          return;
+        }
+        setUser(user);
+      }
+
+      function logout() {
+        localStorage.removeItem('mg_user');
+        state.user = null;
+        state.view = 'dashboard';
+        render();
+      }
+
+      function go(view) {
+        state.view = view;
+        render();
+      }
+
+      function newReportShortcut() {
+        state.view = 'reportes';
+        state.reportParts = [];
+        state.reportFormOpen = true;
+        render();
+      }
+
+      function openReportForm() {
+        const draft = JSON.parse(localStorage.getItem(`mg_report_draft_${state.user?.id || 'guest'}`) || '{}');
+        state.reportParts = draft.reportParts || [];
+        state.reportFormOpen = true;
+        render();
+      }
+
+      function updateReportInventoryFields() {
+        const target = document.getElementById('reportInventoryFields');
+        const selectedTechId = document.querySelector('select[name="technicianId"]')?.value;
+        const tech = technicians().find((item) => String(item.id) === String(selectedTechId)) || state.user;
+        state.reportParts = [];
+        if (target) target.innerHTML = reportInventoryFields(tech);
+      }
+
+      function refreshReportPartAreas() {
+        const techId = document.querySelector('select[name="technicianId"]')?.value;
+        const tech = technicians().find((item) => String(item.id) === String(techId)) || state.user;
+        const vehicle = reportVehicleForUser(tech);
+        const query = document.getElementById('partSearch')?.value || '';
+        const selected = document.getElementById('selectedReportParts');
+        const results = document.getElementById('partSearchResults');
+        if (selected) selected.innerHTML = selectedReportPartsMarkup();
+        if (results) results.innerHTML = reportPartSearchResults(vehicle, query);
+      }
+
+      function renderReportPartSearch(vehicle, query) {
+        const results = document.getElementById('partSearchResults');
+        if (results) results.innerHTML = reportPartSearchResults(vehicle, query);
+      }
+
+      function addReportPart(id) {
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item || state.reportParts.some((part) => part.id === id)) return;
+        state.reportParts.push({ id: item.id, part: item.part, vehicle: item.vehicle, quantity: 1, available: item.qty });
+        refreshReportPartAreas();
+        persistReportDraftFromDom();
+      }
+
+      function updateReportPartQty(id, value) {
+        const part = state.reportParts.find((item) => item.id === id);
+        if (!part) return;
+        const quantity = Number(value);
+        part.quantity = Math.max(1, Math.min(part.available, Number.isNaN(quantity) ? 1 : quantity));
+        refreshReportPartAreas();
+        persistReportDraftFromDom();
+      }
+
+      function removeReportPart(id) {
+        state.reportParts = state.reportParts.filter((part) => part.id !== id);
+        refreshReportPartAreas();
+        persistReportDraftFromDom();
+      }
+
+      function scanPartCode(vehicle) {
+        const code = prompt('Escanee o escriba el codigo / nombre del repuesto');
+        if (!code) return;
+        const search = document.getElementById('partSearch');
+        if (search) search.value = code;
+        renderReportPartSearch(vehicle, code);
+      }
+
+      function autosaveReportDraft(event) {
+        persistReportDraftFromDom(event.target.form || event.target);
+        const status = document.getElementById('autosaveStatus');
+        if (status) status.textContent = `Autoguardado ${new Date().toTimeString().slice(0, 5)}`;
+      }
+
+      function persistReportDraftFromDom(form = document.querySelector('.report-form')) {
+        if (!form) return;
+        const data = {};
+        new FormData(form).forEach((value, key) => {
+          if (!String(key).startsWith('partQty-') && key !== 'usedPartId') data[key] = value;
+        });
+        data.reportParts = state.reportParts;
+        localStorage.setItem(`mg_report_draft_${state.user?.id || 'guest'}`, JSON.stringify(data));
+      }
+
+      function closeReportForm() {
+        state.reportFormOpen = false;
+        state.reportParts = [];
+        localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
+        render();
+      }
+
+      function closeModal() {
+        state.modal = null;
+        render();
+      }
+
+      async function createReport(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const id = Date.now();
+        const ticket = form.get('ticket');
+        if (state.data.jobs.some((job) => String(job.ticket).toLowerCase() === String(ticket).toLowerCase())) {
+          alert('Ya existe un reporte con ese numero de boleta.');
+          return;
+        }
+        const client = findOrCreateClient({
+          name: form.get('client'),
+          phone: form.get('phone'),
+          email: form.get('email'),
+          address: form.get('address')
+        });
+        const assignedTech = state.user.role === 'admin'
+          ? technicians().find((tech) => String(tech.id) === String(form.get('technicianId'))) || technicians()[0]
+          : state.user;
+        const usedParts = selectedReportParts(form);
+        const additionalMaterials = String(form.get('materials') || '').trim();
+        const warrantyEnd = calculateWarrantyEnd(form.get('warrantyDuration'), form.get('warrantyUnit'), form.get('warrantyEnd'));
+        const materials = [
+          ...usedParts.map((part) => `${part.part} x${part.quantity}`),
+          additionalMaterials
+        ].filter(Boolean).join(', ');
+        const photos = await collectReportPhotos(event.target);
+        const newJob = {
+          id,
+          ticket,
+          clientId: client.id,
+          client: client.name,
+          technicianId: assignedTech.id,
+          technician: assignedTech.name,
+          vehicle: reportVehicleForUser(assignedTech) || 'MOV-01',
+          status: form.get('status'),
+          priority: form.get('priority') || 'Media',
+          date: today(0),
+          address: form.get('address'),
+          phone: form.get('phone'),
+          email: form.get('email'),
+          description: form.get('description'),
+          notes: form.get('notes'),
+          photos,
+          materials,
+          warranty: warrantyLabel(form.get('warranty'), warrantyEnd),
+          warrantyEnd,
+          signed: finalStatuses().includes(form.get('status')),
+          closedAt: finalStatuses().includes(form.get('status')) ? new Date().toISOString() : '',
+          pdfStatus: finalStatuses().includes(form.get('status')) ? 'Generado' : 'Pendiente',
+          gps: 'GPS pendiente de sincronizar',
+          arrival: form.get('arrival') || new Date().toTimeString().slice(0, 5),
+          departure: form.get('departure') || ''
+        };
+
+        state.data.jobs.unshift(newJob);
+        consumeSelectedParts(usedParts, newJob);
+        consumeMaterials(additionalMaterials, newJob.vehicle, newJob);
+        createWarrantyFromReport(newJob, warrantyEnd);
+        notifyAssignment(newJob);
+        state.data.syncQueue.push({ id, type: 'report', createdAt: new Date().toISOString() });
+        logAudit('Crear reporte', 'Reporte', null, newJob);
+        save();
+        localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
+        state.reportFormOpen = false;
+        render();
+        alert('Reporte guardado. Se sincronizara automaticamente cuando haya internet.');
+      }
+
+      function warrantyLabel(status, endDate) {
+        if (status === 'Sin garantia') return status;
+        return endDate ? `${status} hasta ${endDate}` : status;
+      }
+
+      function calculateWarrantyEnd(duration, unit, fallbackDate) {
+        const amount = Number(duration);
+        if (Number.isNaN(amount) || amount <= 0) return fallbackDate || '';
+        const date = new Date(today(0));
+        if (unit === 'days') date.setDate(date.getDate() + amount);
+        if (unit === 'weeks') date.setDate(date.getDate() + amount * 7);
+        if (unit === 'months') date.setMonth(date.getMonth() + amount);
+        return date.toISOString().slice(0, 10);
+      }
+
+      async function collectReportPhotos(form) {
+        return {
+          before: await readPhotoInput(form.querySelector('input[name="beforePhotos"]'), 'Antes'),
+          after: await readPhotoInput(form.querySelector('input[name="afterPhotos"]'), 'Despues')
+        };
+      }
+
+      async function readPhotoInput(input, kind) {
+        const files = Array.from(input?.files || []);
+        return Promise.all(files.map((file) => new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ id: Date.now() + Math.random(), kind, name: file.name, data: reader.result });
+          reader.readAsDataURL(file);
+        })));
+      }
+
+      function createWarrantyFromReport(job, endDate) {
+        if (!endDate || job.warranty === 'Sin garantia' || job.status !== 'Finalizado') return;
+        const exists = state.data.warranties.some((warranty) => warranty.ticket === job.ticket);
+        if (exists) return;
+        state.data.warranties.unshift({
+          id: Date.now() + Math.random(),
+          ticket: job.ticket,
+          clientId: job.clientId,
+          client: job.client,
+          technicianId: job.technicianId,
+          technician: job.technician,
+          vehicle: job.vehicle,
+          start: job.date,
+          end: endDate,
+          status: warrantyStatus(endDate),
+          approval: 'Aprobada'
+        });
+        logAudit('Crear garantia', 'Garantia', null, state.data.warranties[0]);
+      }
+
+      function findOrCreateClient(input) {
+        const normalizedPhone = String(input.phone || '').replace(/\D/g, '');
+        let client = state.data.clients.find((item) => String(item.phone || '').replace(/\D/g, '') === normalizedPhone || item.name.toLowerCase() === String(input.name).toLowerCase());
+
+        if (!client) {
+          client = {
+            id: Date.now(),
+            name: input.name,
+            phone: input.phone,
+            email: input.email || '',
+            address: input.address,
+            createdAt: new Date().toISOString()
+          };
+          state.data.clients.unshift(client);
+          state.data.notifications.unshift({ id: Date.now() + 1, role: 'admin', text: `Cliente creado automaticamente: ${client.name}`, type: 'Cliente' });
+        } else {
+          client.phone = input.phone || client.phone;
+          client.email = input.email || client.email;
+          client.address = input.address || client.address;
+        }
+
+        return client;
+      }
+
+      function selectedReportParts(form) {
+        return form.getAll('usedPartId').map((id) => {
+          const item = state.data.inventory.find((part) => part.id === id);
+          const requested = Number(form.get(`partQty-${id}`) || 1);
+          if (!item || Number.isNaN(requested) || requested <= 0) return null;
+          return {
+            id,
+            part: item.part,
+            vehicle: item.vehicle,
+            quantity: Math.min(requested, item.qty)
+          };
+        }).filter((item) => item && item.quantity > 0);
+      }
+
+      function consumeSelectedParts(parts, job) {
+        parts.forEach((part) => {
+          const item = state.data.inventory.find((inventoryItem) => inventoryItem.id === part.id);
+          if (!item) return;
+          consumeInventoryItem(item, part.quantity, job, 'Consumo reporte');
+        });
+      }
+
+      function consumeMaterials(materials, vehicle, job) {
+        if (!materials) return;
+        const lines = materials.split(/,|\n/).map((line) => line.trim()).filter(Boolean);
+
+        lines.forEach((line) => {
+          const quantityMatch = line.match(/x\s*(\d+)|(\d+)\s*$/i);
+          const quantity = Number(quantityMatch?.[1] || quantityMatch?.[2] || 1);
+          const normalizedLine = line.toLowerCase().replace(/x\s*\d+|\d+$/i, '').trim();
+          const item = state.data.inventory.find((part) => part.vehicle === vehicle && normalizedLine.includes(part.part.toLowerCase().slice(0, 10)));
+
+          if (!item) return;
+
+          consumeInventoryItem(item, quantity, job, 'Consumo reporte');
+        });
+      }
+
+      function consumeInventoryItem(item, quantity, job, action) {
+        const before = item.qty;
+        const used = Math.min(quantity, item.qty);
+        item.qty = Math.max(0, item.qty - used);
+        state.data.movements.unshift({
+          id: Date.now() + Math.random(),
+          vehicle: item.vehicle,
+          material: item.part,
+          quantity: used,
+          before,
+          after: item.qty,
+          action,
+          technician: job.technician,
+          ticket: job.ticket,
+          date: today(0)
+        });
+
+        state.data.notifications.unshift({
+          id: Date.now() + Math.random(),
+          role: 'admin',
+          text: `Reponer ${item.part} en ${item.vehicle}. ${job.technician} uso ${used} en la boleta ${job.ticket}. Quedan ${item.qty}.`,
+          type: 'Reposicion'
+        });
+
+        if (item.qty <= item.min) {
+          addUniqueNotification('admin', `Inventario bajo en ${item.vehicle}: ${item.part}`, 'Inventario');
+        }
+      }
+
+      function notifyAssignment(job) {
+        state.data.notifications.unshift({
+          id: Date.now() + Math.random(),
+          role: 'technician',
+          technicianId: job.technicianId,
+          text: `${job.status === 'Garantia' ? 'Garantia asignada' : 'Nuevo trabajo asignado'}: ${job.ticket}`,
+          type: job.status === 'Garantia' ? 'Garantia' : 'Trabajo'
+        });
+      }
+
+      function createWarrantyCase(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
+        const client = findOrCreateClient({
+          name: form.get('client'),
+          phone: 'Pendiente',
+          email: '',
+          address: 'Pendiente'
+        });
+        const id = Date.now();
+        const ticket = form.get('ticket');
+
+        state.data.warranties.unshift({
+          id,
+          ticket,
+          clientId: client.id,
+          client: client.name,
+          technicianId: tech.id,
+          technician: tech.name,
+          vehicle: reportVehicleForUser(tech),
+          start: today(0),
+          end: form.get('end'),
+          status: 'Activa',
+          approval: 'Aprobada'
+        });
+
+        state.data.jobs.unshift({
+          id,
+          ticket,
+          clientId: client.id,
+          client: client.name,
+          technicianId: tech.id,
+          technician: tech.name,
+          vehicle: reportVehicleForUser(tech),
+          status: 'Garantia',
+          priority: 'Alta',
+          date: today(0),
+          address: client.address,
+          phone: client.phone,
+          email: client.email,
+          description: form.get('description'),
+          materials: '',
+          warranty: 'Activa',
+          signed: false,
+          gps: '',
+          arrival: '',
+          departure: ''
+        });
+
+        notifyAssignment(state.data.jobs[0]);
+        state.data.syncQueue.push({ id, type: 'warranty', createdAt: new Date().toISOString() });
+        save();
+        render();
+      }
+
+      function createClient(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const client = findOrCreateClient({
+          name: form.get('name'),
+          phone: form.get('phone'),
+          email: form.get('email'),
+          address: form.get('address')
+        });
+        addUniqueNotification('admin', `Cliente guardado: ${client.name}`, 'Cliente');
+        save();
+        render();
+      }
+
+      function editClient(id) {
+        const client = state.data.clients.find((item) => item.id === id);
+        if (!client) return alert('Cliente no encontrado.');
+        state.modal = { type: 'clientEdit', title: 'Modificar cliente', id };
+        render();
+      }
+
+      function submitClientEdit(event, id) {
+        event.preventDefault();
+        const client = state.data.clients.find((item) => item.id === id);
+        if (!client) return;
+        const form = new FormData(event.target);
+        const oldName = client.name;
+        client.name = form.get('name');
+        client.phone = form.get('phone');
+        client.email = form.get('email');
+        client.address = form.get('address');
+        state.data.jobs.forEach((job) => {
+          if (job.clientId === id) {
+            job.client = client.name;
+            job.phone = client.phone;
+            job.email = client.email;
+            job.address = client.address;
+          }
+        });
+        state.data.warranties.forEach((warranty) => {
+          if (warranty.clientId === id || warranty.client === oldName) warranty.client = client.name;
+        });
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function deleteClient(id) {
+        const client = state.data.clients.find((item) => item.id === id);
+        if (!client) return alert('Cliente no encontrado.');
+        state.modal = { type: 'clientDelete', title: 'Borrar cliente', id };
+        render();
+      }
+
+      function confirmClientDelete(id) {
+        state.data.clients = state.data.clients.filter((client) => client.id !== id);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function createUser(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const role = form.get('role');
+        const id = Date.now();
+        const user = {
+          id,
+          role,
+          name: form.get('name'),
+          username: form.get('username'),
+          password: form.get('password'),
+          phone: form.get('phone'),
+          email: form.get('email'),
+          vehicle: role === 'technician' ? form.get('vehicle') : '',
+          active: true,
+          createdAt: today(0)
+        };
+
+        if (state.data.users.some((item) => item.username === user.username)) {
+          alert('Ese usuario ya existe.');
+          return;
+        }
+
+        if (role === 'client') {
+          const client = findOrCreateClient({
+            name: user.name,
+            phone: user.phone || 'Pendiente',
+            email: user.email,
+            address: form.get('address') || 'Pendiente'
+          });
+          user.clientId = client.id;
+        }
+
+        state.data.users.push(user);
+        if (role === 'technician' && user.vehicle) {
+          const unit = state.data.vehicles.find((vehicle) => vehicle.code === user.vehicle);
+          if (unit) {
+            unit.technicianId = id;
+            unit.technician = user.name;
+          }
+        }
+        addUniqueNotification('admin', `Usuario creado: ${user.name}`, 'Usuario');
+        save();
+        render();
+      }
+
+      function editUser(id) {
+        const user = state.data.users.find((item) => item.id === id);
+        if (!user) return alert('Usuario no encontrado.');
+        state.modal = { type: 'userEdit', title: 'Modificar usuario', id };
+        render();
+      }
+
+      function submitUserEdit(event, id) {
+        event.preventDefault();
+        const user = state.data.users.find((item) => item.id === id);
+        if (!user) return;
+        const form = new FormData(event.target);
+        user.name = form.get('name');
+        user.username = form.get('username');
+        user.phone = form.get('phone');
+        user.email = form.get('email');
+        user.role = form.get('role');
+        user.vehicle = user.role === 'technician' ? form.get('vehicle') : '';
+        user.active = form.get('active') === 'true';
+        syncVehicleAssignments();
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function toggleUser(id) {
+        const user = state.data.users.find((item) => item.id === id);
+        if (!user) return;
+        user.active = user.active === false;
+        addUniqueNotification('admin', `${user.active ? 'Usuario activado' : 'Usuario desactivado'}: ${user.name}`, 'Usuario');
+        save();
+        render();
+      }
+
+      function resetUserPassword(id) {
+        const user = state.data.users.find((item) => item.id === id);
+        if (!user) return;
+        user.password = user.role === 'admin' ? 'admin123' : user.role === 'client' ? 'cliente123' : 'tecnico123';
+        alert(`Contrasena restablecida para ${user.name}: ${user.password}`);
+        save();
+      }
+
+      function deleteUser(id) {
+        const user = state.data.users.find((item) => item.id === id);
+        if (!user) return alert('Usuario no encontrado.');
+        state.modal = { type: 'userDelete', title: 'Borrar usuario', id };
+        render();
+      }
+
+      function confirmUserDelete(id) {
+        const user = state.data.users.find((item) => item.id === id);
+        state.data.users = state.data.users.filter((item) => item.id !== id);
+        state.data.vehicles.forEach((vehicle) => {
+          if (vehicle.technicianId === id) {
+            vehicle.technicianId = null;
+            vehicle.technician = 'Sin asignar';
+          }
+        });
+        if (state.user?.id === id) logout();
+        addUniqueNotification('admin', `Usuario eliminado: ${user?.name || id}`, 'Usuario');
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function createTechnician(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const vehicle = form.get('vehicle');
+        const id = Date.now();
+        const tech = {
+          id,
+          role: 'technician',
+          name: form.get('name'),
+          username: form.get('username'),
+          password: form.get('password'),
+          phone: form.get('phone'),
+          email: form.get('email'),
+          vehicle,
+          active: true,
+          createdAt: today(0)
+        };
+        state.data.users.push(tech);
+        const unit = state.data.vehicles.find((item) => item.code === vehicle);
+        if (unit) {
+          unit.technicianId = id;
+          unit.technician = tech.name;
+        }
+        addUniqueNotification('admin', `Tecnico creado: ${tech.name}`, 'Tecnico');
+        save();
+        render();
+      }
+
+      function editTechnician(id) {
+        const tech = state.data.users.find((user) => user.id === id);
+        if (!tech) return;
+        const name = prompt('Nombre del tecnico', tech.name);
+        if (!name) return;
+        const phone = prompt('Telefono', tech.phone || '');
+        const email = prompt('Correo', tech.email || '');
+        const vehicle = prompt('Movil asignada', tech.vehicle || '');
+        tech.name = name;
+        tech.phone = phone;
+        tech.email = email;
+        tech.vehicle = vehicle;
+        syncVehicleAssignments();
+        save();
+        render();
+      }
+
+      function toggleTechnician(id) {
+        const tech = state.data.users.find((user) => user.id === id);
+        if (!tech) return;
+        tech.active = tech.active === false;
+        addUniqueNotification('admin', `${tech.active ? 'Tecnico activado' : 'Tecnico desactivado'}: ${tech.name}`, 'Tecnico');
+        save();
+        render();
+      }
+
+      function resetTechnicianPassword(id) {
+        const tech = state.data.users.find((user) => user.id === id);
+        if (!tech) return;
+        tech.password = 'tecnico123';
+        alert(`Contrasena restablecida para ${tech.name}: tecnico123`);
+        save();
+      }
+
+      function deleteTechnician(id) {
+        const tech = state.data.users.find((user) => user.id === id);
+        if (!tech || !confirm(`Eliminar tecnico ${tech.name}? Sus trabajos anteriores se conservaran.`)) return;
+        state.data.users = state.data.users.filter((user) => user.id !== id);
+        state.data.vehicles.forEach((vehicle) => {
+          if (vehicle.technicianId === id) {
+            vehicle.technicianId = null;
+            vehicle.technician = 'Sin asignar';
+          }
+        });
+        save();
+        render();
+      }
+
+      function createVehicle(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
+        const vehicle = {
+          id: Date.now(),
+          code: form.get('code'),
+          name: form.get('name'),
+          plate: form.get('plate'),
+          technicianId: tech?.id || null,
+          technician: tech?.name || 'Sin asignar',
+          active: true,
+          notes: form.get('notes')
+        };
+        state.data.vehicles.push(vehicle);
+        if (tech) tech.vehicle = vehicle.code;
+        addUniqueNotification('admin', `Movil creada: ${vehicle.code}`, 'Movil');
+        save();
+        render();
+      }
+
+      function editVehicle(id) {
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return alert('Movil no encontrada.');
+        state.modal = { type: 'vehicleEdit', title: 'Modificar movil', id };
+        render();
+      }
+
+      function submitVehicleEdit(event, id) {
+        event.preventDefault();
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return;
+        const form = new FormData(event.target);
+        const oldCode = vehicle.code;
+        vehicle.code = form.get('code');
+        vehicle.name = form.get('name');
+        vehicle.plate = form.get('plate');
+        vehicle.active = form.get('active') === 'true';
+        vehicle.notes = form.get('notes');
+        if (oldCode !== vehicle.code) {
+          state.data.inventory.forEach((item) => {
+            if (item.vehicle === oldCode) item.vehicle = vehicle.code;
+          });
+          appUsers().forEach((user) => {
+            if (user.vehicle === oldCode) user.vehicle = vehicle.code;
+          });
+        }
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function toggleVehicle(id) {
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return;
+        vehicle.active = !vehicle.active;
+        addUniqueNotification('admin', `${vehicle.active ? 'Movil activada' : 'Movil desactivada'}: ${vehicle.code}`, 'Movil');
+        save();
+        render();
+      }
+
+      function assignVehicleTechnician(id) {
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return alert('Movil no encontrada.');
+        state.modal = { type: 'vehicleAssign', title: 'Asignar tecnico a movil', id };
+        render();
+      }
+
+      function submitVehicleAssign(event, id) {
+        event.preventDefault();
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return;
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
+        if (!tech) return;
+        vehicle.technicianId = tech.id;
+        vehicle.technician = tech.name;
+        tech.vehicle = vehicle.code;
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function deleteVehicle(id) {
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle || !confirm(`Eliminar movil ${vehicle.code}?`)) return;
+        state.data.vehicles = state.data.vehicles.filter((item) => item.id !== id);
+        state.data.inventory = state.data.inventory.filter((item) => item.vehicle !== vehicle.code);
+        save();
+        render();
+      }
+
+      function syncVehicleAssignments() {
+        state.data.vehicles.forEach((vehicle) => {
+          const tech = appUsers().find((user) => user.role === 'technician' && user.vehicle === vehicle.code);
+          vehicle.technicianId = tech?.id || null;
+          vehicle.technician = tech?.name || 'Sin asignar';
+        });
+      }
+
+      function createInventoryItem(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const vehicle = form.get('vehicle') || state.user.vehicle;
+        if (!vehicle) return alert('Asigne una movil antes de agregar productos.');
+        const partName = String(form.get('part') || '').trim();
+        if (state.data.inventory.some((item) => item.vehicle === vehicle && item.part.toLowerCase() === partName.toLowerCase())) {
+          alert('Ese producto ya existe en esta movil. Use ajustar para actualizar el stock.');
+          return;
+        }
+        const item = {
+          id: `inv-${Date.now()}`,
+          vehicle,
+          part: partName,
+          qty: Number(form.get('qty')),
+          min: Number(form.get('min'))
+        };
+        state.data.inventory.push(item);
+        state.data.movements.unshift({
+          id: Date.now(),
+          vehicle: item.vehicle,
+          material: item.part,
+          quantity: item.qty,
+          before: 0,
+          after: item.qty,
+          action: form.get('note') ? `Entrada: ${form.get('note')}` : 'Entrada',
+          technician: state.user.name,
+          date: today(0)
+        });
+        logAudit('Agregar inventario', 'Inventario', null, item);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function adjustInventory(id) {
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item) return alert('Producto no encontrado.');
+        state.modal = { type: 'inventoryAdjust', title: 'Modificar inventario', id };
+        render();
+      }
+
+      function openInventoryCreate(vehicle = state.user.vehicle) {
+        if (!vehicle) return alert('Asigne una movil antes de agregar productos.');
+        state.modal = { type: 'inventoryCreate', title: 'Agregar producto', vehicle, fullscreen: true };
+        render();
+      }
+
+      function openVehicleInventory(id) {
+        const vehicle = state.data.vehicles.find((item) => item.id === id);
+        if (!vehicle) return alert('Movil no encontrada.');
+        state.modal = { type: 'vehicleInventory', title: `Inventario ${vehicle.code}`, id };
+        render();
+      }
+
+      function submitInventoryAdjust(event, id) {
+        event.preventDefault();
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item) return;
+        const form = new FormData(event.target);
+        const next = Number(form.get('qty'));
+        const min = Number(form.get('min'));
+        if (Number.isNaN(next) || Number.isNaN(min)) return;
+        const before = item.qty;
+        const beforeItem = { ...item };
+        item.qty = Math.max(0, next);
+        item.min = Math.max(0, min);
+        state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: Math.abs(item.qty - before), before, after: item.qty, action: 'Ajuste', technician: state.user.name, date: today(0) });
+        logAudit('Ajustar inventario', 'Inventario', beforeItem, item);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function deleteInventoryItem(id) {
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item || !confirm(`Eliminar ${item.part} de ${item.vehicle}?`)) return;
+        state.data.inventory = state.data.inventory.filter((part) => part.id !== id);
+        state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: item.qty, before: item.qty, after: 0, action: 'Eliminado', technician: state.user.name, date: today(0) });
+        logAudit('Eliminar inventario', 'Inventario', item, null);
+        save();
+        render();
+      }
+
+      function transferInventory(id) {
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item) return alert('Producto no encontrado.');
+        state.modal = { type: 'inventoryTransfer', title: 'Transferir producto', id };
+        render();
+      }
+
+      function submitInventoryTransfer(event, id) {
+        event.preventDefault();
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item) return;
+        const form = new FormData(event.target);
+        const toVehicle = form.get('toVehicle');
+        const qty = Number(form.get('qty'));
+        if (!toVehicle || Number.isNaN(qty) || qty <= 0 || qty > item.qty) return;
+        const before = item.qty;
+        item.qty -= qty;
+        let target = state.data.inventory.find((part) => part.vehicle === toVehicle && part.part === item.part);
+        if (!target) {
+          target = { id: `inv-${Date.now()}-${toVehicle}`, vehicle: toVehicle, part: item.part, qty: 0, min: item.min };
+          state.data.inventory.push(target);
+        }
+        const targetBefore = target.qty;
+        target.qty += qty;
+        state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: qty, before, after: item.qty, action: `Transferencia a ${toVehicle}`, technician: state.user.name, date: today(0) });
+        state.data.movements.unshift({ id: Date.now() + 1, vehicle: toVehicle, material: item.part, quantity: qty, before: targetBefore, after: target.qty, action: `Transferencia desde ${item.vehicle}`, technician: state.user.name, date: today(0) });
+        logAudit('Transferir inventario', 'Inventario', { from: item.vehicle, qty: before, to: targetBefore }, { from: item.qty, to: target.qty, part: item.part });
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function createMaintenance(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const client = state.data.clients.find((item) => String(item.id) === String(form.get('clientId')));
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
+        state.data.maintenances.unshift({
+          id: Date.now(),
+          clientId: client.id,
+          client: client.name,
+          nextDate: form.get('nextDate'),
+          technicianId: tech?.id || null,
+          technician: tech?.name || 'Sin asignar',
+          status: 'Pendiente',
+          notes: form.get('notes')
+        });
+        updateMaintenanceNotifications();
+        save();
+        render();
+      }
+
+      function completeMaintenance(id) {
+        const item = state.data.maintenances.find((maintenance) => maintenance.id === id);
+        if (!item) return;
+        item.status = 'Completado';
+        save();
+        render();
+      }
+
+      function rescheduleMaintenance(id) {
+        const item = state.data.maintenances.find((maintenance) => maintenance.id === id);
+        if (!item) return;
+        const nextDate = prompt('Nueva fecha YYYY-MM-DD', item.nextDate);
+        if (!nextDate) return;
+        item.nextDate = nextDate;
+        item.status = 'Pendiente';
+        updateMaintenanceNotifications();
+        save();
+        render();
+      }
+
+      function assignJob(jobId) {
+        const job = state.data.jobs.find((item) => item.id === jobId);
+        if (!job) return;
+        state.modal = { type: 'jobAssign', title: `Asignar ${job.ticket}`, id: jobId };
+        render();
+      }
+
+      function submitJobAssign(event, jobId) {
+        event.preventDefault();
+        const job = state.data.jobs.find((item) => item.id === jobId);
+        if (!job) return;
+        const before = { ...job };
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
+        job.technicianId = tech.id;
+        job.technician = tech.name;
+        job.vehicle = form.get('vehicle') || reportVehicleForUser(tech);
+        job.status = 'Asignado';
+        notifyAssignment(job);
+        logAudit('Asignar trabajo', 'Reporte', before, job);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function editJob(id) {
+        const job = state.data.jobs.find((item) => item.id === id);
+        if (!job) return alert('Reporte no encontrado.');
+        if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
+        state.modal = { type: 'jobEdit', title: `Editar reporte ${job.ticket}`, id, wide: true };
+        render();
+      }
+
+      async function submitJobEdit(event, id) {
+        event.preventDefault();
+        const job = state.data.jobs.find((item) => item.id === id);
+        if (!job) return;
+        if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
+        const before = { ...job };
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
+        const nextTicket = form.get('ticket');
+        const nextStatus = form.get('status');
+        if (state.user.role === 'technician' && !technicianStatuses().includes(nextStatus)) {
+          alert('Estado no permitido para tecnico.');
+          return;
+        }
+        if (state.data.jobs.some((item) => item.id !== id && String(item.ticket).toLowerCase() === String(nextTicket).toLowerCase())) {
+          alert('Ya existe otro reporte con esa boleta.');
+          return;
+        }
+        job.ticket = nextTicket;
+        job.date = form.get('date');
+        job.client = form.get('client');
+        job.phone = form.get('phone');
+        job.address = form.get('address');
+        job.status = nextStatus;
+        job.priority = form.get('priority');
+        job.description = form.get('description');
+        job.materials = form.get('materials');
+        job.notes = form.get('notes') || job.notes || '';
+        const newPhotos = await collectReportPhotos(event.target);
+        job.photos ||= { before: [], after: [] };
+        job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
+        job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
+        job.warranty = form.get('warranty') || job.warranty;
+        job.warrantyEnd = form.get('warrantyEnd') || job.warrantyEnd || '';
+        if (tech) {
+          job.technicianId = tech.id;
+          job.technician = tech.name;
+          job.vehicle = reportVehicleForUser(tech);
+        }
+        if (finalStatuses().includes(job.status)) {
+          job.signed = true;
+          job.closedAt = new Date().toISOString();
+          job.pdfStatus = 'Generado';
+          state.data.movements.unshift({
+            id: Date.now() + Math.random(),
+            vehicle: job.vehicle,
+            material: 'Reporte',
+            quantity: 0,
+            before: before.status,
+            after: job.status,
+            action: 'Cierre de trabajo',
+            technician: state.user.name,
+            ticket: job.ticket,
+            date: today(0)
+          });
+        } else if (state.user.role === 'admin' && isJobLocked(before)) {
+          job.signed = false;
+          job.closedAt = '';
+          job.pdfStatus = 'Pendiente';
+        }
+        logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
+        if (newPhotos.before.length || newPhotos.after.length) logAudit('Agregar fotos', 'Reporte', { before: before.photos }, { after: job.photos });
+        logAudit('Editar reporte', 'Reporte', before, job);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function openWarrantyJob(id) {
+        const warranty = state.data.warranties.find((item) => item.id === id);
+        if (!warranty) return alert('Garantia no encontrada.');
+        const status = warrantyStatus(warranty.end);
+        if (status === 'Vencida') return alert('Esta garantia esta fuera de plazo.');
+        state.modal = { type: 'warrantyOpen', title: `Abrir garantia ${warranty.ticket}`, id };
+        render();
+      }
+
+      function submitWarrantyOpen(event, id) {
+        event.preventDefault();
+        const warranty = state.data.warranties.find((item) => item.id === id);
+        if (!warranty || warrantyStatus(warranty.end) === 'Vencida') return alert('Esta garantia esta fuera de plazo.');
+        const form = new FormData(event.target);
+        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
+        const vehicle = form.get('vehicle') || reportVehicleForUser(tech);
+        const job = {
+          id: Date.now(),
+          ticket: `G-${Math.floor(2000 + Math.random() * 900)}`,
+          clientId: warranty.clientId,
+          client: warranty.client,
+          technicianId: tech.id,
+          technician: tech.name,
+          vehicle,
+          status: 'Garantia',
+          priority: 'Alta',
+          date: today(0),
+          address: 'Segun reporte original',
+          phone: 'Pendiente',
+          email: '',
+          description: form.get('description'),
+          materials: '',
+          warranty: `Activa hasta ${warranty.end}`,
+          warrantyEnd: warranty.end,
+          signed: false,
+          gps: '',
+          arrival: '',
+          departure: ''
+        };
+        state.data.jobs.unshift(job);
+        notifyAssignment(job);
+        logAudit('Abrir garantia', 'Garantia', warranty, job);
+        state.modal = null;
+        save();
+        render();
+      }
+
+      function createAppointment(event) {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        state.data.appointments.unshift({
+          id: Date.now(),
+          client: form.get('client'),
+          technician: state.user.role === 'technician' ? state.user.name : 'Por asignar',
+          date: form.get('date'),
+          hour: form.get('hour'),
+          status: form.get('status')
+        });
+        updateAppointmentNotifications();
+        logAudit('Crear cita', 'Cita', null, state.data.appointments[0]);
+        save();
+        render();
+      }
+
+      function shareJob(ticket) {
+        const text = encodeURIComponent(`Reporte MG Portones ${ticket}: PDF listo para descargar.`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+
+      function syncNow() {
+        if (!navigator.onLine) {
+          alert('Sin conexion. Los cambios quedan guardados localmente.');
+          return;
+        }
+        state.data.syncQueue = [];
+        save();
+        render();
+        alert('Sincronizacion completada.');
+      }
+
+      function renderSearch() {
+        const text = document.getElementById('searchText').value.toLowerCase();
+        const status = document.getElementById('searchStatus').value;
+        const date = document.getElementById('searchDate').value;
+        const warranty = document.getElementById('searchWarranty')?.value || '';
+        const vehicle = document.getElementById('searchVehicle').value.toLowerCase();
+        const results = state.data.jobs.filter((job) => {
+          const matchesText = [job.ticket, job.client, job.technician, job.vehicle, job.description, job.materials].join(' ').toLowerCase().includes(text);
+          const matchesStatus = !status || job.status === status;
+          const matchesDate = !date || job.date === date;
+          const matchesWarranty = !warranty || String(job.warranty || '').includes(warranty);
+          const matchesVehicle = !vehicle || String(job.vehicle).toLowerCase().includes(vehicle);
+          return matchesText && matchesStatus && matchesDate && matchesWarranty && matchesVehicle;
+        });
+        document.getElementById('searchResults').innerHTML = jobsTable(results);
+      }
+
+      function filterReports() {
+        const text = document.getElementById('reportFilterText')?.value.toLowerCase() || '';
+        const date = document.getElementById('reportFilterDate')?.value || '';
+        const status = document.getElementById('reportFilterStatus')?.value || '';
+        const results = scopedJobs().filter((job) => {
+          const haystack = [job.client, job.ticket, job.technician, job.vehicle, job.status].join(' ').toLowerCase();
+          return haystack.includes(text) && (!date || job.date === date) && (!status || job.status === status);
+        });
+        document.getElementById('reportResults').innerHTML = jobsTable(results, true);
+      }
+
+      window.addEventListener('online', render);
+      window.addEventListener('offline', render);
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+
+      render();
+    </script>
   </body>
 </html>
