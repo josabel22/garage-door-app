@@ -59,6 +59,9 @@
         position: sticky;
         top: 0;
         height: 100vh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
       }
 
       .brand {
@@ -92,6 +95,8 @@
       .nav {
         display: grid;
         gap: 8px;
+        flex: 1;
+        align-content: start;
       }
 
       .nav button,
@@ -653,6 +658,8 @@
           position: fixed;
           inset: 0 auto 0 0;
           width: 286px;
+          max-width: 86vw;
+          height: 100dvh;
           z-index: 20;
           transform: translateX(-100%);
           transition: transform 0.2s ease;
@@ -813,6 +820,7 @@
   <body>
     <div id="app"></div>
 
+    <script src="./supabase-config.js"></script>
     <script>
       const users = [
         { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: true, createdAt: today(-120) },
@@ -895,7 +903,9 @@
         modal: null
       };
 
-      normalizeData();
+      let cloudReady = false;
+      let cloudError = '';
+      let cloudSaveTimer = null;
 
       function today(offset) {
         const date = new Date();
@@ -905,6 +915,87 @@
 
       function save() {
         localStorage.setItem('mg_data', JSON.stringify(state.data));
+        queueCloudSave();
+      }
+
+      function supabaseConfig() {
+        const config = window.MG_SUPABASE_CONFIG || {};
+        const url = String(config.url || '').replace(/\/$/, '');
+        const anonKey = String(config.anonKey || '');
+        const ready = url.startsWith('https://') && anonKey.startsWith('sb_') && !url.includes('PEGA_AQUI') && !anonKey.includes('PEGA_AQUI');
+        return { url, anonKey, ready };
+      }
+
+      async function supabaseRequest(path, options = {}) {
+        const config = supabaseConfig();
+        if (!config.ready) throw new Error('Falta configurar Supabase.');
+        const response = await fetch(`${config.url}/rest/v1/${path}`, {
+          ...options,
+          headers: {
+            apikey: config.anonKey,
+            Authorization: `Bearer ${config.anonKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+            ...(options.headers || {})
+          }
+        });
+        if (!response.ok) {
+          const details = await response.text();
+          throw new Error(details || `Error Supabase ${response.status}`);
+        }
+        if (response.status === 204) return null;
+        return response.json();
+      }
+
+      async function loadCloudData() {
+        const config = supabaseConfig();
+        if (!config.ready) {
+          cloudError = 'Configura supabase-config.js para usar base central.';
+          return;
+        }
+
+        try {
+          const rows = await supabaseRequest('app_state?select=data&id=eq.production');
+          if (rows?.[0]?.data) {
+            state.data = rows[0].data;
+            localStorage.setItem('mg_data', JSON.stringify(state.data));
+          } else {
+            await saveCloudDataNow();
+          }
+          cloudReady = true;
+          cloudError = '';
+        } catch (error) {
+          cloudReady = false;
+          cloudError = 'No se pudo conectar a Supabase. Revisa app_state_supabase.sql y las claves.';
+          console.error(error);
+        }
+      }
+
+      function queueCloudSave() {
+        if (!supabaseConfig().ready) return;
+        window.clearTimeout(cloudSaveTimer);
+        cloudSaveTimer = window.setTimeout(() => {
+          saveCloudDataNow().catch((error) => {
+            cloudReady = false;
+            cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
+            console.error(error);
+          });
+        }, 600);
+      }
+
+      async function saveCloudDataNow() {
+        if (!supabaseConfig().ready) return;
+        await supabaseRequest('app_state?on_conflict=id', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify({
+            id: 'production',
+            data: state.data,
+            updated_at: new Date().toISOString()
+          })
+        });
+        cloudReady = true;
+        cloudError = '';
       }
 
       function normalizeData() {
@@ -1159,7 +1250,8 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online ? '' : 'offline'}"><span class="dot"></span>${online ? 'En linea' : 'Modo offline'} · ${state.data.syncQueue.length} pendientes</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} · ${state.data.syncQueue.length} pendientes</span>
+                ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
             </aside>
@@ -2247,8 +2339,10 @@
         `;
       }
 
-      function login(event) {
+      async function login(event) {
         event.preventDefault();
+        await loadCloudData();
+        normalizeData();
         const data = new FormData(event.target);
         const user = appUsers().find((item) => item.username === data.get('username') && item.password === data.get('password'));
         if (!user) {
@@ -3329,7 +3423,9 @@
         state.data.syncQueue = [];
         save();
         render();
-        alert('Sincronizacion completada.');
+        saveCloudDataNow()
+          .then(() => alert('Sincronizacion con Supabase completada.'))
+          .catch(() => alert('No se pudo sincronizar con Supabase. Revisa la conexion y las claves.'));
       }
 
       function renderSearch() {
@@ -3367,7 +3463,13 @@
         navigator.serviceWorker.register('./sw.js').catch(() => {});
       }
 
-      render();
+      async function initializeApp() {
+        await loadCloudData();
+        normalizeData();
+        render();
+      }
+
+      initializeApp();
     </script>
   </body>
 </html>
