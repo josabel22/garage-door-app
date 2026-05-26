@@ -1868,7 +1868,7 @@
                     <td data-label="Garantia">${job.warranty}</td>
                     <td data-label="Fotos">${jobPhotosMarkup(job)}</td>
                     <td data-label="Firma">${isJobLocked(job) ? '<span class="pill">Bloqueado</span>' : 'Pendiente'}</td>
-                    ${actions ? `<td data-label="Acciones"><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${job.id})">Vista PDF</button> <button class="btn" onclick="printJob(${job.id})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${job.id})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${job.id})">Asignar</button>` : ''}</td>` : ''}
+                    ${actions ? `<td data-label="Acciones"><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${job.id})">Vista PDF</button> <button class="btn" onclick="printJob(${job.id})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${job.id})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${job.id})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}</td>` : ''}
                   </tr>
                 `).join('')}
               </tbody>
@@ -3305,6 +3305,22 @@
         if (!job) return alert('Reporte no encontrado.');
         if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
         state.modal = { type: 'jobEdit', title: `Editar reporte ${job.ticket}`, id, wide: true };
+        render();
+      }
+
+      function deleteJob(id) {
+        if (state.user.role !== 'admin') return alert('Solo administracion puede eliminar reportes.');
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
+        if (!job) return alert('Reporte no encontrado.');
+        const confirmed = confirm(`Eliminar reporte ${job.ticket}? Esta accion no se puede deshacer. No revierte inventario consumido.`);
+        if (!confirmed) return;
+
+        state.data.jobs = state.data.jobs.filter((item) => String(item.id) !== String(id));
+        state.data.warranties = (state.data.warranties || []).filter((warranty) => warranty.ticket !== job.ticket);
+        state.data.notifications = (state.data.notifications || []).filter((notification) => !String(notification.text || '').includes(job.ticket));
+        logAudit('Eliminar reporte', 'Reporte', job, null);
+        state.modal = null;
+        save();
         render();
       }
 
