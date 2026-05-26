@@ -913,8 +913,12 @@
       }
 
       function save() {
-        localStorage.setItem('mg_data', JSON.stringify(state.data));
+        saveLocalData();
         queueCloudSave();
+      }
+
+      function saveLocalData() {
+        localStorage.setItem('mg_data', JSON.stringify(state.data));
       }
 
       function supabaseConfig() {
@@ -956,10 +960,11 @@
         try {
           const rows = await supabaseRequest('app_state?select=data&id=eq.production');
           if (rows?.[0]?.data) {
-            state.data = rows[0].data;
-            localStorage.setItem('mg_data', JSON.stringify(state.data));
+            state.data = mergeCloudData(rows[0].data, state.data);
+            saveLocalData();
+            if ((state.data.syncQueue || []).length) queueCloudSave();
           } else {
-            await saveCloudDataNow();
+            await saveCloudDataNow({ clearQueue: false });
           }
           cloudReady = true;
           cloudError = '';
@@ -970,11 +975,28 @@
         }
       }
 
+      function mergeCloudData(cloudData, localData) {
+        if (!(localData?.syncQueue || []).length) return cloudData;
+        const merged = { ...cloudData };
+        ['jobs', 'clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'users', 'vehicles', 'inventory', 'appointments', 'maintenances'].forEach((key) => {
+          merged[key] = mergeById(cloudData?.[key], localData?.[key]);
+        });
+        merged.syncQueue = localData.syncQueue || [];
+        return merged;
+      }
+
+      function mergeById(cloudItems = [], localItems = []) {
+        const items = new Map();
+        (cloudItems || []).forEach((item) => items.set(String(item.id), item));
+        (localItems || []).forEach((item) => items.set(String(item.id), item));
+        return Array.from(items.values());
+      }
+
       function queueCloudSave() {
         if (!supabaseConfig().ready) return;
         window.clearTimeout(cloudSaveTimer);
         cloudSaveTimer = window.setTimeout(() => {
-          saveCloudDataNow().catch((error) => {
+          saveCloudDataNow({ clearQueue: true }).catch((error) => {
             cloudReady = false;
             cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
             console.error(error);
@@ -982,17 +1004,22 @@
         }, 600);
       }
 
-      async function saveCloudDataNow() {
+      async function saveCloudDataNow(options = {}) {
         if (!supabaseConfig().ready) return;
+        const dataToSave = options.clearQueue ? { ...state.data, syncQueue: [] } : state.data;
         await supabaseRequest('app_state?on_conflict=id', {
           method: 'POST',
           headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
           body: JSON.stringify({
             id: 'production',
-            data: state.data,
+            data: dataToSave,
             updated_at: new Date().toISOString()
           })
         });
+        if (options.clearQueue) {
+          state.data.syncQueue = [];
+          saveLocalData();
+        }
         cloudReady = true;
         cloudError = '';
       }
@@ -1076,6 +1103,12 @@
           .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x009d), '"')
           .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x02dc), "'")
           .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x2122), "'");
+      }
+
+      function clearReportDrafts() {
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith('mg_report_draft_'))
+          .forEach((key) => localStorage.removeItem(key));
       }
 
       function appUsers() {
@@ -1739,13 +1772,13 @@
               </div>
               <button class="btn secondary" onclick="closeReportForm()">Cerrar</button>
             </header>
-            <form class="report-form" onsubmit="createReport(event)" oninput="autosaveReportDraft(event)">
+            <form class="report-form" autocomplete="off" onsubmit="createReport(event)" oninput="autosaveReportDraft(event)">
               <div class="form-grid">
                 <div class="list-item full"><strong>MG Portones</strong><br>Telefono: 83124541 | Correo: mgportoelectricos@yahoo.es</div>
-                <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="name" required /></label>
-                <label>Telefono opcional<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="tel" /></label>
-                <label>Correo opcional<input name="email" value="${reportDraftValue('email')}" type="email" autocomplete="email" /></label>
-                <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="street-address" required /></label>
+                <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="off" required /></label>
+                <label>Telefono opcional<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="off" /></label>
+                <label>Correo opcional<input name="email" value="${reportDraftValue('email')}" type="email" autocomplete="off" /></label>
+                <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="off" required /></label>
                 <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
                 <label>Estado<select name="status">${statuses().map((s) => `<option>${s}</option>`).join('')}</select></label>
                 ${adminFields}
@@ -2588,11 +2621,59 @@
 
       async function readPhotoInput(input, kind) {
         const files = Array.from(input?.files || []);
-        return Promise.all(files.map((file) => new Promise((resolve) => {
+        const photos = [];
+        for (const file of files) {
+          try {
+            photos.push(await preparePhoto(file, kind));
+          } catch (error) {
+            console.error(error);
+            alert(`No se pudo cargar la foto ${file.name}. Intente con otra imagen.`);
+          }
+        }
+        return photos;
+      }
+
+      async function preparePhoto(file, kind) {
+        const data = file.type.startsWith('image/') ? await compressImage(file) : await readFileAsDataUrl(file);
+        return {
+          id: Date.now() + Math.random(),
+          kind,
+          name: file.name,
+          data,
+          size: data.length
+        };
+      }
+
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => resolve({ id: Date.now() + Math.random(), kind, name: file.name, data: reader.result });
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
           reader.readAsDataURL(file);
-        })));
+        });
+      }
+
+      function compressImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const image = new Image();
+            image.onload = () => {
+              const maxSide = 1200;
+              const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.round(image.width * scale));
+              canvas.height = Math.max(1, Math.round(image.height * scale));
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/jpeg', 0.72));
+            };
+            image.onerror = () => resolve(reader.result);
+            image.src = reader.result;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       }
 
       function createWarrantyFromReport(job, endDate) {
@@ -3470,12 +3551,32 @@
           alert('Sin conexion. Los cambios quedan guardados localmente.');
           return;
         }
-        state.data.syncQueue = [];
-        save();
-        render();
-        saveCloudDataNow()
-          .then(() => alert('Sincronizacion con Supabase completada.'))
-          .catch(() => alert('No se pudo sincronizar con Supabase. Revisa la conexion y las claves.'));
+        saveCloudDataNow({ clearQueue: true })
+          .then(() => {
+            render();
+            alert('Sincronizacion con Supabase completada.');
+          })
+          .catch(() => {
+            cloudReady = false;
+            cloudError = 'No se pudo sincronizar. Los cambios siguen guardados localmente.';
+            saveLocalData();
+            render();
+            alert('No se pudo sincronizar con Supabase. Los reportes siguen guardados en este dispositivo.');
+          });
+      }
+
+      function syncPendingWhenOnline() {
+        if (!navigator.onLine || !(state.data.syncQueue || []).length) {
+          render();
+          return;
+        }
+        saveCloudDataNow({ clearQueue: true })
+          .then(render)
+          .catch(() => {
+            cloudReady = false;
+            cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
+            render();
+          });
       }
 
       function renderSearch() {
@@ -3506,7 +3607,7 @@
         document.getElementById('reportResults').innerHTML = jobsTable(results, true);
       }
 
-      window.addEventListener('online', render);
+      window.addEventListener('online', syncPendingWhenOnline);
       window.addEventListener('offline', render);
 
       if ('serviceWorker' in navigator) {
@@ -3514,6 +3615,7 @@
       }
 
       async function initializeApp() {
+        clearReportDrafts();
         await loadCloudData();
         normalizeData();
         render();
