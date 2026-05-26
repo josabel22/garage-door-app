@@ -71,14 +71,13 @@
       }
 
       .brand-mark {
-        width: 44px;
+        width: 88px;
         height: 44px;
         border-radius: 8px;
         background: #ffffff;
-        color: var(--navy);
-        display: grid;
-        place-items: center;
-        font-weight: 900;
+        display: block;
+        object-fit: contain;
+        padding: 4px;
       }
 
       .brand h1 {
@@ -1234,13 +1233,13 @@
         const online = navigator.onLine;
         document.getElementById('app').innerHTML = `
           <div class="mobile-top">
-            <strong>MG Portones</strong>
+            <span class="brand"><img class="brand-mark" src="./mg-logo.jpg" alt="MG Portones" /><strong>MG Portones</strong></span>
             <button class="btn secondary" onclick="document.body.classList.toggle('menu-open')">Menu</button>
           </div>
           <div class="shell">
             <aside class="sidebar">
               <div class="brand">
-                <div class="brand-mark">MG</div>
+                <img class="brand-mark" src="./mg-logo.jpg" alt="MG Portones" />
                 <div>
                   <h1>MG Portones</h1>
                   <p>Operacion y servicios</p>
@@ -1282,7 +1281,7 @@
           <section class="login">
             <div class="login-hero">
               <div class="brand">
-                <div class="brand-mark">MG</div>
+                <img class="brand-mark" src="./mg-logo.jpg" alt="MG Portones" />
                 <div>
                   <h1 style="font-size:18px; margin:0;">MG Portones</h1>
                   <p>Gestion profesional de servicio tecnico</p>
@@ -1457,8 +1456,8 @@
             <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
             <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
             <div class="full camera-actions">
-              <label>Agregar fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
-              <label>Agregar fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+              <label>Agregar fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
+              <label>Agregar fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
             </div>
             <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
             <button class="btn full">Guardar reporte</button>
@@ -1484,8 +1483,8 @@
             <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
             <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
             <div class="full camera-actions">
-              <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
-              <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+              <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
+              <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
             </div>
             <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
             <button class="btn full">Guardar reporte</button>
@@ -1738,8 +1737,8 @@
                 <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user.role === 'admin' ? technicians()[0] : state.user)}</div>
                 <label class="full">Materiales adicionales<textarea name="materials" placeholder="Material no inventariado o nota adicional">${reportDraftValue('materials')}</textarea></label>
                 <div class="full camera-actions">
-                  <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" capture="environment" multiple /></label>
-                  <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" capture="environment" multiple /></label>
+                  <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
+                  <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
                 </div>
                 <div class="full signature">Firma digital capturada</div>
                 <div class="full lock-note">Al guardar con firma, el reporte queda bloqueado para tecnicos. Solo administracion puede modificarlo.</div>
