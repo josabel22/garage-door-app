@@ -1067,6 +1067,7 @@
           return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeMojibake(item)]));
         }
         if (typeof value !== 'string') return value;
+        if (['NaN', 'undefined', 'null'].includes(value.trim())) return '';
         return value
           .replaceAll(String.fromCharCode(0x00c2, 0x00b7), ' - ')
           .replaceAll(String.fromCharCode(0x00e2, 0x2020, 0x2019), '->')
@@ -1846,7 +1847,10 @@
 
       function reportDraftValue(name, fallback = '') {
         const draft = JSON.parse(localStorage.getItem(`mg_report_draft_${state.user?.id || 'guest'}`) || '{}');
-        return draft[name]  -  fallback;
+        const value = draft[name] ?? fallback;
+        if (value === null || value === undefined) return fallback;
+        const text = String(value);
+        return ['NaN', 'undefined', 'null'].includes(text.trim()) ? fallback : text;
       }
 
       function jobsTable(jobs, actions = false) {
@@ -2396,14 +2400,15 @@
 
       function newReportShortcut() {
         state.view = 'reportes';
+        localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
         state.reportParts = [];
         state.reportFormOpen = true;
         render();
       }
 
       function openReportForm() {
-        const draft = JSON.parse(localStorage.getItem(`mg_report_draft_${state.user?.id || 'guest'}`) || '{}');
-        state.reportParts = draft.reportParts || [];
+        localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
+        state.reportParts = [];
         state.reportFormOpen = true;
         render();
       }
