@@ -1015,9 +1015,6 @@
           createdAt: today(-30),
           ...user
         }));
-        users.forEach((user) => {
-          if (!state.data.users.some((item) => item.id === user.id)) state.data.users.push(user);
-        });
         state.data.users = state.data.users.filter((user, index, list) => (
           index === list.findIndex((item) => item.username === user.username || item.id === user.id)
         ));
