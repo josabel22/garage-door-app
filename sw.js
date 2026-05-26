@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mg-portones-v9';
-const ASSETS = ['./', './index.html', './manifest.webmanifest'];
+const CACHE_NAME = 'mg-portones-v10';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './mg-logo.jpg', './supabase-config.js'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
