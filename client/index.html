@@ -998,6 +998,7 @@
       }
 
       function normalizeData() {
+        state.data = sanitizeMojibake(state.data);
         state.data.users ||= users;
         state.data.vehicles ||= [
           { id: 1, code: 'MOV-01', name: 'Unidad Norte', plate: 'CL-1023', technicianId: 2, technician: 'Carlos Mendez', active: true, notes: 'Unidad principal para trabajos residenciales' },
@@ -1058,6 +1059,22 @@
         updateMaintenanceNotifications();
         updateAppointmentNotifications();
         save();
+      }
+
+      function sanitizeMojibake(value) {
+        if (Array.isArray(value)) return value.map(sanitizeMojibake);
+        if (value && typeof value === 'object') {
+          return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeMojibake(item)]));
+        }
+        if (typeof value !== 'string') return value;
+        return value
+          .replaceAll(String.fromCharCode(0x00c2, 0x00b7), ' - ')
+          .replaceAll(String.fromCharCode(0x00e2, 0x2020, 0x2019), '->')
+          .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x201d), '-')
+          .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x0153), '"')
+          .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x009d), '"')
+          .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x02dc), "'")
+          .replaceAll(String.fromCharCode(0x00e2, 0x20ac, 0x2122), "'");
       }
 
       function appUsers() {
@@ -1154,7 +1171,7 @@
         state.data.warranties.forEach((warranty) => {
           warranty.status = warrantyStatus(warranty.end);
           if (warranty.status === 'Proxima a vencer') {
-            addUniqueNotification('admin', `Garantia proxima a vencer: ${warranty.ticket} Â· ${warranty.client}`, 'Garantia');
+            addUniqueNotification('admin', `Garantia proxima a vencer: ${warranty.ticket}  -  ${warranty.client}`, 'Garantia');
           }
         });
       }
@@ -1163,7 +1180,7 @@
         state.data.maintenances.forEach((item) => {
           const daysLeft = Math.ceil((new Date(item.nextDate) - new Date(today(0))) / 86400000);
           if (item.status === 'Pendiente' && daysLeft <= 7) {
-            addUniqueNotification('admin', `Mantenimiento pendiente: ${item.client} Â· ${item.nextDate}`, 'Mantenimiento');
+            addUniqueNotification('admin', `Mantenimiento pendiente: ${item.client}  -  ${item.nextDate}`, 'Mantenimiento');
           }
         });
       }
@@ -1172,7 +1189,7 @@
         (state.data.appointments || []).forEach((item) => {
           const daysLeft = Math.ceil((new Date(item.date) - new Date(today(0))) / 86400000);
           if (item.status !== 'Completada' && daysLeft >= 0 && daysLeft <= 2) {
-            addUniqueNotification('admin', `Cita proxima: ${item.client} Â· ${item.date} ${item.hour}`, 'Cita');
+            addUniqueNotification('admin', `Cita proxima: ${item.client}  -  ${item.date} ${item.hour}`, 'Cita');
           }
         });
       }
@@ -1200,8 +1217,8 @@
 
       function logFieldChanges(entity, beforeValue, afterValue, fields) {
         fields.forEach((field) => {
-          const beforeField = beforeValue?.[field] ?? '';
-          const afterField = afterValue?.[field] ?? '';
+          const beforeField = beforeValue?.[field]  -  '';
+          const afterField = afterValue?.[field]  -  '';
           if (String(beforeField) === String(afterField)) return;
           logAudit(`Modificar ${field}`, entity, { [field]: beforeField }, { [field]: afterField });
         });
@@ -1422,7 +1439,7 @@
             ${items.map((item) => `
               <div class="list-item">
                 <strong>${item.part}</strong><br>
-                Cantidad: ${item.qty} Â· Minimo: ${item.min} Â· <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
+                Cantidad: ${item.qty}  -  Minimo: ${item.min}  -  <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
                 <div class="toolbar" style="margin-top:10px;">
                   <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
                   <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
@@ -1455,7 +1472,7 @@
             <label>Direccion<input name="address" value="${job.address || ''}" required /></label>
             <label>Estado<select name="status">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
-            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name} Â· ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
           <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
             <label>Vence garantia<input name="warrantyEnd" type="date" value="${job.warrantyEnd || ''}" /></label>
             <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
@@ -1483,7 +1500,7 @@
             <input type="hidden" name="technicianId" value="${job.technicianId}" />
             <input type="hidden" name="warranty" value="${job.warranty || ''}" />
             <input type="hidden" name="warrantyEnd" value="${job.warrantyEnd || ''}" />
-            <div class="list-item full"><strong>${job.ticket}</strong><br>${job.client} Â· ${job.date}<br>El tecnico puede actualizar estado, descripcion, materiales, fotos y notas mientras el trabajo siga activo.</div>
+            <div class="list-item full"><strong>${job.ticket}</strong><br>${job.client}  -  ${job.date}<br>El tecnico puede actualizar estado, descripcion, materiales, fotos y notas mientras el trabajo siga activo.</div>
             <label>Estado<select name="status">${technicianStatuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
             <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
@@ -1506,7 +1523,7 @@
         target.innerHTML = items.map((item) => `
           <div class="list-item">
             <strong>${item.part}</strong><br>
-            Cantidad: ${item.qty} Â· Minimo: ${item.min} Â· <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
+            Cantidad: ${item.qty}  -  Minimo: ${item.min}  -  <span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span>
             <div class="toolbar" style="margin-top:10px;">
               <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
               <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
@@ -1523,7 +1540,7 @@
           <form class="form-grid" onsubmit="submitWarrantyOpen(event, ${warranty.id})">
             <label>Boleta<input value="${warranty.ticket}" disabled /></label>
             <label>Vencimiento<input value="${warranty.end}" disabled /></label>
-            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === warranty.technicianId ? 'selected' : ''}>${tech.name} Â· ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === warranty.technicianId ? 'selected' : ''}>${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
             <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option ${vehicle.code === warranty.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
             <label class="full">Trabajo por garantia<textarea name="description" required>Atencion de garantia ${warranty.ticket}</textarea></label>
             <button class="btn full">Abrir trabajo de garantia</button>
@@ -1537,7 +1554,7 @@
         return `
           <form class="form-grid" onsubmit="submitJobAssign(event, ${job.id})">
             <label>Boleta<input value="${job.ticket}" disabled /></label>
-            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name} Â· ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
             <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option ${vehicle.code === job.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
             <button class="btn full">Asignar trabajo</button>
           </form>
@@ -1577,7 +1594,7 @@
         return `
           <form class="form-grid" onsubmit="submitVehicleAssign(event, ${vehicle.id})">
             <label>Movil<input value="${vehicle.code}" disabled /></label>
-            <label>Tecnico<select name="technicianId" required>${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === vehicle.technicianId ? 'selected' : ''}>${tech.name} Â· ${tech.username}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId" required>${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === vehicle.technicianId ? 'selected' : ''}>${tech.name}  -  ${tech.username}</option>`).join('')}</select></label>
             <button class="btn full">Asignar tecnico</button>
           </form>
         `;
@@ -1605,7 +1622,7 @@
         if (!user) return '<p>Usuario no encontrado.</p>';
         return `
           <div class="list">
-            <div class="list-item"><strong>Eliminar usuario</strong><br>${user.name} Â· ${user.username}<br>Los trabajos anteriores se conservaran en el historial.</div>
+            <div class="list-item"><strong>Eliminar usuario</strong><br>${user.name}  -  ${user.username}<br>Los trabajos anteriores se conservaran en el historial.</div>
             <button class="btn danger" onclick="confirmUserDelete(${user.id})">Eliminar definitivamente</button>
           </div>
         `;
@@ -1705,7 +1722,7 @@
         const adminFields = state.user.role === 'admin' ? `
           <label>Tecnico asignado
             <select name="technicianId" onchange="updateReportInventoryFields()" required>
-              ${technicians().map((tech) => `<option value="${tech.id}">${tech.name} Â· ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}
+              ${technicians().map((tech) => `<option value="${tech.id}">${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}
             </select>
           </label>
           <label>Prioridad
@@ -1792,7 +1809,7 @@
 
         return items.map((item) => `
           <div class="part-result">
-            <div><strong>${item.part}</strong><br><small>Disponible: ${item.qty} Â· Minimo: ${item.min}</small></div>
+            <div><strong>${item.part}</strong><br><small>Disponible: ${item.qty}  -  Minimo: ${item.min}</small></div>
             <button type="button" class="btn secondary" onclick="addReportPart('${item.id}')">Agregar</button>
           </div>
         `).join('') || '<div class="list-item">No hay repuestos disponibles con esa busqueda.</div>';
@@ -1821,7 +1838,7 @@
         return state.reportParts.map((part) => `
           <div class="part-row">
             <input type="hidden" name="usedPartId" value="${part.id}" />
-            <label><strong>${part.part}</strong><br><small>${part.vehicle} Â· Disponible: ${part.available}</small></label>
+            <label><strong>${part.part}</strong><br><small>${part.vehicle}  -  Disponible: ${part.available}</small></label>
             <input name="partQty-${part.id}" type="number" min="1" max="${part.available}" value="${part.quantity}" onchange="updateReportPartQty('${part.id}', this.value)" />
             <button type="button" class="btn secondary" onclick="removeReportPart('${part.id}')">Quitar</button>
           </div>
@@ -1830,7 +1847,7 @@
 
       function reportDraftValue(name, fallback = '') {
         const draft = JSON.parse(localStorage.getItem(`mg_report_draft_${state.user?.id || 'guest'}`) || '{}');
-        return draft[name] ?? fallback;
+        return draft[name]  -  fallback;
       }
 
       function jobsTable(jobs, actions = false) {
@@ -1935,7 +1952,7 @@
               <div class="pdf-box"><strong>Cliente</strong><br>${job.client}<br>${job.phone || 'Sin telefono'}</div>
               <div class="pdf-box"><strong>Direccion</strong><br>${job.address || 'Sin direccion'}</div>
               <div class="pdf-box"><strong>Tecnico</strong><br>${job.technician || 'Sin asignar'}<br>${job.vehicle || ''}</div>
-              <div class="pdf-box"><strong>Estado / Garantia</strong><br>${job.status}<br>${job.warranty || 'Sin garantia'} ${job.warrantyEnd ? 'Â· vence ' + job.warrantyEnd : ''}</div>
+              <div class="pdf-box"><strong>Estado / Garantia</strong><br>${job.status}<br>${job.warranty || 'Sin garantia'} ${job.warrantyEnd ? ' -  vence ' + job.warrantyEnd : ''}</div>
             </section>
             <br>
             <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${job.description || 'Sin descripcion'}</section>
@@ -1996,7 +2013,7 @@
                 <br />
                 <h3 style="color:var(--navy);">Bitacora de movimientos</h3>
                 <div class="list">
-                  ${(state.data.movements || []).slice(0, 8).map((move) => `<div class="list-item"><strong>${move.material}</strong> Â· ${move.action || 'Consumo'} Â· ${move.quantity}<br>${move.technician} Â· ${move.vehicle} Â· ${move.date} Â· ${move.ticket || 'Sin boleta'} Â· ${move.before} â†’ ${move.after}</div>`).join('') || '<div class="list-item">Sin movimientos registrados todavia.</div>'}
+                  ${(state.data.movements || []).slice(0, 8).map((move) => `<div class="list-item"><strong>${move.material}</strong>  -  ${move.action || 'Consumo'}  -  ${move.quantity}<br>${move.technician}  -  ${move.vehicle}  -  ${move.date}  -  ${move.ticket || 'Sin boleta'}  -  ${move.before} -> ${move.after}</div>`).join('') || '<div class="list-item">Sin movimientos registrados todavia.</div>'}
                 </div>
               </div>
             </div>
@@ -2035,12 +2052,12 @@
                   const inventory = state.data.inventory.filter((item) => item.vehicle === vehicle.code);
                   const movements = state.data.movements.filter((move) => move.vehicle === vehicle.code);
                   return `<div class="list-item">
-                    <strong>${vehicle.code} Â· ${vehicle.name}</strong> <span class="pill">${vehicle.active ? 'Activa' : 'Inactiva'}</span><br>
-                    Placa: ${vehicle.plate || 'Sin placa'} Â· Tecnico: ${vehicle.technician || 'Sin asignar'}<br>
+                    <strong>${vehicle.code}  -  ${vehicle.name}</strong> <span class="pill">${vehicle.active ? 'Activa' : 'Inactiva'}</span><br>
+                    Placa: ${vehicle.plate || 'Sin placa'}  -  Tecnico: ${vehicle.technician || 'Sin asignar'}<br>
                     ${vehicle.notes || 'Sin observaciones'}
                     <div class="history-grid" style="margin-top:10px;">
                       <div><strong>Inventario</strong><br>${inventory.map((item) => `${item.part}: ${item.qty}`).join('<br>') || 'Sin inventario'}</div>
-                      <div><strong>Movimientos</strong><br>${movements.slice(0, 4).map((move) => `${move.date} Â· ${move.material}`).join('<br>') || 'Sin movimientos'}</div>
+                      <div><strong>Movimientos</strong><br>${movements.slice(0, 4).map((move) => `${move.date}  -  ${move.material}`).join('<br>') || 'Sin movimientos'}</div>
                     </div>
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editVehicle(${vehicle.id})">Editar</button>
@@ -2076,7 +2093,7 @@
             <div class="panel">
               <div class="panel-header"><h3>Calendario de citas</h3></div>
               <div class="panel-body list">
-                ${state.data.appointments.map((appt) => `<div class="list-item"><strong>${appt.date} ${appt.hour}</strong><br>${appt.client} Â· ${appt.technician}<br><span class="pill">${appt.status}</span></div>`).join('')}
+                ${state.data.appointments.map((appt) => `<div class="list-item"><strong>${appt.date} ${appt.hour}</strong><br>${appt.client}  -  ${appt.technician}<br><span class="pill">${appt.status}</span></div>`).join('')}
               </div>
             </div>
             <div class="panel">
@@ -2121,7 +2138,7 @@
                   <form class="form-grid" onsubmit="createWarrantyCase(event)">
                     <label>Cliente<input name="client" required /></label>
                     <label>Boleta<input name="ticket" value="G-${Math.floor(2000 + Math.random() * 900)}" required /></label>
-                    <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}">${tech.name} Â· ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+                    <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}">${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
                     <label>Vencimiento<input name="end" type="date" value="${today(90)}" required /></label>
                     <label class="full">Descripcion<textarea name="description" required></textarea></label>
                     <button class="btn full">Aprobar garantia y asignar</button>
@@ -2164,7 +2181,7 @@
                   const daysLeft = Math.ceil((new Date(item.nextDate) - new Date(today(0))) / 86400000);
                   return `<div class="list-item">
                     <strong>${item.client}</strong> <span class="pill">${item.status}</span><br>
-                    Proxima fecha: ${item.nextDate} Â· ${daysLeft <= 7 ? 'Alerta activa' : `${daysLeft} dias restantes`}<br>
+                    Proxima fecha: ${item.nextDate}  -  ${daysLeft <= 7 ? 'Alerta activa' : `${daysLeft} dias restantes`}<br>
                     Tecnico: ${item.technician || 'Sin asignar'}<br>${item.notes || ''}
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="completeMaintenance(${item.id})">Completar</button>
@@ -2200,10 +2217,10 @@
                   const history = state.data.jobs.filter((job) => job.clientId === client.id);
                   const warranties = state.data.warranties.filter((warranty) => warranty.clientId === client.id || warranty.client === client.name);
                   return `<div class="list-item">
-                    <strong>${client.name}</strong><br>${client.phone || 'Sin telefono'} Â· ${client.email || 'Sin correo'}<br>${client.address}
+                    <strong>${client.name}</strong><br>${client.phone || 'Sin telefono'}  -  ${client.email || 'Sin correo'}<br>${client.address}
                     <div class="history-grid" style="margin-top:10px;">
-                      <div><strong>Trabajos anteriores</strong><br>${history.map((job) => `${job.ticket} Â· ${job.technician} Â· ${job.materials || 'Sin materiales'}`).join('<br>') || 'Sin historial'}</div>
-                      <div><strong>Garantias</strong><br>${warranties.map((warranty) => `${warranty.ticket} Â· ${warranty.status}`).join('<br>') || 'Sin garantias'}</div>
+                      <div><strong>Trabajos anteriores</strong><br>${history.map((job) => `${job.ticket}  -  ${job.technician}  -  ${job.materials || 'Sin materiales'}`).join('<br>') || 'Sin historial'}</div>
+                      <div><strong>Garantias</strong><br>${warranties.map((warranty) => `${warranty.ticket}  -  ${warranty.status}`).join('<br>') || 'Sin garantias'}</div>
                     </div>
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editClient(${client.id})">Modificar</button>
@@ -2241,8 +2258,8 @@
                   const completed = history.filter((job) => job.status === 'Finalizado').length;
                   return `<div class="list-item">
                     <strong>${user.name}</strong> <span class="pill">${user.active === false ? 'Inactivo' : 'Activo'}</span><br>
-                    ${roleName(user.role)} Â· ${user.username} Â· ${user.phone || 'Sin telefono'} Â· ${user.email || 'Sin correo'}<br>
-                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong> Â· ' + history.length + ' trabajos Â· ' + completed + ' finalizados' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
+                    ${roleName(user.role)}  -  ${user.username}  -  ${user.phone || 'Sin telefono'}  -  ${user.email || 'Sin correo'}<br>
+                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong>  -  ' + history.length + ' trabajos  -  ' + completed + ' finalizados' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editUser(${user.id})">Modificar</button>
                       <button class="btn secondary" onclick="toggleUser(${user.id})">${user.active === false ? 'Activar' : 'Desactivar'}</button>
@@ -2297,7 +2314,7 @@
           <section class="panel">
             <div class="panel-header"><h3>Auditoria</h3><span class="pill">${rows.length} acciones</span></div>
             <div class="panel-body list">
-              ${rows.map((item) => `<div class="list-item"><strong>${item.action}</strong> Â· ${item.entity}<br>${item.user} Â· ${new Date(item.date).toLocaleString()}<br><small>Antes: ${item.before || 'N/A'}</small><br><small>Despues: ${item.after || 'N/A'}</small></div>`).join('') || '<div class="list-item">Sin acciones registradas todavia.</div>'}
+              ${rows.map((item) => `<div class="list-item"><strong>${item.action}</strong>  -  ${item.entity}<br>${item.user}  -  ${new Date(item.date).toLocaleString()}<br><small>Antes: ${item.before || 'N/A'}</small><br><small>Despues: ${item.after || 'N/A'}</small></div>`).join('') || '<div class="list-item">Sin acciones registradas todavia.</div>'}
             </div>
           </section>
         `;
@@ -2315,11 +2332,11 @@
                   const completed = history.filter((job) => job.status === 'Finalizado').length;
                   return `<div class="list-item">
                     <strong>${tech.name}</strong> <span class="pill">${tech.active === false ? 'Inactivo' : 'Activo'}</span><br>
-                    ${tech.username} Â· ${tech.phone || 'Sin telefono'} Â· ${tech.email || 'Sin correo'}<br>
-                    Movil: <strong>${tech.vehicle || 'Sin asignar'}</strong> Â· Creado: ${tech.createdAt || 'Sin fecha'}
+                    ${tech.username}  -  ${tech.phone || 'Sin telefono'}  -  ${tech.email || 'Sin correo'}<br>
+                    Movil: <strong>${tech.vehicle || 'Sin asignar'}</strong>  -  Creado: ${tech.createdAt || 'Sin fecha'}
                     <div class="history-grid" style="margin-top:10px;">
-                      <div><strong>Rendimiento</strong><br>${history.length} trabajos Â· ${completed} finalizados</div>
-                      <div><strong>Historial</strong><br>${history.slice(0, 4).map((job) => `${job.ticket} Â· ${job.status}`).join('<br>') || 'Sin trabajos'}</div>
+                      <div><strong>Rendimiento</strong><br>${history.length} trabajos  -  ${completed} finalizados</div>
+                      <div><strong>Historial</strong><br>${history.slice(0, 4).map((job) => `${job.ticket}  -  ${job.status}`).join('<br>') || 'Sin trabajos'}</div>
                     </div>
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editTechnician(${tech.id})">Editar</button>
