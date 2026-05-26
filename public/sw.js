@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v7';
+const CACHE_NAME = 'mg-portones-v9';
 const ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

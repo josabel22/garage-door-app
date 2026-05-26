@@ -1442,7 +1442,7 @@
             <label>Boleta<input name="ticket" value="${job.ticket || ''}" required /></label>
             <label>Fecha<input name="date" type="date" value="${job.date || today(0)}" required /></label>
             <label>Cliente<input name="client" value="${job.client || ''}" required /></label>
-            <label>Telefono<input name="phone" value="${job.phone || ''}" required /></label>
+            <label>Telefono opcional<input name="phone" value="${job.phone || ''}" inputmode="tel" autocomplete="tel" /></label>
             <label>Direccion<input name="address" value="${job.address || ''}" required /></label>
             <label>Estado<select name="status">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
@@ -1608,7 +1608,7 @@
         return `
           <form class="form-grid" onsubmit="submitClientEdit(event, ${client.id})">
             <label>Nombre<input name="name" value="${client.name || ''}" required /></label>
-            <label>Telefono<input name="phone" value="${client.phone || ''}" inputmode="tel" required /></label>
+            <label>Telefono opcional<input name="phone" value="${client.phone || ''}" inputmode="tel" autocomplete="tel" /></label>
             <label>Correo<input name="email" value="${client.email || ''}" type="email" /></label>
             <label class="full">Direccion<input name="address" value="${client.address || ''}" required /></label>
             <button class="btn full">Guardar cliente</button>
@@ -1716,7 +1716,7 @@
             <form class="report-form" onsubmit="createReport(event)" oninput="autosaveReportDraft(event)">
               <div class="form-grid">
                 <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="name" required /></label>
-                <label>Telefono<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="tel" required /></label>
+                <label>Telefono opcional<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="tel" /></label>
                 <label>Correo opcional<input name="email" value="${reportDraftValue('email')}" type="email" autocomplete="email" /></label>
                 <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="street-address" required /></label>
                 <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
@@ -1907,10 +1907,14 @@
         return `
           <article class="pdf-preview">
             <div style="display:flex; justify-content:space-between; gap:16px; border-bottom:2px solid #0f2a44; padding-bottom:12px; margin-bottom:14px;">
-              <div>
+              <div style="display:flex; gap:14px; align-items:center;">
+                <img src="./mg-logo.jpg" alt="MG Portones" style="width:140px; max-height:70px; object-fit:contain;" />
+                <div>
                 <h2>MG Portones</h2>
                 <strong>Reporte de servicio tecnico</strong><br>
-                <small>Reparacion e instalacion de puertas de garaje</small>
+                <small>Reparacion e instalacion de puertas de garaje</small><br>
+                <small>Tel. 83124541 · mgportoelectricos@yahoo.es</small>
+                </div>
               </div>
               <div style="text-align:right;">
                 <h3>${job.ticket}</h3>
@@ -1918,7 +1922,7 @@
               </div>
             </div>
             <section class="pdf-grid">
-              <div class="pdf-box"><strong>Cliente</strong><br>${job.client}<br>${job.phone || ''}</div>
+              <div class="pdf-box"><strong>Cliente</strong><br>${job.client}<br>${job.phone || 'Sin telefono'}</div>
               <div class="pdf-box"><strong>Direccion</strong><br>${job.address || 'Sin direccion'}</div>
               <div class="pdf-box"><strong>Tecnico</strong><br>${job.technician || 'Sin asignar'}<br>${job.vehicle || ''}</div>
               <div class="pdf-box"><strong>Estado / Garantia</strong><br>${job.status}<br>${job.warranty || 'Sin garantia'} ${job.warrantyEnd ? '· vence ' + job.warrantyEnd : ''}</div>
@@ -2186,7 +2190,7 @@
                   const history = state.data.jobs.filter((job) => job.clientId === client.id);
                   const warranties = state.data.warranties.filter((warranty) => warranty.clientId === client.id || warranty.client === client.name);
                   return `<div class="list-item">
-                    <strong>${client.name}</strong><br>${client.phone} · ${client.email || 'Sin correo'}<br>${client.address}
+                    <strong>${client.name}</strong><br>${client.phone || 'Sin telefono'} · ${client.email || 'Sin correo'}<br>${client.address}
                     <div class="history-grid" style="margin-top:10px;">
                       <div><strong>Trabajos anteriores</strong><br>${history.map((job) => `${job.ticket} · ${job.technician} · ${job.materials || 'Sin materiales'}`).join('<br>') || 'Sin historial'}</div>
                       <div><strong>Garantias</strong><br>${warranties.map((warranty) => `${warranty.ticket} · ${warranty.status}`).join('<br>') || 'Sin garantias'}</div>
@@ -2204,7 +2208,7 @@
               <div class="panel-body">
                 <form class="form-grid" onsubmit="createClient(event)">
                   <label>Nombre<input name="name" required /></label>
-                  <label>Telefono<input name="phone" inputmode="tel" required /></label>
+                  <label>Telefono opcional<input name="phone" inputmode="tel" autocomplete="tel" /></label>
                   <label>Correo<input name="email" type="email" /></label>
                   <label class="full">Direccion<input name="address" required /></label>
                   <button class="btn full">Guardar cliente</button>
@@ -2582,13 +2586,16 @@
 
       function findOrCreateClient(input) {
         const normalizedPhone = String(input.phone || '').replace(/\D/g, '');
-        let client = state.data.clients.find((item) => String(item.phone || '').replace(/\D/g, '') === normalizedPhone || item.name.toLowerCase() === String(input.name).toLowerCase());
+        let client = state.data.clients.find((item) => (
+          (normalizedPhone && String(item.phone || '').replace(/\D/g, '') === normalizedPhone)
+          || item.name.toLowerCase() === String(input.name).toLowerCase()
+        ));
 
         if (!client) {
           client = {
             id: Date.now(),
             name: input.name,
-            phone: input.phone,
+            phone: input.phone || '',
             email: input.email || '',
             address: input.address,
             createdAt: new Date().toISOString()
@@ -2596,7 +2603,7 @@
           state.data.clients.unshift(client);
           state.data.notifications.unshift({ id: Date.now() + 1, role: 'admin', text: `Cliente creado automaticamente: ${client.name}`, type: 'Cliente' });
         } else {
-          client.phone = input.phone || client.phone;
+          client.phone = input.phone || client.phone || '';
           client.email = input.email || client.email;
           client.address = input.address || client.address;
         }
