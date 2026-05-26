@@ -976,12 +976,19 @@
       }
 
       function mergeCloudData(cloudData, localData) {
-        if (!(localData?.syncQueue || []).length) return cloudData;
         const merged = { ...cloudData };
-        ['jobs', 'clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'users', 'vehicles', 'inventory', 'appointments', 'maintenances'].forEach((key) => {
+        const localJobCount = (localData?.jobs || []).length;
+        const cloudJobCount = (cloudData?.jobs || []).length;
+        ['jobs', 'clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
+        merged.users = cloudData?.users || localData?.users || users;
+        merged.vehicles = cloudData?.vehicles || localData?.vehicles || [];
+        merged.inventory = mergeInventory(cloudData?.inventory, localData?.inventory);
         merged.syncQueue = localData.syncQueue || [];
+        if (localJobCount > cloudJobCount && !merged.syncQueue.length) {
+          merged.syncQueue = [{ id: Date.now(), type: 'recovery', createdAt: new Date().toISOString() }];
+        }
         return merged;
       }
 
@@ -989,6 +996,16 @@
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(String(item.id), item));
         (localItems || []).forEach((item) => items.set(String(item.id), item));
+        return Array.from(items.values());
+      }
+
+      function mergeInventory(cloudItems = [], localItems = []) {
+        const items = new Map();
+        (cloudItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
+        (localItems || []).forEach((item) => {
+          const key = `${item.vehicle}|${item.part}`;
+          if (!items.has(key)) items.set(key, item);
+        });
         return Array.from(items.values());
       }
 
@@ -1126,9 +1143,7 @@
         if (state.user.role === 'admin') return state.data.jobs;
         if (state.user.role === 'client') return state.data.jobs.filter((job) => job.clientId === state.user.clientId);
 
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return state.data.jobs.filter((job) => job.technicianId === state.user.id && new Date(job.date) >= sevenDaysAgo);
+        return state.data.jobs.filter((job) => job.technicianId === state.user.id);
       }
 
       function scopedInventory() {
