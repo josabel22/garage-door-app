@@ -1209,18 +1209,19 @@
 
       function icon(name) {
         const icons = {
-          dashboard: 'â–¦',
-        reportes: 'â–¤',
-        inventario: 'â–§',
-        moviles: 'â–£',
-        citas: 'â—·',
-        garantias: 'âœ“',
-        mantenimientos: 'â†»',
-        clientes: 'â—Ž',
-          busqueda: 'âŒ•',
-          usuarios: 'â—‰'
+          dashboard: 'DB',
+          reportes: 'RP',
+          inventario: 'IN',
+          moviles: 'MV',
+          citas: 'CT',
+          garantias: 'GA',
+          mantenimientos: 'MT',
+          clientes: 'CL',
+          busqueda: 'BQ',
+          usuarios: 'US',
+          auditoria: 'AU'
         };
-        return icons[name] || 'â€¢';
+        return icons[name] || '•';
       }
 
       function render() {
@@ -1246,7 +1247,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} Â· ${state.data.syncQueue.length} pendientes</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1255,7 +1256,7 @@
               <header class="topbar">
                 <div>
                   <h2>${labels[state.view]}</h2>
-                  <p>${state.user.name} Â· ${roleName(state.user.role)}${state.user.vehicle ? ' Â· ' + state.user.vehicle : ''}</p>
+                  <p>${state.user.name} - ${roleName(state.user.role)}${state.user.vehicle ? ' - ' + state.user.vehicle : ''}</p>
                 </div>
                 <div class="toolbar">
                   <button class="btn secondary" onclick="syncNow()">Sincronizar</button>
