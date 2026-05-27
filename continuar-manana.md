@@ -76,6 +76,10 @@ Cuando haya cambios, revisar principalmente:
   - Se mejoro la mezcla entre datos locales pendientes y datos de Supabase.
   - La cola offline ya no se borra hasta confirmar subida exitosa a Supabase.
   - Al volver internet, la app intenta sincronizar pendientes automaticamente.
+- Restauracion desde PDF:
+  - Se restauraron en Supabase los reportes `015213`, `015214`, `015215`, `015216` y `015217`.
+  - La base central quedo con 6 reportes: `015215`, `015217`, `015216`, `015214`, `015213` y `B-1492`.
+  - Los reportes restaurados quedaron como `Finalizado`, con descripcion `Reporte restaurado desde PDF`.
 
 ## Pendiente de prueba manana
 
