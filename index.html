@@ -1995,7 +1995,10 @@
       function jobPhotosMarkup(job) {
         const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])].slice(0, 4);
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
-        return `<div class="photo-strip">${photos.map((photo) => photoUrl(photo) ? `<img src="${photoUrl(photo)}" alt="${photo.kind || 'Foto reporte'}" />` : '<span class="pill">Foto pendiente</span>').join('')}</div>`;
+        return `<div class="photo-strip">${photos.map((photo) => {
+          const url = photoUrl(photo);
+          return url ? `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${photo.kind || 'Foto reporte'}" /><small>Abrir foto</small></a>` : '<span class="pill">Foto pendiente</span>';
+        }).join('')}</div>`;
       }
 
       function photoUrl(photo) {
