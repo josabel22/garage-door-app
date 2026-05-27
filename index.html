@@ -1995,7 +1995,11 @@
       function jobPhotosMarkup(job) {
         const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])].slice(0, 4);
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
-        return `<div class="photo-strip">${photos.map((photo) => `<img src="${photo.url || photo.data}" alt="${photo.kind || 'Foto reporte'}" />`).join('')}</div>`;
+        return `<div class="photo-strip">${photos.map((photo) => photoUrl(photo) ? `<img src="${photoUrl(photo)}" alt="${photo.kind || 'Foto reporte'}" />` : '<span class="pill">Foto pendiente</span>').join('')}</div>`;
+      }
+
+      function photoUrl(photo) {
+        return photo?.url || photo?.data || '';
       }
 
       function previewJobPdf(id) {
@@ -2098,7 +2102,7 @@
           ...(job.photos?.after || []).map((photo) => ({ ...photo, label: 'Despues' }))
         ];
         if (!photos.length) return '<div class="pdf-box">Sin fotografias adjuntas.</div>';
-        return `<div class="pdf-photo-grid">${photos.map((photo) => `<div><img src="${photo.data}" alt="${photo.label}" /><small>${photo.label}</small></div>`).join('')}</div>`;
+        return `<div class="pdf-photo-grid">${photos.map((photo) => `<div>${photoUrl(photo) ? `<img src="${photoUrl(photo)}" alt="${photo.label}" />` : '<div class="pdf-box">Foto pendiente</div>'}<small>${photo.label}</small></div>`).join('')}</div>`;
       }
 
       function inventoryView() {
