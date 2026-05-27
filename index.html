@@ -1081,6 +1081,7 @@
       async function saveCloudDataNow(options = {}) {
         if (!supabaseConfig().ready) return;
         backupLocalData('before_cloud_save');
+        await uploadPendingPhotos();
         const dataToSave = options.clearQueue ? { ...state.data, syncQueue: [] } : state.data;
         await supabaseRequest('app_state?on_conflict=id', {
           method: 'POST',
@@ -1994,7 +1995,7 @@
       function jobPhotosMarkup(job) {
         const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])].slice(0, 4);
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
-        return `<div class="photo-strip">${photos.map((photo) => `<img src="${photo.data}" alt="${photo.kind || 'Foto reporte'}" />`).join('')}</div>`;
+        return `<div class="photo-strip">${photos.map((photo) => `<img src="${photo.url || photo.data}" alt="${photo.kind || 'Foto reporte'}" />`).join('')}</div>`;
       }
 
       function previewJobPdf(id) {
@@ -2632,7 +2633,7 @@
           ...usedParts.map((part) => `${part.part} x${part.quantity}`),
           additionalMaterials
         ].filter(Boolean).join(', ');
-        const photos = await collectReportPhotos(event.target);
+        const photos = await collectReportPhotos(event.target, id);
         const newJob = {
           id,
           ticket,
@@ -2690,19 +2691,19 @@
         return date.toISOString().slice(0, 10);
       }
 
-      async function collectReportPhotos(form) {
+      async function collectReportPhotos(form, jobId) {
         return {
-          before: await readPhotoInput(form.querySelector('input[name="beforePhotos"]'), 'Antes'),
-          after: await readPhotoInput(form.querySelector('input[name="afterPhotos"]'), 'Despues')
+          before: await readPhotoInput(form.querySelector('input[name="beforePhotos"]'), 'Antes', jobId),
+          after: await readPhotoInput(form.querySelector('input[name="afterPhotos"]'), 'Despues', jobId)
         };
       }
 
-      async function readPhotoInput(input, kind) {
+      async function readPhotoInput(input, kind, jobId) {
         const files = Array.from(input?.files || []);
         const photos = [];
         for (const file of files) {
           try {
-            photos.push(await preparePhoto(file, kind));
+            photos.push(await preparePhoto(file, kind, jobId));
           } catch (error) {
             console.error(error);
             alert(`No se pudo cargar la foto ${file.name}. Intente con otra imagen.`);
@@ -2711,15 +2712,16 @@
         return photos;
       }
 
-      async function preparePhoto(file, kind) {
+      async function preparePhoto(file, kind, jobId) {
         const data = file.type.startsWith('image/') ? await compressImage(file) : await readFileAsDataUrl(file);
-        return {
+        const photo = {
           id: Date.now() + Math.random(),
           kind,
           name: file.name,
           data,
           size: data.length
         };
+        return uploadPhotoToStorage(photo, jobId).catch(() => photo);
       }
 
       function readFileAsDataUrl(file) {
@@ -2752,6 +2754,63 @@
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
+      }
+
+      function dataUrlToBlob(dataUrl) {
+        const [header, body] = String(dataUrl).split(',');
+        const mime = header.match(/data:(.*?);base64/)?.[1] || 'image/jpeg';
+        const binary = atob(body || '');
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+        return new Blob([bytes], { type: mime });
+      }
+
+      function safeFileName(name) {
+        return String(name || 'foto.jpg').replace(/[^a-z0-9._-]+/gi, '-').replace(/-+/g, '-');
+      }
+
+      async function uploadPhotoToStorage(photo, jobId) {
+        const config = supabaseConfig();
+        if (!config.ready || !navigator.onLine || !photo?.data || photo.url) return photo;
+        const bucket = 'mg-report-photos';
+        const path = `reports/${jobId || 'pendiente'}/${photo.id}-${safeFileName(photo.name)}`;
+        const blob = dataUrlToBlob(photo.data);
+        const response = await fetch(`${config.url}/storage/v1/object/${bucket}/${path}`, {
+          method: 'POST',
+          headers: {
+            apikey: config.anonKey,
+            Authorization: `Bearer ${config.anonKey}`,
+            'Content-Type': blob.type || 'image/jpeg',
+            'x-upsert': 'true'
+          },
+          body: blob
+        });
+        if (!response.ok) throw new Error(await response.text());
+        return {
+          ...photo,
+          data: '',
+          path,
+          url: `${config.url}/storage/v1/object/public/${bucket}/${path}`
+        };
+      }
+
+      async function uploadPendingPhotos() {
+        if (!supabaseConfig().ready || !navigator.onLine) return;
+        for (const job of state.data.jobs || []) {
+          for (const kind of ['before', 'after']) {
+            const photos = job.photos?.[kind] || [];
+            for (let index = 0; index < photos.length; index += 1) {
+              const photo = photos[index];
+              if (photo?.data && !photo.url) {
+                try {
+                  photos[index] = await uploadPhotoToStorage(photo, job.id);
+                } catch (error) {
+                  console.error(error);
+                }
+              }
+            }
+          }
+        }
       }
 
       function createWarrantyFromReport(job, endDate) {
@@ -3521,7 +3580,7 @@
         job.description = form.get('description');
         job.materials = form.get('materials');
         job.notes = form.get('notes') || job.notes || '';
-        const newPhotos = await collectReportPhotos(event.target);
+        const newPhotos = await collectReportPhotos(event.target, id);
         job.photos ||= { before: [], after: [] };
         job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
