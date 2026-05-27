@@ -999,7 +999,8 @@
         const merged = { ...cloudData };
         const localJobCount = (localData?.jobs || []).length;
         const cloudJobCount = (cloudData?.jobs || []).length;
-        ['jobs', 'clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
+        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs);
+        ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
         merged.users = mergeUsers(cloudData?.users, localData?.users);
@@ -1023,7 +1024,7 @@
         backups.forEach((backup) => {
           const beforeJobs = (data.jobs || []).length;
           const beforeUsers = (data.users || []).length;
-          data.jobs = mergeById(data.jobs, backup.data?.jobs);
+          data.jobs = mergeJobs(data.jobs, backup.data?.jobs);
           data.clients = mergeById(data.clients, backup.data?.clients);
           data.warranties = mergeById(data.warranties, backup.data?.warranties);
           data.movements = mergeById(data.movements, backup.data?.movements);
@@ -1043,6 +1044,46 @@
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(String(item.id), item));
         (localItems || []).forEach((item) => items.set(String(item.id), item));
+        return Array.from(items.values());
+      }
+
+      function mergeJobs(cloudJobs = [], localJobs = []) {
+        const items = new Map();
+        (cloudJobs || []).forEach((job) => items.set(jobMergeKey(job), job));
+        (localJobs || []).forEach((localJob) => {
+          const key = jobMergeKey(localJob);
+          const cloudJob = items.get(key);
+          if (!cloudJob) {
+            items.set(key, localJob);
+            return;
+          }
+          items.set(key, {
+            ...cloudJob,
+            ...localJob,
+            photos: mergeJobPhotos(cloudJob.photos, localJob.photos)
+          });
+        });
+        return Array.from(items.values());
+      }
+
+      function jobMergeKey(job) {
+        return String(job?.id || job?.ticket || '');
+      }
+
+      function mergeJobPhotos(cloudPhotos = {}, localPhotos = {}) {
+        return {
+          before: mergePhotoList(cloudPhotos?.before, localPhotos?.before),
+          after: mergePhotoList(cloudPhotos?.after, localPhotos?.after)
+        };
+      }
+
+      function mergePhotoList(cloudPhotos = [], localPhotos = []) {
+        const items = new Map();
+        [...(cloudPhotos || []), ...(localPhotos || [])].forEach((photo) => {
+          if (!photo) return;
+          const key = photo.path || photo.url || photo.data || photo.name || JSON.stringify(photo);
+          if (!items.has(key)) items.set(key, photo);
+        });
         return Array.from(items.values());
       }
 
