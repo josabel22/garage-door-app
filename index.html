@@ -982,11 +982,11 @@
         ['jobs', 'clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
-        merged.users = cloudData?.users || localData?.users || users;
+        merged.users = mergeUsers(cloudData?.users, localData?.users);
         merged.vehicles = cloudData?.vehicles || localData?.vehicles || [];
         merged.inventory = mergeInventory(cloudData?.inventory, localData?.inventory);
         merged.syncQueue = localData.syncQueue || [];
-        if (localJobCount > cloudJobCount && !merged.syncQueue.length) {
+        if ((localJobCount > cloudJobCount || (localData?.users || []).length > (cloudData?.users || []).length) && !merged.syncQueue.length) {
           merged.syncQueue = [{ id: Date.now(), type: 'recovery', createdAt: new Date().toISOString() }];
         }
         return merged;
@@ -996,6 +996,16 @@
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(String(item.id), item));
         (localItems || []).forEach((item) => items.set(String(item.id), item));
+        return Array.from(items.values());
+      }
+
+      function mergeUsers(cloudUsers = [], localUsers = []) {
+        const items = new Map();
+        (cloudUsers || []).forEach((user) => items.set(String(user.username || user.id), user));
+        (localUsers || []).forEach((user) => {
+          const key = String(user.username || user.id);
+          if (!items.has(key) || user.createdAt || user.active === false) items.set(key, user);
+        });
         return Array.from(items.values());
       }
 
@@ -1126,6 +1136,11 @@
         Object.keys(localStorage)
           .filter((key) => key.startsWith('mg_report_draft_'))
           .forEach((key) => localStorage.removeItem(key));
+      }
+
+      function queuePendingChange(type, id = Date.now()) {
+        state.data.syncQueue ||= [];
+        state.data.syncQueue.push({ id, type, createdAt: new Date().toISOString() });
       }
 
       function appUsers() {
@@ -2974,6 +2989,7 @@
           }
         }
         addUniqueNotification('admin', `Usuario creado: ${user.name}`, 'Usuario');
+        queuePendingChange('user', id);
         save();
         render();
       }
@@ -2998,6 +3014,7 @@
         user.vehicle = user.role === 'technician' ? form.get('vehicle') : '';
         user.active = form.get('active') === 'true';
         syncVehicleAssignments();
+        queuePendingChange('user', id);
         state.modal = null;
         save();
         render();
@@ -3008,6 +3025,7 @@
         if (!user) return;
         user.active = user.active === false;
         addUniqueNotification('admin', `${user.active ? 'Usuario activado' : 'Usuario desactivado'}: ${user.name}`, 'Usuario');
+        queuePendingChange('user', id);
         save();
         render();
       }
@@ -3017,6 +3035,7 @@
         if (!user) return;
         user.password = user.role === 'admin' ? 'admin123' : user.role === 'client' ? 'cliente123' : 'tecnico123';
         alert(`Contrasena restablecida para ${user.name}: ${user.password}`);
+        queuePendingChange('user', id);
         save();
       }
 
@@ -3038,6 +3057,7 @@
         });
         if (state.user?.id === id) logout();
         addUniqueNotification('admin', `Usuario eliminado: ${user?.name || id}`, 'Usuario');
+        queuePendingChange('user', id);
         state.modal = null;
         save();
         render();
@@ -3067,6 +3087,7 @@
           unit.technician = tech.name;
         }
         addUniqueNotification('admin', `Tecnico creado: ${tech.name}`, 'Tecnico');
+        queuePendingChange('user', id);
         save();
         render();
       }
