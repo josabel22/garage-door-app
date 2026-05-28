@@ -922,7 +922,14 @@
           localStorage.setItem('mg_data', JSON.stringify(state.data));
         } catch (error) {
           console.error(error);
-          cloudError = 'No se pudo guardar la copia local. Sincroniza antes de cerrar la app.';
+          try {
+            freeLocalStorageSpace();
+            localStorage.setItem('mg_data', JSON.stringify(state.data));
+            cloudError = 'Se libero espacio local. Sincroniza cuando tengas buena conexion.';
+          } catch (retryError) {
+            console.error(retryError);
+            cloudError = 'No se pudo guardar la copia local. Hay fotos pendientes; sincroniza antes de cerrar la app.';
+          }
         }
       }
 
@@ -936,12 +943,25 @@
             createdAt: new Date().toISOString(),
             jobs: (data.jobs || []).length,
             users: (data.users || []).length,
-            data
+            data: backupSafeData(data)
           });
-          localStorage.setItem('mg_data_backups', JSON.stringify(backups.slice(0, 10)));
+          localStorage.setItem('mg_data_backups', JSON.stringify(backups.slice(0, 3)));
         } catch (error) {
           console.error(error);
+          localStorage.removeItem('mg_data_backups');
         }
+      }
+
+      function freeLocalStorageSpace() {
+        localStorage.removeItem('mg_data_backups');
+        clearReportDrafts();
+        state.data.auditLogs = (state.data.auditLogs || []).slice(0, 80);
+      }
+
+      function backupSafeData(data) {
+        const copy = cloudSafeData(data);
+        copy.auditLogs = (copy.auditLogs || []).slice(0, 80);
+        return copy;
       }
 
       function supabaseConfig() {
@@ -1129,22 +1149,58 @@
         backupLocalData('before_cloud_save');
         await uploadPendingPhotos();
         saveLocalData();
-        const dataToSave = options.clearQueue ? { ...state.data, syncQueue: [] } : state.data;
-        await supabaseRequest('app_state?on_conflict=id', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-          body: JSON.stringify({
-            id: 'production',
-            data: dataToSave,
-            updated_at: new Date().toISOString()
-          })
-        });
-        if (options.clearQueue) {
+        const pendingPhotos = countPendingPhotoUploads(state.data);
+        const cloudData = pendingPhotos ? cloudSafeData(state.data) : state.data;
+        const shouldClearQueue = options.clearQueue && pendingPhotos === 0;
+        const dataToSave = shouldClearQueue ? { ...cloudData, syncQueue: [] } : cloudData;
+        await writeCloudState(dataToSave);
+        if (shouldClearQueue) {
           state.data.syncQueue = [];
           saveLocalData();
         }
         cloudReady = true;
-        cloudError = '';
+        cloudError = pendingPhotos ? `${pendingPhotos} foto(s) pendientes de subir. Usa Sincronizar con buena conexion.` : '';
+      }
+
+      async function writeCloudState(dataToSave) {
+        const payload = {
+          data: dataToSave,
+          updated_at: new Date().toISOString()
+        };
+        const updated = await supabaseRequest('app_state?id=eq.production', {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        if (Array.isArray(updated) && updated.length) return updated;
+        return supabaseRequest('app_state?on_conflict=id', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify({ id: 'production', ...payload })
+        });
+      }
+
+      function countPendingPhotoUploads(data) {
+        return (data?.jobs || []).reduce((total, job) => {
+          const before = (job.photos?.before || []).filter((photo) => photo?.data && !photo.url).length;
+          const after = (job.photos?.after || []).filter((photo) => photo?.data && !photo.url).length;
+          return total + before + after;
+        }, 0);
+      }
+
+      function cloudSafeData(data) {
+        const copy = JSON.parse(JSON.stringify(data));
+        (copy.jobs || []).forEach((job) => {
+          ['before', 'after'].forEach((kind) => {
+            job.photos ||= { before: [], after: [] };
+            job.photos[kind] = (job.photos[kind] || []).map((photo) => {
+              if (!photo?.data || photo.url) return photo;
+              const { data: _data, ...rest } = photo;
+              return { ...rest, pendingUpload: true };
+            });
+          });
+        });
+        copy.auditLogs = (copy.auditLogs || []).slice(0, 150);
+        return copy;
       }
 
       function normalizeData() {
@@ -2793,14 +2849,14 @@
           reader.onload = () => {
             const image = new Image();
             image.onload = () => {
-              const maxSide = 1200;
+              const maxSide = 900;
               const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
               const canvas = document.createElement('canvas');
               canvas.width = Math.max(1, Math.round(image.width * scale));
               canvas.height = Math.max(1, Math.round(image.height * scale));
               const ctx = canvas.getContext('2d');
               ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-              resolve(canvas.toDataURL('image/jpeg', 0.72));
+              resolve(canvas.toDataURL('image/jpeg', 0.58));
             };
             image.onerror = () => resolve(reader.result);
             image.src = reader.result;
@@ -2846,6 +2902,7 @@
         return {
           ...photo,
           data: '',
+          pendingUpload: false,
           path,
           url: `${config.url}/storage/v1/object/public/${bucket}/${path}`
         };
@@ -3648,6 +3705,7 @@
         job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
         await uploadPendingPhotosForJob(job);
+        queuePendingChange('report_update', id);
         job.warranty = form.get('warranty') || job.warranty;
         job.warrantyEnd = form.get('warrantyEnd') || job.warrantyEnd || '';
         if (tech) {
@@ -3765,7 +3823,7 @@
           })
           .catch(() => {
             cloudReady = false;
-            cloudError = 'No se pudo sincronizar. Los cambios siguen guardados localmente.';
+            cloudError = 'No se pudo sincronizar. Revisa conexion y vuelve a tocar Sincronizar.';
             saveLocalData();
             render();
             alert('No se pudo sincronizar con Supabase. Los reportes siguen guardados en este dispositivo.');
@@ -3782,6 +3840,7 @@
           .catch(() => {
             cloudReady = false;
             cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
+            saveLocalData();
             render();
           });
       }
