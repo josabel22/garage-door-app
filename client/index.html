@@ -1885,7 +1885,7 @@
           <section class="grid content-grid">
             <div class="panel">
               <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
-              <div class="panel-body">${jobsTable(jobs, true)}</div>
+              <div class="panel-body">${jobsTable(jobs)}</div>
             </div>
             <div class="panel">
               <div class="panel-header"><h3>Alertas importantes</h3></div>
@@ -2421,13 +2421,14 @@
               <div class="panel-body list">
                 ${state.data.vehicles.map((vehicle) => {
                   const inventory = state.data.inventory.filter((item) => item.vehicle === vehicle.code);
+                  const lowInventory = inventory.filter((item) => item.qty <= item.min);
                   const movements = state.data.movements.filter((move) => move.vehicle === vehicle.code);
                   return `<div class="list-item">
                     <strong>${vehicle.code}  -  ${vehicle.name}</strong> <span class="pill">${vehicle.active ? 'Activa' : 'Inactiva'}</span><br>
                     Placa: ${vehicle.plate || 'Sin placa'}  -  Tecnico: ${vehicle.technician || 'Sin asignar'}<br>
                     ${vehicle.notes || 'Sin observaciones'}
                     <div class="history-grid" style="margin-top:10px;">
-                      <div><strong>Inventario</strong><br>${inventory.map((item) => `${item.part}: ${item.qty}`).join('<br>') || 'Sin inventario'}</div>
+                      <div><strong>Inventario</strong><br>${inventory.length} repuestos registrados<br>${lowInventory.length ? `${lowInventory.length} con stock bajo` : 'Stock disponible'}</div>
                       <div><strong>Movimientos</strong><br>${movements.slice(0, 4).map((move) => `${move.date}  -  ${move.material}`).join('<br>') || 'Sin movimientos'}</div>
                     </div>
                     <div class="toolbar" style="margin-top:12px;">
