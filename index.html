@@ -2223,7 +2223,7 @@
               </div>
               <div class="panel-body">
                 <div class="toolbar" style="margin-bottom:12px;">
-                  <input id="inventorySearch" oninput="filterInventoryView(this.value)" placeholder="Buscar repuesto, movil o estado" />
+                  ${state.user.role === 'admin' ? '' : '<input id="inventorySearch" oninput="filterInventoryView(this.value)" placeholder="Buscar repuesto, movil o estado" />'}
                   <button class="btn secondary" onclick="printLowStockPdf()">PDF reposicion (${lowItems.length})</button>
                 </div>
                 <div id="inventoryResults">${state.user.role === 'admin' ? adminInventoryGroupsMarkup(items) : inventoryTableMarkup(items)}</div>
@@ -2313,21 +2313,36 @@
           const vehicleItems = items.filter((item) => item.vehicle === vehicle.code);
           if (text && !vehicleItems.length) return '';
           const lowCount = vehicleItems.filter((item) => item.qty <= item.min).length;
+          const targetId = `inventoryPanel-${safeDomId(vehicle.code)}`;
           return `
-            <div class="list-item" style="margin-bottom:12px;">
-              <div class="panel-header" style="padding:0 0 10px 0; border:0;">
-                <h3>${vehicle.code}  -  ${vehicle.name || 'Movil'}</h3>
-                <span class="pill">${vehicleItems.length} repuestos${lowCount ? `  -  ${lowCount} bajos` : ''}</span>
-              </div>
-              ${inventoryTableMarkup(vehicleItems)}
+            <details class="list-item" style="margin-bottom:12px;" ${text || lowCount ? 'open' : ''}>
+              <summary style="cursor:pointer; list-style:none;">
+                <div class="panel-header" style="padding:0; border:0;">
+                  <h3>${vehicle.code}  -  ${vehicle.name || 'Movil'}</h3>
+                  <span class="pill">${vehicleItems.length} repuestos${lowCount ? `  -  ${lowCount} bajos` : ''}</span>
+                </div>
+              </summary>
               <div class="toolbar" style="margin-top:10px;">
+                <input oninput="filterVehicleInventoryPanel('${vehicle.code}', this.value)" placeholder="Buscar repuesto en ${vehicle.code}" />
                 <button class="btn secondary" onclick="openInventoryCreate('${vehicle.code}')">Agregar repuesto</button>
                 <button class="btn secondary" onclick="openVehicleInventory(${vehicle.id})">Abrir ventana</button>
               </div>
-            </div>
+              <div id="${targetId}" style="margin-top:10px;">${inventoryTableMarkup(vehicleItems)}</div>
+            </details>
           `;
         }).join('');
         return groups || '<div class="list-item">Sin repuestos encontrados.</div>';
+      }
+
+      function filterVehicleInventoryPanel(vehicleCode, query) {
+        const target = document.getElementById(`inventoryPanel-${safeDomId(vehicleCode)}`);
+        if (!target) return;
+        const items = filterInventoryItems(scopedInventory().filter((item) => item.vehicle === vehicleCode), query);
+        target.innerHTML = inventoryTableMarkup(items);
+      }
+
+      function safeDomId(value) {
+        return String(value || '').replace(/[^a-z0-9_-]+/gi, '-');
       }
 
       function printLowStockPdf() {
