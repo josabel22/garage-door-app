@@ -2213,28 +2213,20 @@
 
       function inventoryView() {
         const items = scopedInventory();
+        const lowItems = items.filter((item) => item.qty <= item.min);
         return `
           <section class="grid content-grid">
             <div class="panel">
-              <div class="panel-header"><h3>Inventario por movil</h3><span class="pill">${items.length} repuestos</span></div>
+              <div class="panel-header">
+                <h3>${state.user.role === 'admin' ? 'Inventario por movil' : 'Inventario'}</h3>
+                <span class="pill">${items.length} repuestos</span>
+              </div>
               <div class="panel-body">
-                <div class="table-wrap">
-                  <table>
-                    <thead><tr><th>Movil</th><th>Repuesto</th><th>Cantidad</th><th>Minimo</th><th>Estado</th><th>Acciones</th></tr></thead>
-                    <tbody>
-                      ${items.map((item) => `
-                        <tr>
-                          <td data-label="Movil">${item.vehicle}</td>
-                          <td data-label="Repuesto"><strong>${item.part}</strong></td>
-                          <td data-label="Cantidad">${item.qty}</td>
-                          <td data-label="Minimo">${item.min}</td>
-                          <td data-label="Estado"><span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span></td>
-                          <td data-label="Acciones"><button class="btn secondary" onclick="adjustInventory('${item.id}')">Ajustar</button>${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button> <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>` : ''}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
+                <div class="toolbar" style="margin-bottom:12px;">
+                  <input id="inventorySearch" oninput="filterInventoryView(this.value)" placeholder="Buscar repuesto, movil o estado" />
+                  <button class="btn secondary" onclick="printLowStockPdf()">PDF reposicion (${lowItems.length})</button>
                 </div>
+                <div id="inventoryResults">${state.user.role === 'admin' ? adminInventoryGroupsMarkup(items) : inventoryTableMarkup(items)}</div>
                 <br />
                 <h3 style="color:var(--navy);">Bitacora de movimientos</h3>
                 <div class="list">
@@ -2265,6 +2257,140 @@
             ` : ''}
           </section>
         `;
+      }
+
+      function filterInventoryView(query) {
+        const target = document.getElementById('inventoryResults');
+        if (!target) return;
+        const items = filterInventoryItems(scopedInventory(), query);
+        target.innerHTML = state.user.role === 'admin' ? adminInventoryGroupsMarkup(items, query) : inventoryTableMarkup(items);
+      }
+
+      function filterInventoryItems(items, query) {
+        const text = String(query || '').trim().toLowerCase();
+        if (!text) return items;
+        return items.filter((item) => [
+          item.vehicle,
+          item.part,
+          item.qty <= item.min ? 'stock bajo' : 'disponible'
+        ].some((value) => String(value || '').toLowerCase().includes(text)));
+      }
+
+      function inventoryTableMarkup(items) {
+        return `
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Movil</th><th>Repuesto</th><th>Cantidad</th><th>Minimo</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                ${items.map(inventoryTableRow).join('') || '<tr><td colspan="6">Sin repuestos encontrados.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function inventoryTableRow(item) {
+        return `
+          <tr>
+            <td data-label="Movil">${item.vehicle}</td>
+            <td data-label="Repuesto"><strong>${item.part}</strong></td>
+            <td data-label="Cantidad">${item.qty}</td>
+            <td data-label="Minimo">${item.min}</td>
+            <td data-label="Estado"><span class="pill">${item.qty <= item.min ? 'Stock bajo' : 'Disponible'}</span></td>
+            <td data-label="Acciones">${inventoryActionButtons(item)}</td>
+          </tr>
+        `;
+      }
+
+      function inventoryActionButtons(item) {
+        return `<button class="btn secondary" onclick="adjustInventory('${item.id}')">Ajustar</button>${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button> <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>` : ''}`;
+      }
+
+      function adminInventoryGroupsMarkup(items, query = '') {
+        const text = String(query || '').trim();
+        const vehicles = state.data.vehicles || [];
+        const groups = vehicles.map((vehicle) => {
+          const vehicleItems = items.filter((item) => item.vehicle === vehicle.code);
+          if (text && !vehicleItems.length) return '';
+          const lowCount = vehicleItems.filter((item) => item.qty <= item.min).length;
+          return `
+            <div class="list-item" style="margin-bottom:12px;">
+              <div class="panel-header" style="padding:0 0 10px 0; border:0;">
+                <h3>${vehicle.code}  -  ${vehicle.name || 'Movil'}</h3>
+                <span class="pill">${vehicleItems.length} repuestos${lowCount ? `  -  ${lowCount} bajos` : ''}</span>
+              </div>
+              ${inventoryTableMarkup(vehicleItems)}
+              <div class="toolbar" style="margin-top:10px;">
+                <button class="btn secondary" onclick="openInventoryCreate('${vehicle.code}')">Agregar repuesto</button>
+                <button class="btn secondary" onclick="openVehicleInventory(${vehicle.id})">Abrir ventana</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+        return groups || '<div class="list-item">Sin repuestos encontrados.</div>';
+      }
+
+      function printLowStockPdf() {
+        const items = scopedInventory().filter((item) => item.qty <= item.min);
+        if (!items.length) return alert('No hay repuestos bajos para reponer.');
+        const rows = items.map((item) => `
+          <tr>
+            <td>${escapeText(item.vehicle)}</td>
+            <td>${escapeText(item.part)}</td>
+            <td>${item.qty}</td>
+            <td>${item.min}</td>
+            <td>${Math.max(1, Number(item.min || 0) - Number(item.qty || 0))}</td>
+          </tr>
+        `).join('');
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert('Permita ventanas emergentes para generar el PDF.');
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Reposicion de inventario bajo</title>
+              <style>
+                body { font-family: Arial, sans-serif; color: #0f2a44; padding: 24px; }
+                header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f2a44; padding-bottom: 12px; margin-bottom: 18px; }
+                img { width: 140px; max-height: 70px; object-fit: contain; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #d9e2ec; padding: 9px; text-align: left; }
+                th { background: #e8eef5; }
+                .note { margin-top: 18px; border: 1px solid #d9e2ec; padding: 12px; min-height: 70px; }
+              </style>
+            </head>
+            <body>
+              <header>
+                <div style="display:flex; gap:14px; align-items:center;">
+                  <img src="./mg-logo.jpg" alt="MG Portones" />
+                  <div>
+                    <h2>MG Portones</h2>
+                    <strong>Solicitud de reposicion de inventario bajo</strong><br>
+                    <small>Telefono: 83124541 | Correo: mgportoelectricos@yahoo.es</small>
+                  </div>
+                </div>
+                <div><strong>Fecha</strong><br>${today(0)}</div>
+              </header>
+              <table>
+                <thead><tr><th>Movil</th><th>Repuesto</th><th>Actual</th><th>Minimo</th><th>Solicitar</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+              <div class="note"><strong>Notas de compra / proveedor</strong></div>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 350);
+      }
+
+      function escapeText(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[char]));
       }
 
       function vehiclesView() {

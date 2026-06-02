@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v31';
+const CACHE_NAME = 'mg-portones-v32';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './mg-logo.jpg', './supabase-config.js'];
 
 self.addEventListener('install', (event) => {
