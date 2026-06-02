@@ -1242,6 +1242,8 @@
           cleanJob.gps ||= '';
           cleanJob.arrival ||= '';
           cleanJob.departure ||= '';
+          cleanJob.motorCount ||= Number(cleanJob.motorBrands?.length || 0);
+          cleanJob.motorBrands ||= [];
           return cleanJob;
         });
         state.data.inventory = (state.data.inventory || []).map((item, index) => {
@@ -1883,7 +1885,7 @@
           <section class="grid content-grid">
             <div class="panel">
               <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
-              <div class="panel-body">${jobsTable(jobs)}</div>
+              <div class="panel-body">${jobsTable(jobs, true)}</div>
             </div>
             <div class="panel">
               <div class="panel-header"><h3>Alertas importantes</h3></div>
@@ -1909,7 +1911,7 @@
             <div class="panel-header">
               <h3>Reportes de trabajo</h3>
               <div class="toolbar">
-                ${state.user.role === 'admin' ? adminReportFilters() : ''}
+                ${reportFilters()}
                 <button class="btn secondary" onclick="alert('Use el boton PDF de la fila del reporte que desea imprimir.')">PDF por reporte</button>
                 <button class="btn" onclick="openReportForm()">Crear reporte</button>
               </div>
@@ -1922,7 +1924,7 @@
         `;
       }
 
-      function adminReportFilters() {
+      function reportFilters() {
         return `
           <input id="reportFilterText" oninput="filterReports()" placeholder="Cliente, boleta, tecnico o movil" />
           <input id="reportFilterDate" type="date" onchange="filterReports()" />
@@ -1965,12 +1967,14 @@
                 <label>Estado<select name="status">${statuses().map((s) => `<option>${s}</option>`).join('')}</select></label>
                 ${adminFields}
                 <label>Garantia<select name="warranty"><option>Pendiente</option><option>Activa</option><option>Sin garantia</option></select></label>
-                <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" /></label>
-                <label>Unidad garantia<select name="warrantyUnit"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
+                <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" oninput="updateWarrantyEnd()" /></label>
+                <label>Unidad garantia<select name="warrantyUnit" onchange="updateWarrantyEnd()"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
                 <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
-                <label>Tiempo trabajado<input name="time" placeholder="2h 30m" /></label>
-                <label>Hora llegada<input name="arrival" type="time" /></label>
-                <label>Hora salida<input name="departure" type="time" /></label>
+                <label>Tiempo trabajado<input name="time" placeholder="2h 30m" readonly /></label>
+                <label>Hora llegada<input name="arrival" type="time" oninput="updateWorkedTime()" /></label>
+                <label>Hora salida<input name="departure" type="time" oninput="updateWorkedTime()" /></label>
+                <label>Cantidad de motores<select name="motorCount" onchange="updateMotorBrandFields(this.value)"><option value="0">Sin motor</option><option value="1">1 motor</option><option value="2">2 motores</option><option value="3">3 motores</option><option value="4">4 motores</option><option value="5">5 motores</option></select></label>
+                <div id="motorBrandFields" class="full">${motorBrandFieldsMarkup(0)}</div>
                 <label class="full">Descripcion del trabajo<textarea name="description" required>${reportDraftValue('description')}</textarea></label>
                 <label class="full">Notas<textarea name="notes" placeholder="Observaciones internas del servicio">${reportDraftValue('notes')}</textarea></label>
                 <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user.role === 'admin' ? technicians()[0] : state.user)}</div>
@@ -2178,6 +2182,7 @@
               <div class="pdf-box"><strong>Direccion</strong><br>${job.address || 'Sin direccion'}</div>
               <div class="pdf-box"><strong>Tecnico</strong><br>${job.technician || 'Sin asignar'}<br>${job.vehicle || ''}</div>
               <div class="pdf-box"><strong>Estado / Garantia</strong><br>${job.status}<br>${job.warranty || 'Sin garantia'} ${job.warrantyEnd ? ' -  vence ' + job.warrantyEnd : ''}</div>
+              <div class="pdf-box"><strong>Motores</strong><br>${motorBrandsText(job)}</div>
             </section>
             <br>
             <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${job.description || 'Sin descripcion'}</section>
@@ -2190,7 +2195,7 @@
             ${reportPrintPhotos(job)}
             <br>
             <section class="pdf-grid">
-              <div class="pdf-box"><strong>Hora llegada</strong><br>${job.arrival || 'Pendiente'}<br><strong>Hora salida</strong><br>${job.departure || 'Pendiente'}</div>
+              <div class="pdf-box"><strong>Hora llegada</strong><br>${job.arrival || 'Pendiente'}<br><strong>Hora salida</strong><br>${job.departure || 'Pendiente'}<br><strong>Tiempo trabajado</strong><br>${job.time || workedTimeLabel(job.arrival, job.departure) || 'Pendiente'}</div>
               <div class="pdf-box"><strong>GPS</strong><br>${job.gps || 'Pendiente'}</div>
             </section>
             <br><br>
@@ -2885,6 +2890,7 @@
           additionalMaterials
         ].filter(Boolean).join(', ');
         const photos = await collectReportPhotos(event.target, id);
+        const motorBrands = collectMotorBrands(event.target);
         const newJob = {
           id,
           ticket,
@@ -2902,6 +2908,9 @@
           description: form.get('description'),
           notes: form.get('notes'),
           photos,
+          time: form.get('time') || workedTimeLabel(form.get('arrival'), form.get('departure')),
+          motorCount: Number(form.get('motorCount') || motorBrands.length || 0),
+          motorBrands,
           materials,
           warranty: warrantyLabel(form.get('warranty'), warrantyEnd),
           warrantyEnd,
@@ -2941,6 +2950,72 @@
         if (unit === 'weeks') date.setDate(date.getDate() + amount * 7);
         if (unit === 'months') date.setMonth(date.getMonth() + amount);
         return date.toISOString().slice(0, 10);
+      }
+
+      function updateWarrantyEnd() {
+        const duration = document.querySelector('input[name="warrantyDuration"]')?.value;
+        const unit = document.querySelector('select[name="warrantyUnit"]')?.value;
+        const target = document.querySelector('input[name="warrantyEnd"]');
+        if (target) target.value = calculateWarrantyEnd(duration, unit, target.value);
+        persistReportDraftFromDom();
+      }
+
+      function updateWorkedTime() {
+        const arrival = document.querySelector('input[name="arrival"]')?.value;
+        const departure = document.querySelector('input[name="departure"]')?.value;
+        const target = document.querySelector('input[name="time"]');
+        if (target) target.value = workedTimeLabel(arrival, departure);
+        persistReportDraftFromDom();
+      }
+
+      function workedTimeLabel(arrival, departure) {
+        const minutes = workedMinutes(arrival, departure);
+        if (!minutes) return '';
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+        return `${hours ? `${hours}h ` : ''}${rest}m`.trim();
+      }
+
+      function workedMinutes(arrival, departure) {
+        if (!arrival || !departure) return 0;
+        const [arrivalHour, arrivalMinute] = String(arrival).split(':').map(Number);
+        const [departureHour, departureMinute] = String(departure).split(':').map(Number);
+        if ([arrivalHour, arrivalMinute, departureHour, departureMinute].some(Number.isNaN)) return 0;
+        const start = arrivalHour * 60 + arrivalMinute;
+        let end = departureHour * 60 + departureMinute;
+        if (end < start) end += 24 * 60;
+        return Math.max(0, end - start);
+      }
+
+      function motorBrandFieldsMarkup(count) {
+        const total = Math.max(0, Math.min(5, Number(count) || 0));
+        if (!total) return '<div class="list-item"><strong>Motores</strong><br>Sin marcas de motor para este reporte.</div>';
+        return `
+          <div class="list-item">
+            <strong>Marcas de motor</strong><br>
+            <div class="form-grid" style="margin-top:10px;">
+              ${Array.from({ length: total }, (_, index) => `<label>Motor ${index + 1}<input name="motorBrand" placeholder="Marca del motor ${index + 1}" /></label>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function updateMotorBrandFields(count) {
+        const target = document.getElementById('motorBrandFields');
+        if (target) target.innerHTML = motorBrandFieldsMarkup(count);
+        persistReportDraftFromDom();
+      }
+
+      function collectMotorBrands(form) {
+        return Array.from(form.querySelectorAll('input[name="motorBrand"]'))
+          .map((input) => String(input.value || '').trim())
+          .filter(Boolean);
+      }
+
+      function motorBrandsText(job) {
+        const brands = job.motorBrands || [];
+        if (!brands.length) return 'Sin motores registrados';
+        return brands.map((brand, index) => `Motor ${index + 1}: ${brand}`).join('<br>');
       }
 
       async function collectReportPhotos(form, jobId) {
