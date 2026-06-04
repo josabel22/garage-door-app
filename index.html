@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f2a44" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MG Portones" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./mg-icon-192.png" />
     <title>MG Portones | Gestion Operativa</title>
@@ -906,6 +910,7 @@
       let cloudReady = false;
       let cloudError = '';
       let cloudSaveTimer = null;
+      let deferredInstallPrompt = null;
 
       function today(offset) {
         const date = new Date();
@@ -1485,6 +1490,7 @@
               <div style="margin-top:auto; display:grid; gap:10px;">
                 <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
+                <button class="btn secondary" onclick="installApp()">Instalar app</button>
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
             </aside>
@@ -2186,11 +2192,11 @@
               <div class="pdf-box"><strong>Motores</strong><br>${motorBrandsText(job)}</div>
             </section>
             <br>
-            <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${job.description || 'Sin descripcion'}</section>
+            <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${formatMultiline(job.description, 'Sin descripcion')}</section>
             <br>
-            <section class="pdf-box"><strong>Repuestos utilizados</strong><br>${job.materials || 'Sin repuestos registrados'}</section>
+            <section class="pdf-box"><strong>Repuestos utilizados</strong><br>${formatMultiline(job.materials, 'Sin repuestos registrados')}</section>
             <br>
-            <section class="pdf-box"><strong>Notas</strong><br>${job.notes || 'Sin notas'}</section>
+            <section class="pdf-box"><strong>Notas</strong><br>${formatMultiline(job.notes, 'Sin notas')}</section>
             <br>
             <h3>Fotografias</h3>
             ${reportPrintPhotos(job)}
@@ -2412,6 +2418,12 @@
           '"': '&quot;',
           "'": '&#39;'
         }[char]));
+      }
+
+      function formatMultiline(value, fallback = '') {
+        const text = String(value || '').trim();
+        if (!text) return escapeText(fallback);
+        return escapeText(text).replace(/\r?\n/g, '<br>');
       }
 
       function vehiclesView() {
@@ -4091,8 +4103,26 @@
         document.getElementById('reportResults').innerHTML = jobsTable(results, true);
       }
 
+      async function installApp() {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          await deferredInstallPrompt.userChoice.catch(() => null);
+          deferredInstallPrompt = null;
+          return;
+        }
+        alert('Si no aparece instalar: abre esta app en Chrome, toca los 3 puntos y elige "Agregar a pantalla principal" o "Instalar app". En algunos Redmi el navegador de Xiaomi no muestra la opcion; usa Chrome.');
+      }
+
       window.addEventListener('online', syncPendingWhenOnline);
       window.addEventListener('offline', render);
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        render();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+      });
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
