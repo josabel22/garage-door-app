@@ -1176,7 +1176,7 @@
           saveLocalData();
         }
         cloudReady = true;
-        cloudError = pendingPhotos ? `${pendingPhotos} foto(s) pendientes de subir. Usa Sincronizar con buena conexion.` : '';
+        cloudError = pendingPhotos ? `Datos sincronizados; faltan ${pendingPhotos} foto(s) por subir. Toca Sincronizar de nuevo.` : '';
       }
 
       async function writeCloudState(dataToSave) {
@@ -3164,7 +3164,7 @@
         const path = `reports/${jobId || 'pendiente'}/${photo.id}-${safeFileName(photo.name)}`;
         const blob = dataUrlToBlob(photo.data);
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 20000);
+        const timeout = window.setTimeout(() => controller.abort(), 45000);
         const response = await fetch(`${config.url}/storage/v1/object/${bucket}/${path}`, {
           method: 'POST',
           signal: controller.signal,
@@ -4099,8 +4099,9 @@
         }
         saveCloudDataNow({ clearQueue: true })
           .then(() => {
+            const pendingPhotos = countPendingPhotoUploads(state.data);
             render();
-            alert('Sincronizacion con Supabase completada.');
+            alert(pendingPhotos ? `Datos sincronizados. Todavia faltan ${pendingPhotos} foto(s) por subir; toca Sincronizar otra vez.` : 'Sincronizacion con Supabase completada.');
           })
           .catch(() => {
             cloudReady = false;
