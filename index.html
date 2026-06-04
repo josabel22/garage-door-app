@@ -898,6 +898,8 @@
         auditoria: 'Auditoria'
       };
 
+      const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
+
       const state = {
         user: JSON.parse(localStorage.getItem('mg_user') || 'null'),
         data: JSON.parse(localStorage.getItem('mg_data') || 'null') || seed,
@@ -1035,6 +1037,7 @@
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
         merged.users = mergeUsers(cloudData?.users, localData?.users);
+        merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
         merged.vehicles = cloudData?.vehicles || localData?.vehicles || [];
         merged.inventory = mergeInventory(cloudData?.inventory, localData?.inventory);
         merged.syncQueue = localData.syncQueue || [];
@@ -1062,6 +1065,7 @@
           data.notifications = mergeById(data.notifications, backup.data?.notifications);
           data.auditLogs = mergeById(data.auditLogs, backup.data?.auditLogs);
           data.users = mergeUsers(data.users, backup.data?.users);
+          data.deletedUsers = mergeDeletedUsers(data.deletedUsers, backup.data?.deletedUsers);
           if ((data.jobs || []).length > beforeJobs || (data.users || []).length > beforeUsers) recovered = true;
         });
         if (recovered) {
@@ -1124,6 +1128,15 @@
         (localUsers || []).forEach((user) => {
           const key = String(user.username || user.id);
           if (!items.has(key) || user.createdAt || user.active === false) items.set(key, user);
+        });
+        return Array.from(items.values());
+      }
+
+      function mergeDeletedUsers(cloudDeleted = [], localDeleted = []) {
+        const items = new Map();
+        [...(cloudDeleted || []), ...(localDeleted || [])].forEach((item) => {
+          const key = String(item?.username || item?.id || '');
+          if (key) items.set(key, item);
         });
         return Array.from(items.values());
       }
@@ -1221,6 +1234,7 @@
         state.data.notifications ||= [];
         state.data.movements ||= [];
         state.data.auditLogs ||= [];
+        state.data.deletedUsers ||= [];
         state.data.users = state.data.users.map((user) => ({
           phone: '',
           email: '',
@@ -1231,6 +1245,7 @@
         state.data.users = state.data.users.filter((user, index, list) => (
           index === list.findIndex((item) => item.username === user.username || item.id === user.id)
         ));
+        state.data.users = state.data.users.filter((user) => !isDeletedUser(user));
         state.data.vehicles = state.data.vehicles.filter((vehicle, index, list) => (
           index === list.findIndex((item) => item.code === vehicle.code)
         ));
@@ -1304,7 +1319,30 @@
       }
 
       function appUsers() {
-        return state.data.users || users;
+        return (state.data.users || users).filter((user) => !isDeletedUser(user) && !isRetiredSeedUser(user));
+      }
+
+      function isRetiredSeedUser(user) {
+        return retiredSeedUsernames.includes(String(user?.username || '').toLowerCase());
+      }
+
+      function isDeletedUser(user) {
+        return (state.data.deletedUsers || []).some((deleted) => (
+          String(deleted.id || '') === String(user?.id || '') ||
+          String(deleted.username || '').toLowerCase() === String(user?.username || '').toLowerCase()
+        ));
+      }
+
+      function rememberDeletedUser(user) {
+        if (!user) return;
+        state.data.deletedUsers ||= [];
+        state.data.deletedUsers = mergeDeletedUsers(state.data.deletedUsers, [{
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+          deletedAt: new Date().toISOString()
+        }]);
       }
 
       function setUser(user) {
@@ -1324,6 +1362,16 @@
       function scopedInventory() {
         if (state.user.role === 'admin') return state.data.inventory;
         return state.data.inventory.filter((item) => item.vehicle === state.user.vehicle);
+      }
+
+      function scopedMovements() {
+        if (state.user.role === 'admin') return state.data.movements || [];
+        return (state.data.movements || []).filter((move) => String(move.technician || '') === String(state.user.name || ''));
+      }
+
+      function scopedAuditLogs() {
+        if (state.user.role === 'admin') return state.data.auditLogs || [];
+        return (state.data.auditLogs || []).filter((item) => String(item.user || '') === String(state.user.name || ''));
       }
 
       function inventoryForVehicle(vehicle) {
@@ -1441,8 +1489,8 @@
 
       function logFieldChanges(entity, beforeValue, afterValue, fields) {
         fields.forEach((field) => {
-          const beforeField = beforeValue?.[field]  -  '';
-          const afterField = afterValue?.[field]  -  '';
+          const beforeField = beforeValue?.[field] ?? '';
+          const afterField = afterValue?.[field] ?? '';
           if (String(beforeField) === String(afterField)) return;
           logAudit(`Modificar ${field}`, entity, { [field]: beforeField }, { [field]: afterField });
         });
@@ -2226,6 +2274,7 @@
       function inventoryView() {
         const items = scopedInventory();
         const lowItems = items.filter((item) => item.qty <= item.min);
+        const movementRows = scopedMovements();
         return `
           <section class="grid content-grid">
             <div class="panel">
@@ -2242,7 +2291,7 @@
                 <br />
                 <h3 style="color:var(--navy);">Bitacora de movimientos</h3>
                 <div class="list">
-                  ${(state.data.movements || []).slice(0, 8).map((move) => `<div class="list-item"><strong>${move.material}</strong>  -  ${move.action || 'Consumo'}  -  ${move.quantity}<br>${move.technician}  -  ${move.vehicle}  -  ${move.date}  -  ${move.ticket || 'Sin boleta'}  -  ${move.before} -> ${move.after}</div>`).join('') || '<div class="list-item">Sin movimientos registrados todavia.</div>'}
+                  ${movementRows.slice(0, 8).map((move) => `<div class="list-item"><strong>${move.material}</strong>  -  ${move.action || 'Consumo'}  -  ${move.quantity}<br>${move.technician}  -  ${move.vehicle}  -  ${move.date}  -  ${move.ticket || 'Sin boleta'}  -  ${move.before} -> ${move.after}</div>`).join('') || '<div class="list-item">Sin movimientos registrados todavia.</div>'}
                 </div>
               </div>
             </div>
@@ -2694,7 +2743,7 @@
       }
 
       function auditView() {
-        const rows = state.data.auditLogs || [];
+        const rows = scopedAuditLogs();
         return `
           <section class="panel">
             <div class="panel-header"><h3>Auditoria</h3><span class="pill">${rows.length} acciones</span></div>
@@ -3505,6 +3554,7 @@
 
       function confirmUserDelete(id) {
         const user = state.data.users.find((item) => item.id === id);
+        rememberDeletedUser(user);
         state.data.users = state.data.users.filter((item) => item.id !== id);
         state.data.vehicles.forEach((vehicle) => {
           if (vehicle.technicianId === id) {
@@ -3586,6 +3636,7 @@
       function deleteTechnician(id) {
         const tech = state.data.users.find((user) => user.id === id);
         if (!tech || !confirm(`Eliminar tecnico ${tech.name}? Sus trabajos anteriores se conservaran.`)) return;
+        rememberDeletedUser(tech);
         state.data.users = state.data.users.filter((user) => user.id !== id);
         state.data.vehicles.forEach((vehicle) => {
           if (vehicle.technicianId === id) {
@@ -3898,6 +3949,7 @@
         state.data.notifications = (state.data.notifications || []).filter((notification) => !String(notification.text || '').includes(job.ticket));
         logAudit('Eliminar reporte', 'Reporte', job, null);
         state.modal = null;
+        queuePendingChange('user', id);
         save();
         render();
       }
