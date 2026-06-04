@@ -1561,6 +1561,7 @@
                 </div>
                 <div class="toolbar">
                   <button class="btn secondary" onclick="syncNow()">Sincronizar</button>
+                  ${state.user.role === 'admin' ? '<button class="btn secondary" onclick="downloadBackup()">Descargar respaldo</button>' : ''}
                   <button class="btn" onclick="newReportShortcut()">Nuevo reporte</button>
                 </div>
               </header>
@@ -2206,17 +2207,29 @@
                 .pdf-box { border: 1px solid #d9e2ec; border-radius: 8px; padding: 10px; background: #fbfdff; }
                 .pdf-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
                 .pdf-photo-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border: 1px solid #d9e2ec; border-radius: 8px; }
+                .pdf-photo-item:empty { display: none; }
                 .signature-line { border-top: 1px solid #172033; padding-top: 8px; min-height: 48px; }
                 @media print { body { padding: 0; } .pdf-preview { max-width: none; } }
                 @media (max-width: 700px) { .pdf-grid, .pdf-photo-grid { grid-template-columns: 1fr; } body { padding: 12px; } }
               </style>
             </head>
-            <body>${reportPrintTemplate(job)}</body>
+            <body>
+              ${reportPrintTemplate(job)}
+              <script>
+                function removeBrokenPhotos() {
+                  document.querySelectorAll('.pdf-photo-grid img').forEach((image) => {
+                    if (image.complete && image.naturalWidth === 0) image.parentElement.remove();
+                  });
+                }
+                window.addEventListener('load', removeBrokenPhotos);
+                setTimeout(removeBrokenPhotos, 500);
+              <\/script>
+            </body>
           </html>
         `);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => printWindow.print(), 350);
+        setTimeout(() => printWindow.print(), 900);
       }
 
       function pdfFileName(job) {
@@ -2278,7 +2291,7 @@
           ...(job.photos?.after || []).map((photo) => ({ ...photo, label: 'Despues' }))
         ].filter((photo) => photoUrl(photo));
         if (!photos.length) return '<div class="pdf-box">Sin fotografias adjuntas.</div>';
-        return `<div class="pdf-photo-grid">${photos.map((photo) => `<div><img src="${photoUrl(photo)}" alt="${photo.label}" /><small>${photo.label}</small></div>`).join('')}</div>`;
+        return `<div class="pdf-photo-grid">${photos.map((photo) => `<div class="pdf-photo-item"><img src="${photoUrl(photo)}" alt="" loading="eager" onerror="this.parentElement.remove()" /><small>${photo.label}</small></div>`).join('')}</div>`;
       }
 
       function inventoryView() {
@@ -4121,6 +4134,37 @@
       function shareJob(ticket) {
         const text = encodeURIComponent(`Reporte MG Portones ${ticket}: PDF listo para descargar.`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+
+      function downloadBackup() {
+        if (state.user.role !== 'admin') return alert('Solo administracion puede descargar respaldos.');
+        const data = backupSafeData(state.data);
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backup = {
+          app: 'MG Portones',
+          version: 'v47',
+          createdAt: new Date().toISOString(),
+          createdBy: state.user.name,
+          counts: {
+            jobs: (data.jobs || []).length,
+            clients: (data.clients || []).length,
+            users: (data.users || []).length,
+            inventory: (data.inventory || []).length,
+            photosPending: countPendingPhotoUploads(state.data)
+          },
+          data
+        };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `respaldo-mg-portones-${stamp}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        logAudit('Descargar respaldo', 'Sistema', null, backup.counts);
+        save();
       }
 
       function syncNow() {
