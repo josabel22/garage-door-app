@@ -1031,7 +1031,8 @@
         const merged = { ...cloudData };
         const localJobCount = (localData?.jobs || []).length;
         const cloudJobCount = (cloudData?.jobs || []).length;
-        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs);
+        merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
+        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs).filter((job) => !isDeletedJob(job, merged.deletedJobs));
         ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
@@ -1057,7 +1058,8 @@
         backups.forEach((backup) => {
           const beforeJobs = (data.jobs || []).length;
           const beforeUsers = (data.users || []).length;
-          data.jobs = mergeJobs(data.jobs, backup.data?.jobs);
+          data.deletedJobs = mergeDeletedJobs(data.deletedJobs, backup.data?.deletedJobs);
+          data.jobs = mergeJobs(data.jobs, backup.data?.jobs).filter((job) => !isDeletedJob(job, data.deletedJobs));
           data.clients = mergeById(data.clients, backup.data?.clients);
           data.warranties = mergeById(data.warranties, backup.data?.warranties);
           data.movements = mergeById(data.movements, backup.data?.movements);
@@ -1102,6 +1104,22 @@
 
       function jobMergeKey(job) {
         return String(job?.id || job?.ticket || '');
+      }
+
+      function mergeDeletedJobs(cloudDeleted = [], localDeleted = []) {
+        const items = new Map();
+        [...(cloudDeleted || []), ...(localDeleted || [])].forEach((item) => {
+          const key = String(item?.id || item?.ticket || '');
+          if (key) items.set(key, item);
+        });
+        return Array.from(items.values());
+      }
+
+      function isDeletedJob(job, deletedJobs = state.data?.deletedJobs || []) {
+        return (deletedJobs || []).some((deleted) => (
+          String(deleted.id || '') === String(job?.id || '') ||
+          String(deleted.ticket || '').toLowerCase() === String(job?.ticket || '').toLowerCase()
+        ));
       }
 
       function mergeJobPhotos(cloudPhotos = {}, localPhotos = {}) {
@@ -1248,6 +1266,8 @@
         state.data.movements ||= [];
         state.data.auditLogs ||= [];
         state.data.deletedUsers ||= [];
+        state.data.deletedJobs ||= [];
+        state.data.jobs = (state.data.jobs || []).filter((job) => !isDeletedJob(job));
         state.data.users = state.data.users.map((user) => ({
           phone: '',
           email: '',
@@ -1355,6 +1375,19 @@
           name: user.name,
           role: user.role,
           deletedAt: new Date().toISOString()
+        }]);
+      }
+
+      function rememberDeletedJob(job) {
+        if (!job) return;
+        state.data.deletedJobs ||= [];
+        state.data.deletedJobs = mergeDeletedJobs(state.data.deletedJobs, [{
+          id: job.id,
+          ticket: job.ticket,
+          client: job.client,
+          date: job.date,
+          deletedAt: new Date().toISOString(),
+          deletedBy: state.user?.name || 'Sistema'
         }]);
       }
 
@@ -4046,12 +4079,13 @@
         const confirmed = confirm(`Eliminar reporte ${job.ticket}? Esta accion no se puede deshacer. No revierte inventario consumido.`);
         if (!confirmed) return;
 
+        rememberDeletedJob(job);
         state.data.jobs = state.data.jobs.filter((item) => String(item.id) !== String(id));
         state.data.warranties = (state.data.warranties || []).filter((warranty) => warranty.ticket !== job.ticket);
         state.data.notifications = (state.data.notifications || []).filter((notification) => !String(notification.text || '').includes(job.ticket));
         logAudit('Eliminar reporte', 'Reporte', job, null);
         state.modal = null;
-        queuePendingChange('user', id);
+        queuePendingChange('report_delete', id);
         save();
         render();
       }
