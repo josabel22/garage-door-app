@@ -879,14 +879,15 @@
       };
 
       const navByRole = {
-        admin: ['dashboard', 'reportes', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'usuarios', 'auditoria'],
-        technician: ['dashboard', 'reportes', 'inventario', 'citas'],
+        admin: ['dashboard', 'reportes', 'fotos', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'usuarios', 'auditoria'],
+        technician: ['dashboard', 'reportes', 'fotos', 'inventario', 'citas'],
         client: ['dashboard', 'reportes', 'citas', 'garantias']
       };
 
       const labels = {
         dashboard: 'Dashboard',
         reportes: 'Reportes',
+        fotos: 'Fotos pendientes',
         inventario: 'Inventario',
         moviles: 'Moviles',
         citas: 'Citas',
@@ -1512,6 +1513,7 @@
         const icons = {
           dashboard: 'DB',
           reportes: 'RP',
+          fotos: 'FT',
           inventario: 'IN',
           moviles: 'MV',
           citas: 'CT',
@@ -1616,6 +1618,7 @@
         const views = {
           dashboard: dashboardView,
           reportes: reportsView,
+          fotos: pendingPhotosView,
           inventario: inventoryView,
           moviles: vehiclesView,
           citas: appointmentsView,
@@ -2185,6 +2188,26 @@
         return Boolean(photo?.data && !photo?.url);
       }
 
+      function brokenPhotoCount(job) {
+        return [...(job.photos?.before || []), ...(job.photos?.after || [])]
+          .filter((photo) => photo && !photo.url && !photo.data).length;
+      }
+
+      function localPendingPhotoCount(job) {
+        return [...(job.photos?.before || []), ...(job.photos?.after || [])]
+          .filter((photo) => hasLocalPendingPhoto(photo)).length;
+      }
+
+      function pendingPhotoJobs() {
+        return scopedJobs()
+          .map((job) => ({
+            job,
+            pending: localPendingPhotoCount(job),
+            broken: brokenPhotoCount(job)
+          }))
+          .filter((item) => item.pending || item.broken);
+      }
+
       function previewJobPdf(id) {
         const job = state.data.jobs.find((item) => item.id === id);
         if (!job) return alert('Reporte no encontrado.');
@@ -2298,6 +2321,36 @@
         ].filter((photo) => photoUrl(photo));
         if (!photos.length) return '<div class="pdf-box">Sin fotografias adjuntas.</div>';
         return `<div class="pdf-photo-grid">${photos.map((photo) => `<div class="pdf-photo-item"><img src="${photoUrl(photo)}" alt="" loading="eager" onerror="this.parentElement.remove()" /><small>${photo.label}</small></div>`).join('')}</div>`;
+      }
+
+      function pendingPhotosView() {
+        const rows = pendingPhotoJobs();
+        return `
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Fotos pendientes</h3>
+              <span class="pill">${rows.length} boletas</span>
+            </div>
+            <div class="panel-body list">
+              <div class="toolbar">
+                <button class="btn secondary" onclick="retryAllPendingPhotos()">Reintentar todas</button>
+              </div>
+              ${rows.map(({ job, pending, broken }) => `
+                <div class="list-item">
+                  <strong>${job.ticket || job.id}</strong> - ${job.client || 'Sin cliente'}<br>
+                  Tecnico: ${job.technician || 'Sin tecnico'} - Fecha: ${job.date || 'Sin fecha'}<br>
+                  <span class="pill">${pending} por subir</span>
+                  <span class="pill">${broken} rotas</span>
+                  <div class="toolbar" style="margin-top:10px;">
+                    ${pending ? `<button class="btn secondary" onclick="retryJobPhotos(${job.id})">Reintentar subir</button>` : ''}
+                    ${broken ? `<button class="btn danger" onclick="cleanBrokenJobPhotos(${job.id})">Limpiar rotas</button>` : ''}
+                    <button class="btn secondary" onclick="previewJobPdf(${job.id})">Vista PDF</button>
+                  </div>
+                </div>
+              `).join('') || '<div class="list-item">No hay fotos pendientes ni registros rotos en los reportes visibles.</div>'}
+            </div>
+          </section>
+        `;
       }
 
       function inventoryView() {
@@ -4140,6 +4193,57 @@
       function shareJob(ticket) {
         const text = encodeURIComponent(`Reporte MG Portones ${ticket}: PDF listo para descargar.`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
+      }
+
+      function cleanBrokenPhotosFromJob(job) {
+        if (!job?.photos) return 0;
+        let removed = 0;
+        ['before', 'after'].forEach((kind) => {
+          const photos = job.photos[kind] || [];
+          const clean = photos.filter((photo) => {
+            const keep = !photo || photo.url || photo.data;
+            if (!keep) removed += 1;
+            return keep;
+          });
+          job.photos[kind] = clean;
+        });
+        return removed;
+      }
+
+      async function retryJobPhotos(jobId) {
+        const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
+        if (!job) return alert('Reporte no encontrado.');
+        await uploadPendingPhotosForJob(job);
+        queuePendingChange('photos_retry', job.id);
+        await saveCloudDataNow({ clearQueue: true }).catch(() => null);
+        save();
+        render();
+        const pending = localPendingPhotoCount(job);
+        alert(pending ? `Aun quedan ${pending} foto(s) por subir en ${job.ticket}.` : `Fotos de ${job.ticket} revisadas.`);
+      }
+
+      async function retryAllPendingPhotos() {
+        await uploadPendingPhotos();
+        queuePendingChange('photos_retry_all', Date.now());
+        await saveCloudDataNow({ clearQueue: true }).catch(() => null);
+        save();
+        render();
+        const pending = countPendingPhotoUploads(state.data);
+        alert(pending ? `Aun quedan ${pending} foto(s) por subir.` : 'No quedan fotos pendientes por subir.');
+      }
+
+      function cleanBrokenJobPhotos(jobId) {
+        const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
+        if (!job) return alert('Reporte no encontrado.');
+        const broken = brokenPhotoCount(job);
+        if (!broken) return alert('Este reporte no tiene fotos rotas.');
+        const confirmed = confirm(`Limpiar ${broken} registro(s) de foto rota en ${job.ticket}? No elimina reportes ni fotos subidas.`);
+        if (!confirmed) return;
+        const removed = cleanBrokenPhotosFromJob(job);
+        queuePendingChange('photos_cleanup', job.id);
+        logAudit('Limpiar fotos rotas', 'Reporte', { ticket: job.ticket, broken }, { removed });
+        save();
+        render();
       }
 
       function downloadBackup() {
