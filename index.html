@@ -2167,7 +2167,9 @@
       }
 
       function jobPhotosMarkup(job) {
-        const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])].slice(0, 4);
+        const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])]
+          .filter((photo) => photoUrl(photo) || hasLocalPendingPhoto(photo))
+          .slice(0, 4);
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
         return `<div class="photo-strip">${photos.map((photo) => {
           const url = photoUrl(photo);
@@ -2177,6 +2179,10 @@
 
       function photoUrl(photo) {
         return photo?.url || photo?.data || '';
+      }
+
+      function hasLocalPendingPhoto(photo) {
+        return Boolean(photo?.data && !photo?.url);
       }
 
       function previewJobPdf(id) {
