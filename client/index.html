@@ -913,6 +913,7 @@
       let cloudReady = false;
       let cloudError = '';
       let cloudSaveTimer = null;
+      const activePhotoUploads = new Map();
       function today(offset) {
         const date = new Date();
         date.setDate(date.getDate() + offset);
@@ -3205,16 +3206,16 @@
 
       async function readPhotoInput(input, kind, jobId) {
         const files = Array.from(input?.files || []);
-        const photos = [];
-        for (const file of files) {
+        const tasks = files.map((file) => async () => {
           try {
-            photos.push(await preparePhoto(file, kind, jobId));
+            return await preparePhoto(file, kind, jobId);
           } catch (error) {
             console.error(error);
             alert(`No se pudo cargar la foto ${file.name}. Intente con otra imagen.`);
+            return null;
           }
-        }
-        return photos;
+        });
+        return (await runConcurrentTasks(tasks, 2)).filter(Boolean);
       }
 
       async function preparePhoto(file, kind, jobId) {
@@ -3323,28 +3324,67 @@
 
       async function uploadPendingPhotos() {
         if (!supabaseConfig().ready || !navigator.onLine) return;
+        const tasks = [];
         for (const job of state.data.jobs || []) {
-          await uploadPendingPhotosForJob(job);
+          job.photos ||= { before: [], after: [] };
+          for (const kind of ['before', 'after']) {
+            (job.photos?.[kind] || []).forEach((photo, index) => {
+              if (photo?.data && !photo.url) tasks.push(() => uploadPendingPhotoAt(job, kind, index));
+            });
+          }
         }
+        await runConcurrentTasks(tasks, 3);
       }
 
       async function uploadPendingPhotosForJob(job) {
         if (!supabaseConfig().ready || !navigator.onLine || !job) return;
         job.photos ||= { before: [], after: [] };
+        const tasks = [];
         for (const kind of ['before', 'after']) {
           const photos = job.photos?.[kind] || [];
           for (let index = 0; index < photos.length; index += 1) {
             const photo = photos[index];
-            if (photo?.data && !photo.url) {
-              try {
-                const compressedPhoto = photo.recompressed ? photo : await recompressPhotoData(photo);
-                photos[index] = await uploadPhotoToStorage(compressedPhoto, job.id);
-              } catch (error) {
-                console.error(error);
-              }
-            }
+            if (photo?.data && !photo.url) tasks.push(() => uploadPendingPhotoAt(job, kind, index));
           }
         }
+        await runConcurrentTasks(tasks, 3);
+      }
+
+      async function uploadPendingPhotoAt(job, kind, index) {
+        const photos = job.photos?.[kind] || [];
+        const photo = photos[index];
+        if (!photo?.data || photo.url) return photo;
+        const uploadKey = `${job.id}:${kind}:${photo.id || index}`;
+        if (activePhotoUploads.has(uploadKey)) return activePhotoUploads.get(uploadKey);
+        const uploadTask = (async () => {
+          try {
+            const compressedPhoto = photo.recompressed ? photo : await recompressPhotoData(photo);
+            photos[index] = await uploadPhotoToStorage(compressedPhoto, job.id);
+            return photos[index];
+          } catch (error) {
+            console.error(error);
+            return photo;
+          } finally {
+            activePhotoUploads.delete(uploadKey);
+          }
+        })();
+        activePhotoUploads.set(uploadKey, uploadTask);
+        return uploadTask;
+      }
+
+      async function runConcurrentTasks(tasks, limit = 3) {
+        if (!tasks.length) return [];
+        const results = new Array(tasks.length);
+        let nextIndex = 0;
+        const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+          while (nextIndex < tasks.length) {
+            const index = nextIndex;
+            nextIndex += 1;
+            results[index] = await tasks[index]();
+          }
+        });
+        await Promise.all(workers);
+        return results;
       }
 
       function createWarrantyFromReport(job, endDate) {
