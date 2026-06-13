@@ -1672,7 +1672,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v54</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -3134,7 +3134,8 @@
           target.innerHTML = '';
           return;
         }
-        const matches = (state.data.clients || []).filter((client) => normalizeClientSearch([
+        const clientCandidates = clientSearchCandidates();
+        const matches = clientCandidates.filter((client) => normalizeClientSearch([
           client.name,
           client.phone,
           client.email,
@@ -3148,9 +3149,29 @@
         `).join('');
       }
 
+      function clientSearchCandidates() {
+        const candidates = new Map();
+        (state.data.clients || []).forEach((client) => {
+          candidates.set(String(client.id || normalizeClientSearch(client.name)), { ...client });
+        });
+        (state.data.jobs || []).forEach((job) => {
+          const key = String(job.clientId || normalizeClientSearch(job.client));
+          const current = candidates.get(key) || {};
+          candidates.set(key, {
+            id: job.clientId || `history-${normalizeClientSearch(job.client)}`,
+            name: current.name || job.client || '',
+            phone: current.phone || job.phone || '',
+            email: current.email || job.email || '',
+            address: current.address || job.address || '',
+            fromHistory: !current.name
+          });
+        });
+        return Array.from(candidates.values()).filter((client) => client.name);
+      }
+
       function selectExistingClient(encodedId) {
         const id = decodeURIComponent(encodedId);
-        const client = (state.data.clients || []).find((item) => String(item.id) === String(id));
+        const client = clientSearchCandidates().find((item) => String(item.id) === String(id));
         const form = document.querySelector('.report-form');
         if (!client || !form) return;
         form.elements.client.value = client.name || '';

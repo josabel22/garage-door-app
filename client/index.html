@@ -352,6 +352,22 @@
         gap: 10px;
       }
 
+      .client-suggestions {
+        display: grid;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .client-suggestions button {
+        width: 100%;
+        text-align: left;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfdff;
+        color: #172033;
+        padding: 10px;
+      }
+
       .parts-picker {
         display: grid;
         gap: 10px;
@@ -913,6 +929,8 @@
       let cloudReady = false;
       let cloudError = '';
       let cloudSaveTimer = null;
+      let cloudRetryTimer = null;
+      let cloudSyncInFlight = false;
       const activePhotoUploads = new Map();
       function today(offset) {
         const date = new Date();
@@ -1094,9 +1112,11 @@
             items.set(key, localJob);
             return;
           }
+          const cloudUpdated = Date.parse(cloudJob.updatedAt || cloudJob.closedAt || '') || 0;
+          const localUpdated = Date.parse(localJob.updatedAt || localJob.closedAt || '') || 0;
+          const preferred = localUpdated > cloudUpdated ? localJob : cloudJob;
           items.set(key, {
-            ...cloudJob,
-            ...localJob,
+            ...preferred,
             photos: mergeJobPhotos(cloudJob.photos, localJob.photos)
           });
         });
@@ -1173,12 +1193,37 @@
         if (!supabaseConfig().ready) return;
         window.clearTimeout(cloudSaveTimer);
         cloudSaveTimer = window.setTimeout(() => {
-          saveCloudDataNow({ clearQueue: true }).catch((error) => {
-            cloudReady = false;
-            cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
-            console.error(error);
-          });
+          syncCloudInBackground();
         }, 600);
+      }
+
+      async function syncCloudInBackground() {
+        if (cloudSyncInFlight || !navigator.onLine || !supabaseConfig().ready) {
+          scheduleCloudRetry();
+          return;
+        }
+        cloudSyncInFlight = true;
+        try {
+          await saveCloudDataNow({ clearQueue: true });
+          window.clearTimeout(cloudRetryTimer);
+          cloudRetryTimer = null;
+        } catch (error) {
+          cloudReady = false;
+          cloudError = 'Cambios guardados localmente. Reintentando sincronizacion automaticamente.';
+          console.error(error);
+          scheduleCloudRetry();
+        } finally {
+          cloudSyncInFlight = false;
+        }
+      }
+
+      function scheduleCloudRetry(delay = 15000) {
+        if (!supabaseConfig().ready || cloudRetryTimer) return;
+        cloudRetryTimer = window.setTimeout(() => {
+          cloudRetryTimer = null;
+          const hasPendingData = (state.data.syncQueue || []).length || countPendingPhotoUploads(state.data);
+          if (hasPendingData) syncCloudInBackground();
+        }, delay);
       }
 
       async function saveCloudDataNow(options = {}) {
@@ -1186,6 +1231,11 @@
         backupLocalData('before_cloud_save');
         await uploadPendingPhotos();
         saveLocalData();
+        const rows = await supabaseRequest('app_state?select=data&id=eq.production');
+        if (rows?.[0]?.data) {
+          state.data = mergeBeforeCloudWrite(rows[0].data, state.data);
+          saveLocalData();
+        }
         const pendingPhotos = countPendingPhotoUploads(state.data);
         const cloudData = pendingPhotos ? cloudSafeData(state.data) : state.data;
         const shouldClearQueue = options.clearQueue && pendingPhotos === 0;
@@ -1215,6 +1265,28 @@
           headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
           body: JSON.stringify({ id: 'production', ...payload })
         });
+      }
+
+      function mergeBeforeCloudWrite(cloudData, localData) {
+        const merged = { ...cloudData, ...localData };
+        merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
+        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs).filter((job) => !isDeletedJob(job, merged.deletedJobs));
+        ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
+          merged[key] = mergeById(cloudData?.[key], localData?.[key]);
+        });
+        merged.users = mergeUsers(cloudData?.users, localData?.users);
+        merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
+        merged.vehicles = localData?.vehicles || cloudData?.vehicles || [];
+        merged.inventory = mergeInventoryLocalWins(cloudData?.inventory, localData?.inventory);
+        merged.syncQueue = localData?.syncQueue || [];
+        return merged;
+      }
+
+      function mergeInventoryLocalWins(cloudItems = [], localItems = []) {
+        const items = new Map();
+        (cloudItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
+        (localItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
+        return Array.from(items.values());
       }
 
       function countPendingPhotoUploads(data) {
@@ -1283,6 +1355,13 @@
         state.data.vehicles = state.data.vehicles.filter((vehicle, index, list) => (
           index === list.findIndex((item) => item.code === vehicle.code)
         ));
+        state.data.vehicles = state.data.vehicles.map((vehicle) => {
+          const assigned = state.data.users.filter((user) => user.role === 'technician' && user.vehicle === vehicle.code);
+          return {
+            ...vehicle,
+            technicianIds: [...new Set([...(vehicle.technicianIds || []), ...assigned.map((user) => user.id)])]
+          };
+        });
         state.data.jobs = (state.data.jobs || []).map((job) => {
           const cleanJob = { ...job };
           delete cleanJob.cost;
@@ -1403,7 +1482,11 @@
         if (state.user.role === 'admin') return state.data.jobs;
         if (state.user.role === 'client') return state.data.jobs.filter((job) => job.clientId === state.user.clientId);
 
-        return state.data.jobs.filter((job) => job.technicianId === state.user.id);
+        const vehicle = reportVehicleForUser(state.user);
+        return state.data.jobs.filter((job) => (
+          job.technicianId === state.user.id
+          || (vehicle && job.vehicle === vehicle)
+        ));
       }
 
       function scopedInventory() {
@@ -1426,7 +1509,9 @@
       }
 
       function reportVehicleForUser(user) {
-        return user?.vehicle || state.data.vehicles.find((vehicle) => vehicle.technicianId === user?.id)?.code || '';
+        return user?.vehicle || state.data.vehicles.find((vehicle) => (
+          vehicle.technicianId === user?.id || (vehicle.technicianIds || []).includes(user?.id)
+        ))?.code || '';
       }
 
       function formatCurrency(value) {
@@ -1458,7 +1543,10 @@
         if (state.user.role === 'admin') return true;
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return state.user.role === 'technician' && job.technicianId === state.user.id && new Date(job.date) >= sevenDaysAgo && !isJobLocked(job);
+        return state.user.role === 'technician'
+          && job.technicianId === state.user.id
+          && new Date(job.date) >= sevenDaysAgo
+          && !isJobLocked(job);
       }
 
       function priorities() {
@@ -1584,7 +1672,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v54</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1912,11 +2000,23 @@
       function vehicleAssignModal(modal) {
         const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
         if (!vehicle) return '<p>Movil no encontrada.</p>';
+        const assignedIds = new Set([
+          ...(vehicle.technicianIds || []),
+          ...technicians().filter((tech) => tech.vehicle === vehicle.code).map((tech) => tech.id)
+        ]);
         return `
           <form class="form-grid" onsubmit="submitVehicleAssign(event, ${vehicle.id})">
             <label>Movil<input value="${vehicle.code}" disabled /></label>
-            <label>Tecnico<select name="technicianId" required>${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === vehicle.technicianId ? 'selected' : ''}>${tech.name}  -  ${tech.username}</option>`).join('')}</select></label>
-            <button class="btn full">Asignar tecnico</button>
+            <div class="full list">
+              <strong>Tecnicos que comparten este movil</strong>
+              ${technicians().map((tech) => `
+                <label class="list-item">
+                  <input type="checkbox" name="technicianIds" value="${tech.id}" ${assignedIds.has(tech.id) ? 'checked' : ''} />
+                  ${tech.name} - ${tech.username}
+                </label>
+              `).join('')}
+            </div>
+            <button class="btn full">Guardar tecnicos del movil</button>
           </form>
         `;
       }
@@ -2063,10 +2163,11 @@
             <form class="report-form" autocomplete="off" onsubmit="createReport(event)" oninput="autosaveReportDraft(event)">
               <div class="form-grid">
                 <div class="list-item full"><strong>MG Portones</strong><br>Telefono: 83124541 | Correo: mgportoelectricos@yahoo.es</div>
-                <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="off" required /></label>
+                <label>Cliente<input name="client" value="${reportDraftValue('client')}" autocomplete="off" oninput="showClientSuggestions(this.value)" required /><div id="clientSuggestions" class="client-suggestions"></div></label>
                 <label>Telefono opcional<input name="phone" value="${reportDraftValue('phone')}" inputmode="tel" autocomplete="off" /></label>
                 <label>Correo opcional<input name="email" value="${reportDraftValue('email')}" type="email" autocomplete="off" /></label>
                 <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="off" required /></label>
+                <div id="selectedClientHistory" class="list-item full">Busca un cliente existente para completar sus datos y consultar trabajos anteriores.</div>
                 <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
                 <label>Estado<select name="status">${statuses().map((s) => `<option>${s}</option>`).join('')}</select></label>
                 ${adminFields}
@@ -2603,7 +2704,7 @@
                   const movements = state.data.movements.filter((move) => move.vehicle === vehicle.code);
                   return `<div class="list-item">
                     <strong>${vehicle.code}  -  ${vehicle.name}</strong> <span class="pill">${vehicle.active ? 'Activa' : 'Inactiva'}</span><br>
-                    Placa: ${vehicle.plate || 'Sin placa'}  -  Tecnico: ${vehicle.technician || 'Sin asignar'}<br>
+                    Placa: ${vehicle.plate || 'Sin placa'}  -  Tecnicos: ${technicians().filter((tech) => tech.vehicle === vehicle.code).map((tech) => tech.name).join(', ') || vehicle.technician || 'Sin asignar'}<br>
                     ${vehicle.notes || 'Sin observaciones'}
                     <div class="history-grid" style="margin-top:10px;">
                       <div><strong>Inventario</strong><br>${inventory.length} repuestos registrados<br>${lowInventory.length ? `${lowInventory.length} con stock bajo` : 'Stock disponible'}</div>
@@ -3021,6 +3122,78 @@
         if (status) status.textContent = `Autoguardado ${new Date().toTimeString().slice(0, 5)}`;
       }
 
+      function normalizeClientSearch(value) {
+        return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }
+
+      function showClientSuggestions(value) {
+        const target = document.getElementById('clientSuggestions');
+        if (!target) return;
+        const query = normalizeClientSearch(value);
+        if (query.length < 2) {
+          target.innerHTML = '';
+          return;
+        }
+        const clientCandidates = clientSearchCandidates();
+        const matches = clientCandidates.filter((client) => normalizeClientSearch([
+          client.name,
+          client.phone,
+          client.email,
+          client.address
+        ].join(' ')).includes(query)).slice(0, 6);
+        target.innerHTML = matches.map((client) => `
+          <button type="button" onclick="selectExistingClient('${encodeURIComponent(String(client.id))}')">
+            <strong>${escapeText(client.name)}</strong><br>
+            <small>${escapeText(client.phone || 'Sin telefono')} - ${escapeText(client.address || 'Sin direccion')}</small>
+          </button>
+        `).join('');
+      }
+
+      function clientSearchCandidates() {
+        const candidates = new Map();
+        (state.data.clients || []).forEach((client) => {
+          candidates.set(String(client.id || normalizeClientSearch(client.name)), { ...client });
+        });
+        (state.data.jobs || []).forEach((job) => {
+          const key = String(job.clientId || normalizeClientSearch(job.client));
+          const current = candidates.get(key) || {};
+          candidates.set(key, {
+            id: job.clientId || `history-${normalizeClientSearch(job.client)}`,
+            name: current.name || job.client || '',
+            phone: current.phone || job.phone || '',
+            email: current.email || job.email || '',
+            address: current.address || job.address || '',
+            fromHistory: !current.name
+          });
+        });
+        return Array.from(candidates.values()).filter((client) => client.name);
+      }
+
+      function selectExistingClient(encodedId) {
+        const id = decodeURIComponent(encodedId);
+        const client = clientSearchCandidates().find((item) => String(item.id) === String(id));
+        const form = document.querySelector('.report-form');
+        if (!client || !form) return;
+        form.elements.client.value = client.name || '';
+        form.elements.phone.value = client.phone || '';
+        form.elements.email.value = client.email || '';
+        form.elements.address.value = client.address || '';
+        const history = (state.data.jobs || []).filter((job) => (
+          String(job.clientId || '') === String(client.id)
+          || normalizeClientSearch(job.client) === normalizeClientSearch(client.name)
+        )).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+        const target = document.getElementById('selectedClientHistory');
+        if (target) {
+          target.innerHTML = `<strong>Historial de ${escapeText(client.name)}</strong><br>${
+            history.slice(0, 6).map((job) => `${escapeText(job.date || 'Sin fecha')} - ${escapeText(job.ticket || '')} - ${escapeText(job.status || '')}`).join('<br>')
+            || 'Sin reportes anteriores.'
+          }`;
+        }
+        const suggestions = document.getElementById('clientSuggestions');
+        if (suggestions) suggestions.innerHTML = '';
+        persistReportDraftFromDom(form);
+      }
+
       function persistReportDraftFromDom(form = document.querySelector('.report-form')) {
         if (!form) return;
         const data = {};
@@ -3096,12 +3269,12 @@
           signed: finalStatuses().includes(form.get('status')),
           closedAt: finalStatuses().includes(form.get('status')) ? new Date().toISOString() : '',
           pdfStatus: finalStatuses().includes(form.get('status')) ? 'Generado' : 'Pendiente',
+          updatedAt: new Date().toISOString(),
           gps: '',
           arrival: form.get('arrival') || new Date().toTimeString().slice(0, 5),
           departure: form.get('departure') || ''
         };
 
-        await uploadPendingPhotosForJob(newJob);
         state.data.jobs.unshift(newJob);
         consumeSelectedParts(usedParts, newJob);
         consumeMaterials(additionalMaterials, newJob.vehicle, newJob);
@@ -3113,7 +3286,7 @@
         localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
         state.reportFormOpen = false;
         render();
-        alert('Reporte guardado. Se sincronizara automaticamente cuando haya internet.');
+        alert('Reporte guardado localmente. La sincronizacion con Supabase inicio automaticamente.');
       }
 
       function warrantyLabel(status, endDate) {
@@ -3896,12 +4069,17 @@
         const vehicle = state.data.vehicles.find((item) => item.id === id);
         if (!vehicle) return;
         const form = new FormData(event.target);
-        const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
-        if (!tech) return;
-        vehicle.technicianId = tech.id;
-        vehicle.technician = tech.name;
-        tech.vehicle = vehicle.code;
+        const selectedIds = form.getAll('technicianIds').map(String);
+        const selectedTechs = technicians().filter((tech) => selectedIds.includes(String(tech.id)));
+        technicians().forEach((tech) => {
+          if (tech.vehicle === vehicle.code && !selectedIds.includes(String(tech.id))) tech.vehicle = '';
+        });
+        selectedTechs.forEach((tech) => {
+          tech.vehicle = vehicle.code;
+        });
+        syncVehicleAssignments();
         state.modal = null;
+        logAudit('Asignar tecnicos', 'Movil', null, { vehicle: vehicle.code, technicians: selectedTechs.map((tech) => tech.name) });
         save();
         render();
       }
@@ -3917,9 +4095,10 @@
 
       function syncVehicleAssignments() {
         state.data.vehicles.forEach((vehicle) => {
-          const tech = appUsers().find((user) => user.role === 'technician' && user.vehicle === vehicle.code);
-          vehicle.technicianId = tech?.id || null;
-          vehicle.technician = tech?.name || 'Sin asignar';
+          const assigned = appUsers().filter((user) => user.role === 'technician' && user.vehicle === vehicle.code);
+          vehicle.technicianIds = assigned.map((tech) => tech.id);
+          vehicle.technicianId = assigned[0]?.id || null;
+          vehicle.technician = assigned.map((tech) => tech.name).join(', ') || 'Sin asignar';
         });
       }
 
@@ -4097,6 +4276,7 @@
         job.technician = tech.name;
         job.vehicle = form.get('vehicle') || reportVehicleForUser(tech);
         job.status = 'Asignado';
+        job.updatedAt = new Date().toISOString();
         notifyAssignment(job);
         logAudit('Asignar trabajo', 'Reporte', before, job);
         state.modal = null;
@@ -4192,6 +4372,7 @@
           job.closedAt = '';
           job.pdfStatus = 'Pendiente';
         }
+        job.updatedAt = new Date().toISOString();
         logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
         if (newPhotos.before.length || newPhotos.after.length) logAudit('Agregar fotos', 'Reporte', { before: before.photos }, { after: job.photos });
         logAudit('Editar reporte', 'Reporte', before, job);
@@ -4373,18 +4554,12 @@
       }
 
       function syncPendingWhenOnline() {
-        if (!navigator.onLine || !(state.data.syncQueue || []).length) {
+        const hasPendingData = (state.data.syncQueue || []).length || countPendingPhotoUploads(state.data);
+        if (!navigator.onLine || !hasPendingData) {
           render();
           return;
         }
-        saveCloudDataNow({ clearQueue: true })
-          .then(render)
-          .catch(() => {
-            cloudReady = false;
-            cloudError = 'Cambios guardados localmente, pendiente sincronizar con Supabase.';
-            saveLocalData();
-            render();
-          });
+        syncCloudInBackground();
       }
 
       function renderSearch() {
@@ -4417,6 +4592,10 @@
 
       window.addEventListener('online', syncPendingWhenOnline);
       window.addEventListener('offline', render);
+      window.setInterval(() => {
+        const hasPendingData = (state.data.syncQueue || []).length || countPendingPhotoUploads(state.data);
+        if (navigator.onLine && hasPendingData) syncCloudInBackground();
+      }, 30000);
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
