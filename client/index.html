@@ -1479,14 +1479,27 @@
 
       function scopedJobs() {
         if (!state.user) return [];
-        if (state.user.role === 'admin') return state.data.jobs;
-        if (state.user.role === 'client') return state.data.jobs.filter((job) => job.clientId === state.user.clientId);
+        if (state.user.role === 'admin') return sortJobsNewestFirst(state.data.jobs);
+        if (state.user.role === 'client') return sortJobsNewestFirst(state.data.jobs.filter((job) => job.clientId === state.user.clientId));
 
         const vehicle = reportVehicleForUser(state.user);
-        return state.data.jobs.filter((job) => (
+        return sortJobsNewestFirst(state.data.jobs.filter((job) => (
           job.technicianId === state.user.id
           || (vehicle && job.vehicle === vehicle)
-        ));
+        )));
+      }
+
+      function sortJobsNewestFirst(jobs = []) {
+        return [...(jobs || [])].sort((a, b) => jobSortTime(b) - jobSortTime(a));
+      }
+
+      function jobSortTime(job) {
+        const candidates = [job?.updatedAt, job?.createdAt, job?.closedAt, job?.date]
+          .filter(Boolean)
+          .map((value) => Date.parse(value))
+          .filter((value) => !Number.isNaN(value));
+        if (candidates.length) return Math.max(...candidates);
+        return Number(job?.id || 0) || 0;
       }
 
       function scopedInventory() {
@@ -1672,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v54</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v55</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -2278,12 +2291,13 @@
       }
 
       function jobsTable(jobs, actions = false) {
+        const orderedJobs = sortJobsNewestFirst(jobs);
         return `
           <div class="table-wrap">
             <table>
               <thead><tr><th>Boleta</th><th>Cliente</th><th>Fecha</th><th>Tecnico</th><th>Movil</th><th>Prioridad</th><th>Estado</th><th>Garantia</th><th>Fotos</th><th>Firma</th>${actions ? '<th>Acciones</th>' : ''}</tr></thead>
               <tbody>
-                ${jobs.map((job) => `
+                ${orderedJobs.map((job) => `
                   <tr>
                     <td data-label="Boleta"><strong>${job.ticket}</strong></td>
                     <td data-label="Cliente">${job.client}<br><small>${job.phone}</small></td>
