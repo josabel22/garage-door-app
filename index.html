@@ -1685,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.1</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.2</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -2707,7 +2707,7 @@
       }
 
       function jsArg(value) {
-        return JSON.stringify(String(value ?? ''));
+        return escapeText(JSON.stringify(String(value ?? '')));
       }
 
       function formatMultiline(value, fallback = '') {
