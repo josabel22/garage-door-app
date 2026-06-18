@@ -1685,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.4</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.5</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -3404,6 +3404,7 @@
       }
 
       function workshopFieldsMarkup(entry = {}, visible = false) {
+        entry ||= {};
         const equipment = ['Motor', 'Tarjeta', 'Receptor', 'Control', 'Sensor', 'Otro'];
         const conditions = ['No enciende', 'Falla intermitente', 'Quemado', 'Mojado', 'Golpeado', 'Requiere diagnostico', 'Otro'];
         const selected = (value, current) => value === current ? 'selected' : '';
