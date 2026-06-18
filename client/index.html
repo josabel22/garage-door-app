@@ -1369,8 +1369,9 @@
           cleanJob.materials ||= '';
           cleanJob.notes ||= '';
           cleanJob.photos ||= { before: [], after: [] };
-          cleanJob.photos.before ||= [];
-          cleanJob.photos.after ||= [];
+          cleanJob.photos.before = Array.isArray(cleanJob.photos.before) ? cleanJob.photos.before : [];
+          cleanJob.photos.after = Array.isArray(cleanJob.photos.after) ? cleanJob.photos.after : [];
+          cleanJob.workshopEntry ||= {};
           cleanJob.signed ||= false;
           cleanJob.pdfStatus ||= cleanJob.signed ? 'Generado' : 'Pendiente';
           cleanJob.gps ||= '';
@@ -1685,7 +1686,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.6</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.7</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -4427,10 +4428,6 @@
         const nextStatus = form.get('status');
         if (state.user.role === 'technician' && !technicianStatuses().includes(nextStatus)) {
           alert('Estado no permitido para tecnico.');
-          return;
-        }
-        if (state.data.jobs.some((item) => String(item.id) !== String(id) && String(item.ticket).toLowerCase() === String(nextTicket).toLowerCase())) {
-          alert('Ya existe otro reporte con esa boleta.');
           return;
         }
         job.ticket = nextTicket;
