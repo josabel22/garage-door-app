@@ -1685,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.2</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.3</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1786,6 +1786,13 @@
           clientEdit: clientEditModal,
           clientDelete: clientDeleteModal
         };
+        let modalBody = '';
+        try {
+          modalBody = templates[modal.type]?.(modal) || '';
+        } catch (error) {
+          console.error(error);
+          modalBody = '<div class="list-item"><strong>No se pudo abrir esta ventana.</strong><br>El reporte tiene un dato incompleto o con formato inesperado. Intenta sincronizar y vuelve a abrirlo.</div>';
+        }
         return `
           <div class="modal-backdrop">
             <section class="modal ${modal.fullscreen ? 'fullscreen' : modal.wide ? 'wide' : ''}">
@@ -1793,7 +1800,7 @@
                 <h3>${modal.title}</h3>
                 <button class="btn secondary" onclick="closeModal()">Cerrar</button>
               </header>
-              <div class="modal-body">${templates[modal.type]?.(modal) || ''}</div>
+              <div class="modal-body">${modalBody}</div>
             </section>
           </div>
         `;
@@ -1885,28 +1892,29 @@
         const job = state.data.jobs.find((item) => String(item.id) === String(modal.id));
         if (!job) return '<p>Reporte no encontrado.</p>';
         if (state.user.role === 'technician') return technicianJobEditModal(job);
+        const jobTech = technicianForJob(job);
         return `
           <form class="form-grid" onsubmit="submitJobEdit(event, ${jsArg(job.id)})">
-            <label>Boleta<input name="ticket" value="${job.ticket || ''}" required /></label>
-            <label>Fecha<input name="date" type="date" value="${job.date || today(0)}" required /></label>
-            <label>Cliente<input name="client" value="${job.client || ''}" required /></label>
-            <label>Telefono opcional<input name="phone" value="${job.phone || ''}" inputmode="tel" autocomplete="tel" /></label>
-            <label>Direccion<input name="address" value="${job.address || ''}" required /></label>
+            <label>Boleta<input name="ticket" value="${formValue(job.ticket)}" required /></label>
+            <label>Fecha<input name="date" type="date" value="${formValue(job.date || today(0))}" required /></label>
+            <label>Cliente<input name="client" value="${formValue(job.client)}" required /></label>
+            <label>Telefono opcional<input name="phone" value="${formValue(job.phone)}" inputmode="tel" autocomplete="tel" /></label>
+            <label>Direccion<input name="address" value="${formValue(job.address)}" required /></label>
             <label>Estado<select name="status" onchange="toggleWorkshopFields()">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             ${workshopFieldsMarkup(job.workshopEntry, job.status === 'En taller')}
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
-            <label>Tecnico<select name="technicianId" onchange="updateReportInventoryFields()">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
+            <label>Tecnico<select name="technicianId" onchange="updateReportInventoryFields()">${technicians().map((tech) => `<option value="${formValue(tech.id)}" ${String(tech.id) === String(jobTech.id) ? 'selected' : ''}>${escapeText(tech.name)}  -  ${escapeText(reportVehicleForUser(tech) || 'Sin movil')}</option>`).join('')}</select></label>
           <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
-            <label>Vence garantia<input name="warrantyEnd" type="date" value="${job.warrantyEnd || ''}" /></label>
-            <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
-            <div id="reportInventoryFields" class="full">${reportInventoryFields(technicians().find((tech) => tech.id === job.technicianId) || state.user)}</div>
-            <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
+            <label>Vence garantia<input name="warrantyEnd" type="date" value="${formValue(job.warrantyEnd)}" /></label>
+            <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
+            <div id="reportInventoryFields" class="full">${reportInventoryFields(jobTech)}</div>
+            <label class="full">Materiales<textarea name="materials">${escapeText(job.materials || '')}</textarea></label>
             <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
             <div class="full camera-actions">
               <label>Agregar fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
               <label>Agregar fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
             </div>
-            <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
+            <label class="full">Notas<textarea name="notes">${escapeText(job.notes || '')}</textarea></label>
             <button class="btn full">Guardar reporte</button>
           </form>
         `;
@@ -1915,27 +1923,27 @@
       function technicianJobEditModal(job) {
         return `
           <form class="form-grid" onsubmit="submitJobEdit(event, ${jsArg(job.id)})">
-            <input type="hidden" name="ticket" value="${job.ticket || ''}" />
-            <input type="hidden" name="date" value="${job.date || today(0)}" />
-            <input type="hidden" name="client" value="${job.client || ''}" />
-            <input type="hidden" name="phone" value="${job.phone || ''}" />
-            <input type="hidden" name="address" value="${job.address || ''}" />
-            <input type="hidden" name="priority" value="${job.priority || 'Media'}" />
-            <input type="hidden" name="technicianId" value="${job.technicianId}" />
-            <input type="hidden" name="warranty" value="${job.warranty || ''}" />
-            <input type="hidden" name="warrantyEnd" value="${job.warrantyEnd || ''}" />
-            <div class="list-item full"><strong>${job.ticket}</strong><br>${job.client}  -  ${job.date}<br>El tecnico puede actualizar estado, descripcion, materiales, fotos y notas mientras el trabajo siga activo.</div>
+            <input type="hidden" name="ticket" value="${formValue(job.ticket)}" />
+            <input type="hidden" name="date" value="${formValue(job.date || today(0))}" />
+            <input type="hidden" name="client" value="${formValue(job.client)}" />
+            <input type="hidden" name="phone" value="${formValue(job.phone)}" />
+            <input type="hidden" name="address" value="${formValue(job.address)}" />
+            <input type="hidden" name="priority" value="${formValue(job.priority || 'Media')}" />
+            <input type="hidden" name="technicianId" value="${formValue(job.technicianId)}" />
+            <input type="hidden" name="warranty" value="${formValue(job.warranty)}" />
+            <input type="hidden" name="warrantyEnd" value="${formValue(job.warrantyEnd)}" />
+            <div class="list-item full"><strong>${escapeText(job.ticket)}</strong><br>${escapeText(job.client)}  -  ${escapeText(job.date)}<br>El tecnico puede actualizar estado, descripcion, materiales, fotos y notas mientras el trabajo siga activo.</div>
             <label>Estado<select name="status" onchange="toggleWorkshopFields()">${technicianStatuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             ${workshopFieldsMarkup(job.workshopEntry, job.status === 'En taller')}
-            <label class="full">Descripcion<textarea name="description" required>${job.description || ''}</textarea></label>
+            <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
             <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user)}</div>
-            <label class="full">Materiales<textarea name="materials">${job.materials || ''}</textarea></label>
+            <label class="full">Materiales<textarea name="materials">${escapeText(job.materials || '')}</textarea></label>
             <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
             <div class="full camera-actions">
               <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
               <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
             </div>
-            <label class="full">Notas<textarea name="notes">${job.notes || ''}</textarea></label>
+            <label class="full">Notas<textarea name="notes">${escapeText(job.notes || '')}</textarea></label>
             <button class="btn full">Guardar reporte</button>
           </form>
         `;
@@ -2706,8 +2714,18 @@
         }[char]));
       }
 
+      function formValue(value) {
+        return escapeText(value ?? '');
+      }
+
       function jsArg(value) {
         return escapeText(JSON.stringify(String(value ?? '')));
+      }
+
+      function technicianForJob(job) {
+        return technicians().find((tech) => String(tech.id) === String(job.technicianId))
+          || technicians().find((tech) => String(tech.name || '').toLowerCase() === String(job.technician || '').toLowerCase())
+          || { id: job.technicianId || '', name: job.technician || 'Sin tecnico', vehicle: job.vehicle || '' };
       }
 
       function formatMultiline(value, fallback = '') {
@@ -3393,12 +3411,12 @@
             <small>Estos datos quedan ligados a la boleta del reporte.</small>
             <div class="form-grid" style="margin-top:10px;">
               <label>Equipo retirado<select name="workshopEquipment">${equipment.map((item) => `<option ${selected(item, entry.equipment)}>${item}</option>`).join('')}</select></label>
-              <label>Marca<input name="workshopBrand" value="${entry.brand || ''}" placeholder="Marca del equipo" /></label>
-              <label>Modelo<input name="workshopModel" value="${entry.model || ''}" placeholder="Modelo o referencia" /></label>
-              <label>Serie / identificacion<input name="workshopSerial" value="${entry.serial || ''}" placeholder="Numero, etiqueta o seña" /></label>
+              <label>Marca<input name="workshopBrand" value="${formValue(entry.brand)}" placeholder="Marca del equipo" /></label>
+              <label>Modelo<input name="workshopModel" value="${formValue(entry.model)}" placeholder="Modelo o referencia" /></label>
+              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seña" /></label>
               <label>Estado al retirar<select name="workshopCondition">${conditions.map((item) => `<option ${selected(item, entry.condition)}>${item}</option>`).join('')}</select></label>
-              <label>Fecha entrada<input name="workshopDate" type="date" value="${entry.date || today(0)}" /></label>
-              <label class="full">Motivo del retiro<textarea name="workshopReason" placeholder="Explique por que el equipo se lleva al taller">${entry.reason || ''}</textarea></label>
+              <label>Fecha entrada<input name="workshopDate" type="date" value="${formValue(entry.date || today(0))}" /></label>
+              <label class="full">Motivo del retiro<textarea name="workshopReason" placeholder="Explique por que el equipo se lleva al taller">${escapeText(entry.reason || '')}</textarea></label>
             </div>
           </section>
         `;
