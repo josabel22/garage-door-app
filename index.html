@@ -1685,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.1</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1882,11 +1882,11 @@
       }
 
       function jobEditModal(modal) {
-        const job = state.data.jobs.find((item) => item.id === modal.id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(modal.id));
         if (!job) return '<p>Reporte no encontrado.</p>';
         if (state.user.role === 'technician') return technicianJobEditModal(job);
         return `
-          <form class="form-grid" onsubmit="submitJobEdit(event, ${job.id})">
+          <form class="form-grid" onsubmit="submitJobEdit(event, ${jsArg(job.id)})">
             <label>Boleta<input name="ticket" value="${job.ticket || ''}" required /></label>
             <label>Fecha<input name="date" type="date" value="${job.date || today(0)}" required /></label>
             <label>Cliente<input name="client" value="${job.client || ''}" required /></label>
@@ -1914,7 +1914,7 @@
 
       function technicianJobEditModal(job) {
         return `
-          <form class="form-grid" onsubmit="submitJobEdit(event, ${job.id})">
+          <form class="form-grid" onsubmit="submitJobEdit(event, ${jsArg(job.id)})">
             <input type="hidden" name="ticket" value="${job.ticket || ''}" />
             <input type="hidden" name="date" value="${job.date || today(0)}" />
             <input type="hidden" name="client" value="${job.client || ''}" />
@@ -1975,10 +1975,10 @@
       }
 
       function jobAssignModal(modal) {
-        const job = state.data.jobs.find((item) => item.id === modal.id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(modal.id));
         if (!job) return '<p>Reporte no encontrado.</p>';
         return `
-          <form class="form-grid" onsubmit="submitJobAssign(event, ${job.id})">
+          <form class="form-grid" onsubmit="submitJobAssign(event, ${jsArg(job.id)})">
             <label>Boleta<input value="${job.ticket}" disabled /></label>
             <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}" ${tech.id === job.technicianId ? 'selected' : ''}>${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
             <label>Movil<select name="vehicle">${state.data.vehicles.map((vehicle) => `<option ${vehicle.code === job.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
@@ -1988,11 +1988,11 @@
       }
 
       function reportPreviewModal(modal) {
-        const job = state.data.jobs.find((item) => item.id === modal.id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(modal.id));
         if (!job) return '<p>Reporte no encontrado.</p>';
         return `
           <div class="toolbar" style="margin-bottom:12px;">
-            <button class="btn" onclick="printJob(${job.id})">Descargar PDF</button>
+            <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>
             <button class="btn secondary" onclick="shareJob('${job.ticket}')">Compartir WhatsApp</button>
           </div>
           ${reportPrintTemplate(job)}
@@ -2314,7 +2314,7 @@
                     <td data-label="Garantia">${job.warranty}</td>
                     <td data-label="Fotos">${jobPhotosMarkup(job)}</td>
                     <td data-label="Firma">${isJobLocked(job) ? '<span class="pill">Bloqueado</span>' : 'Pendiente'}</td>
-                    ${actions ? `<td data-label="Acciones"><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${job.id})">Vista PDF</button> <button class="btn" onclick="printJob(${job.id})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${job.id})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${job.id})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}</td>` : ''}
+                    ${actions ? `<td data-label="Acciones"><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${jsArg(job.id)})">Vista PDF</button> <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${jsArg(job.id)})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${jsArg(job.id)})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}</td>` : ''}
                   </tr>
                 `).join('')}
               </tbody>
@@ -2363,14 +2363,14 @@
       }
 
       function previewJobPdf(id) {
-        const job = state.data.jobs.find((item) => item.id === id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return alert('Reporte no encontrado.');
         state.modal = { type: 'reportPreview', title: `Vista PDF ${job.ticket}`, id, wide: true };
         render();
       }
 
       function printJob(id) {
-        const job = state.data.jobs.find((item) => item.id === id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return alert('Reporte no encontrado.');
         const fileName = pdfFileName(job);
         const printWindow = window.open('', '_blank');
@@ -2499,7 +2499,7 @@
                   <div class="toolbar" style="margin-top:10px;">
                     ${pending ? `<button class="btn secondary" onclick="retryJobPhotos(${job.id})">Reintentar subir</button>` : ''}
                     ${broken ? `<button class="btn danger" onclick="cleanBrokenJobPhotos(${job.id})">Limpiar rotas</button>` : ''}
-                    <button class="btn secondary" onclick="previewJobPdf(${job.id})">Vista PDF</button>
+                    <button class="btn secondary" onclick="previewJobPdf(${jsArg(job.id)})">Vista PDF</button>
                   </div>
                 </div>
               `).join('') || '<div class="list-item">No hay fotos pendientes ni registros rotos en los reportes visibles.</div>'}
@@ -2704,6 +2704,10 @@
           '"': '&quot;',
           "'": '&#39;'
         }[char]));
+      }
+
+      function jsArg(value) {
+        return JSON.stringify(String(value ?? ''));
       }
 
       function formatMultiline(value, fallback = '') {
@@ -4338,7 +4342,7 @@
       }
 
       function assignJob(jobId) {
-        const job = state.data.jobs.find((item) => item.id === jobId);
+        const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
         if (!job) return;
         state.modal = { type: 'jobAssign', title: `Asignar ${job.ticket}`, id: jobId };
         render();
@@ -4346,7 +4350,7 @@
 
       function submitJobAssign(event, jobId) {
         event.preventDefault();
-        const job = state.data.jobs.find((item) => item.id === jobId);
+        const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
         if (!job) return;
         const before = { ...job };
         const form = new FormData(event.target);
@@ -4364,7 +4368,7 @@
       }
 
       function editJob(id) {
-        const job = state.data.jobs.find((item) => item.id === id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return alert('Reporte no encontrado.');
         if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
         state.reportParts = [];
@@ -4392,7 +4396,7 @@
 
       async function submitJobEdit(event, id) {
         event.preventDefault();
-        const job = state.data.jobs.find((item) => item.id === id);
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return;
         if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
         const before = { ...job };
