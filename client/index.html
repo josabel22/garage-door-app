@@ -1518,7 +1518,7 @@
       }
 
       function inventoryForVehicle(vehicle) {
-        return state.data.inventory.filter((item) => item.vehicle === vehicle);
+        return (state.data.inventory || []).filter((item) => item && item.vehicle === vehicle);
       }
 
       function reportVehicleForUser(user) {
@@ -1685,7 +1685,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.3</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.4</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1791,7 +1791,7 @@
           modalBody = templates[modal.type]?.(modal) || '';
         } catch (error) {
           console.error(error);
-          modalBody = '<div class="list-item"><strong>No se pudo abrir esta ventana.</strong><br>El reporte tiene un dato incompleto o con formato inesperado. Intenta sincronizar y vuelve a abrirlo.</div>';
+          modalBody = `<div class="list-item"><strong>No se pudo abrir esta ventana.</strong><br>${escapeText(error?.message || error)}<br>El reporte tiene un dato incompleto o con formato inesperado.</div>`;
         }
         return `
           <div class="modal-backdrop">
@@ -2254,7 +2254,7 @@
         const items = inventoryForVehicle(vehicle).filter((item) => (
           item.qty > 0 &&
           !selectedIds.includes(item.id) &&
-          (!text || item.part.toLowerCase().includes(text))
+          (!text || String(item.part || '').toLowerCase().includes(text))
         ));
 
         return items.map((item) => `
@@ -2332,7 +2332,9 @@
       }
 
       function jobPhotosMarkup(job) {
-        const photos = [...(job.photos?.before || []), ...(job.photos?.after || [])]
+        const beforePhotos = Array.isArray(job.photos?.before) ? job.photos.before : [];
+        const afterPhotos = Array.isArray(job.photos?.after) ? job.photos.after : [];
+        const photos = [...beforePhotos, ...afterPhotos]
           .filter((photo) => photoUrl(photo) || hasLocalPendingPhoto(photo))
           .slice(0, 4);
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
