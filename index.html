@@ -843,10 +843,10 @@
     <script src="./supabase-config.js"></script>
     <script>
       const users = [
-        { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: true, createdAt: today(-120) },
-        { id: 2, username: 'tecnico1', password: 'tecnico123', role: 'technician', name: 'Carlos Mendez', phone: '8888-1111', email: 'carlos@mgportones.cr', vehicle: 'MOV-01', active: true, createdAt: today(-90) },
-        { id: 4, username: 'tecnico2', password: 'tecnico123', role: 'technician', name: 'Luis Vega', phone: '8888-2222', email: 'luis@mgportones.cr', vehicle: 'MOV-03', active: true, createdAt: today(-70) },
-        { id: 3, username: 'cliente1', password: 'cliente123', role: 'client', name: 'Sofia Ramirez', phone: '8888-1010', email: 'sofia@example.com', active: true, clientId: 1, createdAt: today(-60) }
+        { id: 1, username: 'admin', password: 'deshabilitado-v58', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: false, createdAt: today(-120) },
+        { id: 2, username: 'tecnico1', password: 'deshabilitado-v58', role: 'technician', name: 'Carlos Mendez', phone: '8888-1111', email: 'carlos@mgportones.cr', vehicle: 'MOV-01', active: false, createdAt: today(-90) },
+        { id: 4, username: 'tecnico2', password: 'deshabilitado-v58', role: 'technician', name: 'Luis Vega', phone: '8888-2222', email: 'luis@mgportones.cr', vehicle: 'MOV-03', active: false, createdAt: today(-70) },
+        { id: 3, username: 'cliente1', password: 'deshabilitado-v58', role: 'client', name: 'Sofia Ramirez', phone: '8888-1010', email: 'sofia@example.com', active: false, clientId: 1, createdAt: today(-60) }
       ];
 
       const seed = {
@@ -1751,7 +1751,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.10</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v58.0</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -4062,11 +4062,22 @@
         render();
       }
 
+      function temporaryPassword() {
+        const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        const values = new Uint32Array(10);
+        if (window.crypto?.getRandomValues) {
+          window.crypto.getRandomValues(values);
+        } else {
+          values.forEach((_, index) => { values[index] = Math.floor(Math.random() * alphabet.length); });
+        }
+        return Array.from(values, (value) => alphabet[value % alphabet.length]).join('');
+      }
+
       function resetUserPassword(id) {
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
-        user.password = user.role === 'admin' ? 'admin123' : user.role === 'client' ? 'cliente123' : 'tecnico123';
-        alert(`Contrasena restablecida para ${user.name}: ${user.password}`);
+        user.password = temporaryPassword();
+        alert(`Contrasena temporal para ${user.name}: ${user.password}`);
         queuePendingChange('user', id);
         save();
       }
@@ -4154,8 +4165,9 @@
       function resetTechnicianPassword(id) {
         const tech = state.data.users.find((user) => user.id === id);
         if (!tech) return;
-        tech.password = 'tecnico123';
-        alert(`Contrasena restablecida para ${tech.name}: tecnico123`);
+        tech.password = temporaryPassword();
+        alert(`Contrasena temporal para ${tech.name}: ${tech.password}`);
+        queuePendingChange('user', id);
         save();
       }
 

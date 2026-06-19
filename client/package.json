@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "preflight": "node ../../tools/preflight-v58.mjs",
+    "release-check": "npm run preflight -- --backup C:/Users/Usuario/Downloads/respaldo-mg-portones-2026-06-19T03-25-27-215Z.json && npm run build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
