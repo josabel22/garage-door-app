@@ -1051,7 +1051,8 @@
         const localJobCount = (localData?.jobs || []).length;
         const cloudJobCount = (cloudData?.jobs || []).length;
         merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
-        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs).filter((job) => !isDeletedJob(job, merged.deletedJobs));
+        merged.deletedPhotos = mergeDeletedPhotos(cloudData?.deletedPhotos, localData?.deletedPhotos);
+        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs, merged.deletedPhotos).filter((job) => !isDeletedJob(job, merged.deletedJobs));
         ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
@@ -1078,7 +1079,8 @@
           const beforeJobs = (data.jobs || []).length;
           const beforeUsers = (data.users || []).length;
           data.deletedJobs = mergeDeletedJobs(data.deletedJobs, backup.data?.deletedJobs);
-          data.jobs = mergeJobs(data.jobs, backup.data?.jobs).filter((job) => !isDeletedJob(job, data.deletedJobs));
+          data.deletedPhotos = mergeDeletedPhotos(data.deletedPhotos, backup.data?.deletedPhotos);
+          data.jobs = mergeJobs(data.jobs, backup.data?.jobs, data.deletedPhotos).filter((job) => !isDeletedJob(job, data.deletedJobs));
           data.clients = mergeById(data.clients, backup.data?.clients);
           data.warranties = mergeById(data.warranties, backup.data?.warranties);
           data.movements = mergeById(data.movements, backup.data?.movements);
@@ -1102,7 +1104,7 @@
         return Array.from(items.values());
       }
 
-      function mergeJobs(cloudJobs = [], localJobs = []) {
+      function mergeJobs(cloudJobs = [], localJobs = [], deletedPhotos = []) {
         const items = new Map();
         (cloudJobs || []).forEach((job) => items.set(jobMergeKey(job), job));
         (localJobs || []).forEach((localJob) => {
@@ -1117,10 +1119,13 @@
           const preferred = localUpdated > cloudUpdated ? localJob : cloudJob;
           items.set(key, {
             ...preferred,
-            photos: mergeJobPhotos(cloudJob.photos, localJob.photos)
+            photos: mergeJobPhotos(cloudJob.photos, localJob.photos, deletedPhotos, preferred)
           });
         });
-        return Array.from(items.values());
+        return Array.from(items.values()).map((job) => ({
+          ...job,
+          photos: mergeJobPhotos({}, job.photos, deletedPhotos, job)
+        }));
       }
 
       function jobMergeKey(job) {
@@ -1136,6 +1141,23 @@
         return Array.from(items.values());
       }
 
+      function mergeDeletedPhotos(cloudDeleted = [], localDeleted = []) {
+        const items = new Map();
+        [...(cloudDeleted || []), ...(localDeleted || [])].forEach((item) => {
+          const key = deletedPhotoKey(item);
+          if (key) items.set(key, item);
+        });
+        return Array.from(items.values());
+      }
+
+      function deletedPhotoKey(item) {
+        return [
+          String(item?.jobId || item?.ticket || ''),
+          String(item?.kind || ''),
+          String(item?.photoId || item?.path || item?.url || item?.key || item?.name || '')
+        ].join('|');
+      }
+
       function isDeletedJob(job, deletedJobs = state.data?.deletedJobs || []) {
         return (deletedJobs || []).some((deleted) => (
           String(deleted.id || '') === String(job?.id || '') ||
@@ -1143,21 +1165,46 @@
         ));
       }
 
-      function mergeJobPhotos(cloudPhotos = {}, localPhotos = {}) {
+      function mergeJobPhotos(cloudPhotos = {}, localPhotos = {}, deletedPhotos = [], job = {}) {
         return {
-          before: mergePhotoList(cloudPhotos?.before, localPhotos?.before),
-          after: mergePhotoList(cloudPhotos?.after, localPhotos?.after)
+          before: mergePhotoList(cloudPhotos?.before, localPhotos?.before, deletedPhotos, job, 'before'),
+          after: mergePhotoList(cloudPhotos?.after, localPhotos?.after, deletedPhotos, job, 'after')
         };
       }
 
-      function mergePhotoList(cloudPhotos = [], localPhotos = []) {
+      function mergePhotoList(cloudPhotos = [], localPhotos = [], deletedPhotos = [], job = {}, kind = '') {
         const items = new Map();
         [...(cloudPhotos || []), ...(localPhotos || [])].forEach((photo) => {
           if (!photo) return;
+          if (isDeletedPhoto(photo, deletedPhotos, job, kind)) return;
           const key = photo.path || photo.url || photo.data || photo.name || JSON.stringify(photo);
           if (!items.has(key)) items.set(key, photo);
         });
         return Array.from(items.values());
+      }
+
+      function isDeletedPhoto(photo, deletedPhotos = [], job = {}, kind = '') {
+        const jobKeys = [String(job?.id || ''), String(job?.ticket || '')].filter(Boolean);
+        const photoKeys = [
+          String(photo?.id || ''),
+          String(photo?.path || ''),
+          String(photo?.url || ''),
+          String(photo?.name || ''),
+          String(photo?.data || '')
+        ].filter(Boolean);
+        return (deletedPhotos || []).some((deleted) => {
+          const deletedJob = String(deleted?.jobId || deleted?.ticket || '');
+          const deletedKind = String(deleted?.kind || '');
+          if (deletedKind && deletedKind !== kind) return false;
+          if (deletedJob && jobKeys.length && !jobKeys.includes(deletedJob)) return false;
+          return photoKeys.some((key) => (
+            key === String(deleted?.photoId || '') ||
+            key === String(deleted?.path || '') ||
+            key === String(deleted?.url || '') ||
+            key === String(deleted?.key || '') ||
+            key === String(deleted?.name || '')
+          ));
+        });
       }
 
       function mergeUsers(cloudUsers = [], localUsers = []) {
@@ -1340,6 +1387,7 @@
         state.data.auditLogs ||= [];
         state.data.deletedUsers ||= [];
         state.data.deletedJobs ||= [];
+        state.data.deletedPhotos ||= [];
         state.data.jobs = (state.data.jobs || []).filter((job) => !isDeletedJob(job));
         state.data.users = state.data.users.map((user) => ({
           phone: '',
@@ -1467,6 +1515,23 @@
           ticket: job.ticket,
           client: job.client,
           date: job.date,
+          deletedAt: new Date().toISOString(),
+          deletedBy: state.user?.name || 'Sistema'
+        }]);
+      }
+
+      function rememberDeletedPhoto(job, kind, photo) {
+        if (!job || !photo) return;
+        state.data.deletedPhotos ||= [];
+        state.data.deletedPhotos = mergeDeletedPhotos(state.data.deletedPhotos, [{
+          jobId: job.id,
+          ticket: job.ticket,
+          kind,
+          photoId: photo.id,
+          key: photo.path || photo.url || photo.data || photo.name || '',
+          path: photo.path || '',
+          url: photo.url || '',
+          name: photo.name || '',
           deletedAt: new Date().toISOString(),
           deletedBy: state.user?.name || 'Sistema'
         }]);
@@ -1686,7 +1751,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.9</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.10</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -4628,7 +4693,9 @@
         const confirmed = confirm(`Eliminar esta foto del reporte ${job.ticket}?`);
         if (!confirmed) return;
         const before = { ticket: job.ticket, kind: photoKind, photoId, count: photos.length };
+        rememberDeletedPhoto(job, photoKind, photo);
         job.photos[photoKind] = photos.filter((item) => String(item?.id || '') !== String(photoId));
+        job.photos = mergeJobPhotos({}, job.photos, state.data.deletedPhotos, job);
         job.updatedAt = new Date().toISOString();
         queuePendingChange('photo_delete', job.id);
         logAudit('Eliminar foto', 'Reporte', before, { ticket: job.ticket, kind: photoKind, count: job.photos[photoKind].length });
