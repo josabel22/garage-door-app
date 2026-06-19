@@ -915,6 +915,7 @@
         auditoria: 'Auditoria'
       };
 
+      const APP_VERSION = 'v58.3';
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
       const state = {
@@ -1753,7 +1754,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v58.2</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - ${APP_VERSION}</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -4730,13 +4731,116 @@
         }
       }
 
+      function buildBlackBoxDiagnostics(data) {
+        const jobs = data.jobs || [];
+        const duplicateTickets = findDuplicateTickets(jobs);
+        const photoSummary = buildPhotoDiagnostics(jobs);
+        return {
+          schema: 'mg-portones-caja-negra-v1',
+          appVersion: APP_VERSION,
+          generatedAt: new Date().toISOString(),
+          generatedBy: {
+            id: state.user?.id || '',
+            username: state.user?.username || '',
+            name: state.user?.name || '',
+            role: state.user?.role || ''
+          },
+          environment: {
+            online: navigator.onLine,
+            url: location.href,
+            userAgent: navigator.userAgent,
+            platform: navigator.platform || '',
+            language: navigator.language || ''
+          },
+          cloud: {
+            ready: cloudReady,
+            configured: supabaseConfig().ready,
+            lastError: cloudError || ''
+          },
+          counts: {
+            jobs: jobs.length,
+            clients: (data.clients || []).length,
+            users: (data.users || []).length,
+            vehicles: (data.vehicles || []).length,
+            inventory: (data.inventory || []).length,
+            warranties: (data.warranties || []).length,
+            maintenances: (data.maintenances || []).length,
+            appointments: (data.appointments || []).length,
+            auditLogs: (data.auditLogs || []).length,
+            deletedJobs: (data.deletedJobs || []).length,
+            deletedUsers: (data.deletedUsers || []).length,
+            deletedPhotos: (data.deletedPhotos || []).length,
+            syncQueue: (data.syncQueue || []).length,
+            photosPendingUpload: countPendingPhotoUploads(data)
+          },
+          dataHealth: {
+            duplicateTickets,
+            jobsWithoutId: jobs.filter((job) => !job.id).map((job) => job.ticket || 'sin boleta').slice(0, 50),
+            jobsWithoutTicket: jobs.filter((job) => !job.ticket).map((job) => job.id || 'sin id').slice(0, 50),
+            photosWithoutUrlOrData: photoSummary.invalidPhotos.slice(0, 50)
+          },
+          photoSummary: {
+            pendingUploadByTicket: pendingPhotoSummary(data),
+            reportsWithMostPhotos: photoSummary.reportsWithMostPhotos,
+            totalInvalidPhotos: photoSummary.invalidPhotos.length
+          },
+          recentActivity: {
+            auditLogs: (data.auditLogs || []).slice(0, 30),
+            syncQueue: (data.syncQueue || []).slice(-30)
+          }
+        };
+      }
+
+      function findDuplicateTickets(jobs) {
+        const tickets = new Map();
+        jobs.forEach((job) => {
+          const ticket = String(job.ticket || '').trim();
+          if (!ticket) return;
+          tickets.set(ticket, [...(tickets.get(ticket) || []), job.id || 'sin id']);
+        });
+        return Array.from(tickets.entries())
+          .filter(([, ids]) => ids.length > 1)
+          .map(([ticket, ids]) => ({ ticket, ids }))
+          .slice(0, 50);
+      }
+
+      function buildPhotoDiagnostics(jobs) {
+        const invalidPhotos = [];
+        const reportsWithMostPhotos = jobs
+          .map((job) => {
+            const before = Array.isArray(job.photos?.before) ? job.photos.before : [];
+            const after = Array.isArray(job.photos?.after) ? job.photos.after : [];
+            [...before.map((photo) => ({ photo, kind: 'before' })), ...after.map((photo) => ({ photo, kind: 'after' }))].forEach(({ photo, kind }) => {
+              if (!photo?.url && !photo?.data) {
+                invalidPhotos.push({
+                  ticket: job.ticket || job.id,
+                  jobId: job.id || '',
+                  kind,
+                  photoId: photo?.id || ''
+                });
+              }
+            });
+            return {
+              ticket: job.ticket || job.id,
+              client: job.client || '',
+              before: before.length,
+              after: after.length,
+              total: before.length + after.length
+            };
+          })
+          .filter((item) => item.total)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 20);
+        return { invalidPhotos, reportsWithMostPhotos };
+      }
+
       function downloadBackup() {
         if (state.user.role !== 'admin') return alert('Solo administracion puede descargar respaldos.');
         const data = backupSafeData(state.data);
         const stamp = new Date().toISOString().replace(/[:.]/g, '-');
         const backup = {
           app: 'MG Portones',
-          version: 'v47',
+          version: APP_VERSION,
           createdAt: new Date().toISOString(),
           createdBy: state.user.name,
           counts: {
@@ -4746,6 +4850,7 @@
             inventory: (data.inventory || []).length,
             photosPending: countPendingPhotoUploads(state.data)
           },
+          cajaNegra: buildBlackBoxDiagnostics(data),
           data
         };
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });

@@ -8,8 +8,8 @@ const swPath = path.join(clientDir, 'public', 'sw.js');
 const args = process.argv.slice(2);
 const backupArgIndex = args.findIndex((arg) => arg === '--backup');
 const backupPath = backupArgIndex >= 0 ? args[backupArgIndex + 1] : '';
-const expectedVersion = 'v58.2';
-const expectedCache = 'mg-portones-v58-2';
+const expectedVersion = 'v58.3';
+const expectedCache = 'mg-portones-v58-3';
 
 const checks = [];
 
