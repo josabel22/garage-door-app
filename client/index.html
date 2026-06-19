@@ -915,7 +915,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v58.3';
+      const APP_VERSION = 'v58.4';
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
       const state = {
@@ -4850,7 +4850,7 @@
             inventory: (data.inventory || []).length,
             photosPending: countPendingPhotoUploads(state.data)
           },
-          cajaNegra: buildBlackBoxDiagnostics(data),
+          cajaNegra: buildBlackBoxDiagnostics(state.data),
           data
         };
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
