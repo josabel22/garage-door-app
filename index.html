@@ -1278,10 +1278,12 @@
         backupLocalData('before_cloud_save');
         await uploadPendingPhotos();
         saveLocalData();
-        const rows = await supabaseRequest('app_state?select=data&id=eq.production');
-        if (rows?.[0]?.data) {
-          state.data = mergeBeforeCloudWrite(rows[0].data, state.data);
-          saveLocalData();
+        if (!options.skipCloudMerge) {
+          const rows = await supabaseRequest('app_state?select=data&id=eq.production');
+          if (rows?.[0]?.data) {
+            state.data = mergeBeforeCloudWrite(rows[0].data, state.data);
+            saveLocalData();
+          }
         }
         const pendingPhotos = countPendingPhotoUploads(state.data);
         const cloudData = pendingPhotos ? cloudSafeData(state.data) : state.data;
@@ -1751,7 +1753,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v58.0</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v58.2</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -4693,7 +4695,7 @@
         render();
       }
 
-      function deleteJobPhoto(jobId, kind, photoId) {
+      async function deleteJobPhoto(jobId, kind, photoId) {
         if (state.user.role !== 'admin') return alert('Solo administracion puede eliminar fotos.');
         const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
         if (!job) return alert('Reporte no encontrado.');
@@ -4711,8 +4713,21 @@
         job.updatedAt = new Date().toISOString();
         queuePendingChange('photo_delete', job.id);
         logAudit('Eliminar foto', 'Reporte', before, { ticket: job.ticket, kind: photoKind, count: job.photos[photoKind].length });
-        save();
+        saveLocalData();
         render();
+        if (navigator.onLine && supabaseConfig().ready) {
+          try {
+            await saveCloudDataNow({ clearQueue: true, skipCloudMerge: true });
+            render();
+          } catch (error) {
+            console.error(error);
+            cloudReady = false;
+            cloudError = 'Foto eliminada localmente. Toca Sincronizar para reintentar con Supabase.';
+            render();
+          }
+        } else {
+          scheduleCloudRetry();
+        }
       }
 
       function downloadBackup() {

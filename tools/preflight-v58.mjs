@@ -8,6 +8,8 @@ const swPath = path.join(clientDir, 'public', 'sw.js');
 const args = process.argv.slice(2);
 const backupArgIndex = args.findIndex((arg) => arg === '--backup');
 const backupPath = backupArgIndex >= 0 ? args[backupArgIndex + 1] : '';
+const expectedVersion = 'v58.2';
+const expectedCache = 'mg-portones-v58-2';
 
 const checks = [];
 
@@ -52,8 +54,8 @@ function validateAppFiles() {
   const sw = read(swPath);
   validateScripts(html);
 
-  assertIncludes(html, 'v58.0', 'Version visible v58.0');
-  assertIncludes(sw, "mg-portones-v58-0", 'Cache service worker v58.0');
+  assertIncludes(html, expectedVersion, `Version visible ${expectedVersion}`);
+  assertIncludes(sw, expectedCache, `Cache service worker ${expectedVersion}`);
 
   [
     'function createReport',
