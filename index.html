@@ -1686,7 +1686,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.8</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.9</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -1910,7 +1910,7 @@
             <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
             <div id="reportInventoryFields" class="full">${reportInventoryFields(jobTech)}</div>
             <label class="full">Materiales<textarea name="materials">${escapeText(job.materials || '')}</textarea></label>
-            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
+            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job, { allowDelete: true, limit: 0 })}</div>
             <div class="full camera-actions">
               <label>Agregar fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
               <label>Agregar fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
@@ -1939,7 +1939,7 @@
             <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
             <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user)}</div>
             <label class="full">Materiales<textarea name="materials">${escapeText(job.materials || '')}</textarea></label>
-            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job)}</div>
+            <div class="full list-item"><strong>Fotos actuales</strong><br>${jobPhotosMarkup(job, { allowDelete: false, limit: 0 })}</div>
             <div class="full camera-actions">
               <label>Fotos antes<input name="beforePhotos" type="file" accept="image/*" multiple /></label>
               <label>Fotos despues<input name="afterPhotos" type="file" accept="image/*" multiple /></label>
@@ -2332,17 +2332,20 @@
         `;
       }
 
-      function jobPhotosMarkup(job) {
+      function jobPhotosMarkup(job, options = {}) {
+        const { allowDelete = false, limit = 4 } = options;
         const beforePhotos = Array.isArray(job.photos?.before) ? job.photos.before : [];
         const afterPhotos = Array.isArray(job.photos?.after) ? job.photos.after : [];
-        const photos = [...beforePhotos, ...afterPhotos]
-          .filter((photo) => photoUrl(photo) || hasLocalPendingPhoto(photo))
-          .slice(0, 4);
-        if (!photos.length) return '<span class="pill">Sin fotos</span>';
-        return `<div class="photo-strip">${photos.map((photo) => {
+        const photos = [
+          ...beforePhotos.map((photo) => ({ photo, listKind: 'before' })),
+          ...afterPhotos.map((photo) => ({ photo, listKind: 'after' }))
+        ].filter(({ photo }) => photoUrl(photo) || hasLocalPendingPhoto(photo));
+        const visiblePhotos = limit ? photos.slice(0, limit) : photos;
+        if (!visiblePhotos.length) return '<span class="pill">Sin fotos</span>';
+        return `<div class="photo-strip">${visiblePhotos.map(({ photo, listKind }) => {
           const url = photoUrl(photo);
-          const removeButton = state.user?.role === 'admin' && photo.kind && photo.id
-            ? `<button type="button" class="btn danger" style="padding:6px 8px; font-size:12px;" onclick="deleteJobPhoto(${jsArg(job.id)}, ${jsArg(photo.kind)}, ${jsArg(photo.id)})">Eliminar</button>`
+          const removeButton = allowDelete && state.user?.role === 'admin' && photo.id
+            ? `<button type="button" class="btn danger" style="padding:6px 8px; font-size:12px;" onclick="deleteJobPhoto(${jsArg(job.id)}, ${jsArg(listKind)}, ${jsArg(photo.id)})">Eliminar</button>`
             : '';
           return url
             ? `<span style="display:inline-grid; gap:4px;"><a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${photo.kind || 'Foto reporte'}" /><small>Abrir foto</small></a>${removeButton}</span>`
