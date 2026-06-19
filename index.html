@@ -1686,7 +1686,7 @@
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
-                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.7</span>
+                <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - v57.8</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
               </div>
@@ -2341,7 +2341,12 @@
         if (!photos.length) return '<span class="pill">Sin fotos</span>';
         return `<div class="photo-strip">${photos.map((photo) => {
           const url = photoUrl(photo);
-          return url ? `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${photo.kind || 'Foto reporte'}" /><small>Abrir foto</small></a>` : '<span class="pill">Pendiente de sincronizar</span>';
+          const removeButton = state.user?.role === 'admin' && photo.kind && photo.id
+            ? `<button type="button" class="btn danger" style="padding:6px 8px; font-size:12px;" onclick="deleteJobPhoto(${jsArg(job.id)}, ${jsArg(photo.kind)}, ${jsArg(photo.id)})">Eliminar</button>`
+            : '';
+          return url
+            ? `<span style="display:inline-grid; gap:4px;"><a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${photo.kind || 'Foto reporte'}" /><small>Abrir foto</small></a>${removeButton}</span>`
+            : `<span style="display:inline-grid; gap:4px;"><span class="pill">Pendiente de sincronizar</span>${removeButton}</span>`;
         }).join('')}</div>`;
       }
 
@@ -4604,6 +4609,26 @@
         const removed = cleanBrokenPhotosFromJob(job);
         queuePendingChange('photos_cleanup', job.id);
         logAudit('Limpiar fotos rotas', 'Reporte', { ticket: job.ticket, broken }, { removed });
+        save();
+        render();
+      }
+
+      function deleteJobPhoto(jobId, kind, photoId) {
+        if (state.user.role !== 'admin') return alert('Solo administracion puede eliminar fotos.');
+        const job = state.data.jobs.find((item) => String(item.id) === String(jobId));
+        if (!job) return alert('Reporte no encontrado.');
+        const photoKind = kind === 'after' ? 'after' : 'before';
+        job.photos ||= { before: [], after: [] };
+        const photos = Array.isArray(job.photos[photoKind]) ? job.photos[photoKind] : [];
+        const photo = photos.find((item) => String(item?.id || '') === String(photoId));
+        if (!photo) return alert('Foto no encontrada en este reporte.');
+        const confirmed = confirm(`Eliminar esta foto del reporte ${job.ticket}?`);
+        if (!confirmed) return;
+        const before = { ticket: job.ticket, kind: photoKind, photoId, count: photos.length };
+        job.photos[photoKind] = photos.filter((item) => String(item?.id || '') !== String(photoId));
+        job.updatedAt = new Date().toISOString();
+        queuePendingChange('photo_delete', job.id);
+        logAudit('Eliminar foto', 'Reporte', before, { ticket: job.ticket, kind: photoKind, count: job.photos[photoKind].length });
         save();
         render();
       }
