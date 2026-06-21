@@ -1,0 +1,13 @@
+﻿# SUBIR-MANUALES-V58-8
+
+Subir estos PDFs a GitHub dentro de la ruta:
+
+client/public/manuales/
+
+Si GitHub da error por tamano, subirlos en grupos pequenos o uno por uno.
+
+Tambien deben estar subidos los archivos de la version v58.8:
+- client/index.html
+- client/manuales-apoyo.js
+- client/public/manuales-apoyo.js
+- client/public/sw.js

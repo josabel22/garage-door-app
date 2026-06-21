@@ -1,5 +1,21 @@
-const CACHE_NAME = 'mg-portones-v58-4';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './mg-logo.jpg', './mg-icon-192.png', './mg-icon-512.png', './supabase-config.js'];
+const CACHE_NAME = 'mg-portones-v58-8';
+const ASSETS = [
+  './',
+  './index.html',
+  './manuales-apoyo.js',
+  './manuales/beninca-heady.pdf',
+  './manuales/beninca-brainy-24.pdf',
+  './manuales/ditec-vivah.pdf',
+  './manuales/entrematic-lcu30h.pdf',
+  './manuales/genius-sprint-383.pdf',
+  './manuales/nice-pistones.pdf',
+  './manuales/came-zlj24.pdf',
+  './manifest.webmanifest',
+  './mg-logo.jpg',
+  './mg-icon-192.png',
+  './mg-icon-512.png',
+  './supabase-config.js'
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
