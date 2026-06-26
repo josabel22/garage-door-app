@@ -1,0 +1,8 @@
+﻿SUBIR MANUALES V58.9 - PARTE 1
+
+Subir primero estos archivos a GitHub dentro de:
+client/public/manuales/
+
+Despues de que GitHub Actions termine en verde, subir la PARTE 2.
+
+No subir carpetas node_modules, dist, .manual-tools ni carpetas completas externas.
