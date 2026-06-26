@@ -1,0 +1,24 @@
+﻿{
+  "schema": "mg-knowledge-seed-v1",
+  "cases": [
+    {
+      "id": "case-aislamiento-motor-inundado",
+      "title": "Motor inundado con aislamiento critico y falsa recuperacion termica",
+      "brand": "Beninca",
+      "model": "Subterraneo",
+      "equipmentType": "Motor batiente subterraneo",
+      "symptoms": "Motor estuvo inundado, presento ruido de arco electrico, perdida de fuerza y funcionamiento irregular con viento.",
+      "measurements": "Motor 1: 2.7, 1.6 y 1.5 MOhm. Motor sano: 220 a 250 MOhm.",
+      "diagnosis": "Aislamiento desbalanceado e inferior a 5 MOhm. Riesgo critico por humedad interna y posible fuga hacia carcasa.",
+      "solution": "No operar de forma continua. Desmontar motor, secar/hornear estator, revisar aceite, sellos y baleros antes de entregar.",
+      "avoid": "No subir fuerza en la central como solucion definitiva. La desaparicion del ruido puede ser temporal por calentamiento interno.",
+      "riskLevel": "critico",
+      "confidenceLevel": "alta",
+      "status": "published",
+      "createdAt": "2026-06-25T00:00:00.000Z",
+      "createdBy": "Caso base MG",
+      "reviewedBy": "Revision inicial",
+      "reviewNotes": "Caso ejemplo para validar el flujo de conocimiento tecnico."
+    }
+  ]
+}
