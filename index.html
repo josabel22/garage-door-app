@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -81,7 +81,8 @@
         border-radius: 8px;
         background: #ffffff;
         display: block;
-        object-fit: contain;
+        -o-object-fit: contain;
+           object-fit: contain;
         padding: 4px;
       }
 
@@ -418,6 +419,53 @@
         gap: 8px;
       }
 
+      .support-card {
+        display: grid;
+        gap: 14px;
+      }
+
+      .support-card h4 {
+        margin: 0;
+        color: var(--navy);
+      }
+
+      .support-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .support-list {
+        margin: 0;
+        padding-left: 20px;
+        line-height: 1.45;
+      }
+
+      .manual-checklist {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .manual-checklist label {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        background: #fbfdff;
+      }
+
+      .manual-checklist input {
+        width: auto;
+        margin-top: 3px;
+      }
+
+      .diagnostic-table {
+        min-width: 0;
+      }
+
       .mini-calendar {
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -457,7 +505,8 @@
       .photo-strip img {
         width: 58px;
         height: 58px;
-        object-fit: cover;
+        -o-object-fit: cover;
+           object-fit: cover;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: #eef4f8;
@@ -499,7 +548,8 @@
       .pdf-photo-grid img {
         width: 100%;
         aspect-ratio: 4 / 3;
-        object-fit: cover;
+        -o-object-fit: cover;
+           object-fit: cover;
         border: 1px solid var(--line);
         border-radius: 8px;
       }
@@ -725,6 +775,7 @@
 
         .camera-actions,
         .history-grid,
+        .manual-checklist,
         .pdf-grid,
         .pdf-photo-grid {
           grid-template-columns: 1fr;
@@ -841,6 +892,7 @@
     <div id="app"></div>
 
     <script src="./supabase-config.js"></script>
+    <script src="./manuales-apoyo.js"></script>
     <script>
       const users = [
         { id: 1, username: 'admin', password: 'deshabilitado-v58', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: false, createdAt: today(-120) },
@@ -895,8 +947,8 @@
       };
 
       const navByRole = {
-        admin: ['dashboard', 'reportes', 'fotos', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'usuarios', 'auditoria'],
-        technician: ['dashboard', 'reportes', 'fotos', 'inventario', 'citas'],
+        admin: ['dashboard', 'reportes', 'fotos', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'apoyo', 'usuarios', 'auditoria'],
+        technician: ['dashboard', 'reportes', 'fotos', 'inventario', 'citas', 'apoyo'],
         client: ['dashboard', 'reportes', 'citas', 'garantias']
       };
 
@@ -911,11 +963,13 @@
         mantenimientos: 'Mantenimientos',
         clientes: 'Clientes',
         busqueda: 'Busqueda',
+        apoyo: 'Apoyo tecnico',
         usuarios: 'Usuarios',
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v58.3';
+      const APP_VERSION = 'v59.1';
+      const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
       const state = {
@@ -1054,7 +1108,9 @@
         merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
         merged.deletedPhotos = mergeDeletedPhotos(cloudData?.deletedPhotos, localData?.deletedPhotos);
         merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs, merged.deletedPhotos).filter((job) => !isDeletedJob(job, merged.deletedJobs));
-        ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
+        merged.deletedClients = mergeDeletedClients(cloudData?.deletedClients, localData?.deletedClients);
+        merged.clients = mergeById(cloudData?.clients, localData?.clients).filter((client) => !isDeletedClient(client, merged.deletedClients));
+        ['warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
         merged.users = mergeUsers(cloudData?.users, localData?.users);
@@ -1082,7 +1138,8 @@
           data.deletedJobs = mergeDeletedJobs(data.deletedJobs, backup.data?.deletedJobs);
           data.deletedPhotos = mergeDeletedPhotos(data.deletedPhotos, backup.data?.deletedPhotos);
           data.jobs = mergeJobs(data.jobs, backup.data?.jobs, data.deletedPhotos).filter((job) => !isDeletedJob(job, data.deletedJobs));
-          data.clients = mergeById(data.clients, backup.data?.clients);
+          data.deletedClients = mergeDeletedClients(data.deletedClients, backup.data?.deletedClients);
+          data.clients = mergeById(data.clients, backup.data?.clients).filter((client) => !isDeletedClient(client, data.deletedClients));
           data.warranties = mergeById(data.warranties, backup.data?.warranties);
           data.movements = mergeById(data.movements, backup.data?.movements);
           data.notifications = mergeById(data.notifications, backup.data?.notifications);
@@ -1227,6 +1284,15 @@
         return Array.from(items.values());
       }
 
+      function mergeDeletedClients(cloudDeleted = [], localDeleted = []) {
+        const items = new Map();
+        [...(cloudDeleted || []), ...(localDeleted || [])].forEach((item) => {
+          const key = String(item?.id || item?.name || '');
+          if (key) items.set(key, item);
+        });
+        return Array.from(items.values());
+      }
+
       function mergeInventory(cloudItems = [], localItems = []) {
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
@@ -1320,8 +1386,11 @@
       function mergeBeforeCloudWrite(cloudData, localData) {
         const merged = { ...cloudData, ...localData };
         merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
-        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs).filter((job) => !isDeletedJob(job, merged.deletedJobs));
-        ['clients', 'warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
+        merged.deletedPhotos = mergeDeletedPhotos(cloudData?.deletedPhotos, localData?.deletedPhotos);
+        merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs, merged.deletedPhotos).filter((job) => !isDeletedJob(job, merged.deletedJobs));
+        merged.deletedClients = mergeDeletedClients(cloudData?.deletedClients, localData?.deletedClients);
+        merged.clients = mergeById(cloudData?.clients, localData?.clients).filter((client) => !isDeletedClient(client, merged.deletedClients));
+        ['warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
         merged.users = mergeUsers(cloudData?.users, localData?.users);
@@ -1388,10 +1457,12 @@
         state.data.notifications ||= [];
         state.data.movements ||= [];
         state.data.auditLogs ||= [];
+        state.data.deletedClients ||= [];
         state.data.deletedUsers ||= [];
         state.data.deletedJobs ||= [];
         state.data.deletedPhotos ||= [];
         state.data.jobs = (state.data.jobs || []).filter((job) => !isDeletedJob(job));
+        state.data.clients = (state.data.clients || []).filter((client) => !isDeletedClient(client));
         state.data.users = state.data.users.map((user) => ({
           phone: '',
           email: '',
@@ -1498,6 +1569,14 @@
         ));
       }
 
+      function isDeletedClient(client, deletedClients = state.data?.deletedClients || []) {
+        return (deletedClients || []).some((deleted) => {
+          const deletedId = String(deleted?.id || '');
+          if (deletedId && String(client?.id || '') === deletedId) return true;
+          return !deletedId && String(deleted?.name || '').trim().toLowerCase() === String(client?.name || '').trim().toLowerCase();
+        });
+      }
+
       function rememberDeletedUser(user) {
         if (!user) return;
         state.data.deletedUsers ||= [];
@@ -1507,6 +1586,18 @@
           name: user.name,
           role: user.role,
           deletedAt: new Date().toISOString()
+        }]);
+      }
+
+      function rememberDeletedClient(client) {
+        if (!client) return;
+        state.data.deletedClients ||= [];
+        state.data.deletedClients = mergeDeletedClients(state.data.deletedClients, [{
+          id: client.id,
+          name: client.name,
+          phone: client.phone || '',
+          deletedAt: new Date().toISOString(),
+          deletedBy: state.user?.name || 'Sistema'
         }]);
       }
 
@@ -1725,6 +1816,7 @@
           mantenimientos: 'MT',
           clientes: 'CL',
           busqueda: 'BQ',
+          apoyo: 'AP',
           usuarios: 'US',
           auditoria: 'AU'
         };
@@ -1830,6 +1922,7 @@
           mantenimientos: maintenancesView,
           clientes: clientsView,
           busqueda: searchView,
+          apoyo: supportView,
           usuarios: usersView,
           auditoria: auditView
         };
@@ -3080,6 +3173,104 @@
         `;
       }
 
+      function supportView() {
+        const brands = [...new Set(technicalManuals.map((manual) => manual.brand))].sort();
+        return `
+          <section class="grid">
+            <div class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Apoyo tecnico</h3>
+                  <small>Resumen operativo de manuales. No reemplaza el manual original ni el criterio tecnico en sitio.</small>
+                </div>
+                <span class="pill">Disponible sin internet</span>
+              </div>
+              <div class="panel-body">
+                <div class="lock-note" style="margin-bottom:12px;">
+                  Seguridad: cortar alimentacion antes de manipular cableado, fotografiar parametros actuales y probar STOP/fotocelulas antes de entregar.
+                </div>
+                ${technicalManuals.length ? '' : '<div class="list-item"><strong>Manuales no cargados.</strong><br>Sube tambien el archivo manuales-apoyo.js para activar esta seccion.</div>'}
+                <div class="form-grid no-print">
+                  <label>Buscar modelo, error o funcion
+                    <input id="manualSearch" oninput="renderSupportManuals()" placeholder="Ej. encoder, ZLJ24, fotocelula, Amp1" />
+                  </label>
+                  <label>Marca
+                    <select id="manualBrand" onchange="renderSupportManuals()">
+                      <option value="">Todas las marcas</option>
+                      ${brands.map((brand) => `<option>${escapeText(brand)}</option>`).join('')}
+                    </select>
+                  </label>
+                </div>
+                <br />
+                <div id="manualResults" class="grid">${manualCardsMarkup(technicalManuals)}</div>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function manualCardsMarkup(manuals) {
+        if (!manuals.length) return '<div class="list-item">No se encontraron manuales con esos criterios.</div>';
+        return manuals.map((manual) => `
+          <article class="card support-card">
+            <div>
+              <div class="support-meta">
+                <span class="pill">${escapeText(manual.brand)}</span>
+                <span class="pill">${escapeText(manual.model)}</span>
+              </div>
+              <h4 style="margin-top:10px;">${escapeText(manual.brand)} ${escapeText(manual.model)}</h4>
+              <p style="margin:4px 0 0; color:var(--steel);">${escapeText(manual.application)}</p>
+              ${manual.pdfUrl ? `
+                <div class="toolbar" style="margin-top:10px;">
+                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver PDF</a>
+                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" download>Descargar PDF</a>
+                </div>
+              ` : ''}
+            </div>
+            <div class="form-grid">
+              <div>
+                <h4>Datos clave</h4>
+                <ul class="support-list">${manual.specs.map((item) => `<li>${escapeText(item)}</li>`).join('')}</ul>
+              </div>
+              <div>
+                <h4>Seguridad</h4>
+                <ul class="support-list">${manual.safety.map((item) => `<li>${escapeText(item)}</li>`).join('')}</ul>
+              </div>
+            </div>
+            <div>
+              <h4>Lista de verificacion</h4>
+              <div class="manual-checklist">
+                ${manual.startup.map((item) => `<label><input type="checkbox" /> <span>${escapeText(item)}</span></label>`).join('')}
+              </div>
+            </div>
+            <div>
+              <h4>Diagnostico rapido</h4>
+              <div class="table-wrap">
+                <table class="diagnostic-table">
+                  <thead><tr><th>Senal / error</th><th>Revision recomendada</th></tr></thead>
+                  <tbody>${manual.diagnostics.map((row) => `<tr><td>${escapeText(row[0])}</td><td>${escapeText(row[1])}</td></tr>`).join('')}</tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      function renderSupportManuals() {
+        const query = normalizeSearchText(document.getElementById('manualSearch')?.value || '');
+        const brand = document.getElementById('manualBrand')?.value || '';
+        const results = technicalManuals.filter((manual) => {
+          const haystack = normalizeSearchText(JSON.stringify(manual));
+          return (!brand || manual.brand === brand) && (!query || haystack.includes(query));
+        });
+        const container = document.getElementById('manualResults');
+        if (container) container.innerHTML = manualCardsMarkup(results);
+      }
+
+      function normalizeSearchText(value) {
+        return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      }
+
       function auditView() {
         const rows = scopedAuditLogs();
         return `
@@ -3975,11 +4166,28 @@
         render();
       }
 
-      function confirmClientDelete(id) {
-        state.data.clients = state.data.clients.filter((client) => client.id !== id);
+      async function confirmClientDelete(id) {
+        const client = state.data.clients.find((item) => String(item.id) === String(id));
+        if (!client) return alert('Cliente no encontrado.');
+        rememberDeletedClient(client);
+        state.data.clients = state.data.clients.filter((item) => String(item.id) !== String(id));
         state.modal = null;
-        save();
+        queuePendingChange('client_delete', id);
+        logAudit('Eliminar cliente', 'Cliente', { id: client.id, name: client.name }, { deletedClients: (state.data.deletedClients || []).length });
+        saveLocalData();
         render();
+        if (navigator.onLine && supabaseConfig().ready) {
+          try {
+            await saveCloudDataNow({ clearQueue: true, skipCloudMerge: true });
+            render();
+          } catch (error) {
+            console.error(error);
+            cloudError = 'Cliente eliminado localmente. Toca Sincronizar para reintentar con Supabase.';
+            render();
+          }
+        } else {
+          scheduleCloudRetry();
+        }
       }
 
       function createUser(event) {
@@ -4767,6 +4975,7 @@
             maintenances: (data.maintenances || []).length,
             appointments: (data.appointments || []).length,
             auditLogs: (data.auditLogs || []).length,
+            deletedClients: (data.deletedClients || []).length,
             deletedJobs: (data.deletedJobs || []).length,
             deletedUsers: (data.deletedUsers || []).length,
             deletedPhotos: (data.deletedPhotos || []).length,
@@ -4848,9 +5057,10 @@
             clients: (data.clients || []).length,
             users: (data.users || []).length,
             inventory: (data.inventory || []).length,
+            deletedClients: (data.deletedClients || []).length,
             photosPending: countPendingPhotoUploads(state.data)
           },
-          cajaNegra: buildBlackBoxDiagnostics(data),
+          cajaNegra: buildBlackBoxDiagnostics(state.data),
           data
         };
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
