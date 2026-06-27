@@ -1,0 +1,7 @@
+﻿SUBIR MANUALES V58.9 - PARTE 2
+
+Subir estos archivos despues de que la PARTE 1 haya terminado correctamente.
+Ruta en GitHub:
+client/public/manuales/
+
+No reemplazar index.html. No subir node_modules, dist ni .manual-tools.
