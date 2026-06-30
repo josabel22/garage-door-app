@@ -965,7 +965,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v58.8';
+      const APP_VERSION = 'v59.2';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -3185,6 +3185,10 @@
               <div class="panel-body">
                 <div class="lock-note" style="margin-bottom:12px;">
                   Seguridad: cortar alimentacion antes de manipular cableado, fotografiar parametros actuales y probar STOP/fotocelulas antes de entregar.
+                </div>
+                <div class="lock-note no-print" style="margin-bottom:12px; display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+                  <span>Conocimiento tecnico ampliado con casos guiados, pasos de revision y apoyo para diagnostico.</span>
+                  <a class="btn secondary" href="./conocimiento/index.html" target="_blank" rel="noopener">Abrir conocimiento</a>
                 </div>
                 ${technicalManuals.length ? '' : '<div class="list-item"><strong>Manuales no cargados.</strong><br>Sube tambien el archivo manuales-apoyo.js para activar esta seccion.</div>'}
                 <div class="form-grid no-print">

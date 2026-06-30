@@ -1,8 +1,12 @@
-const CACHE_NAME = 'mg-portones-v58-8';
+const CACHE_NAME = 'mg-portones-v59-2';
 const ASSETS = [
   './',
   './index.html',
   './manuales-apoyo.js',
+  './conocimiento/index.html',
+  './conocimiento/conocimiento.css',
+  './conocimiento/conocimiento.js',
+  './conocimiento/casos-ejemplo.json',
   './manuales/beninca-heady.pdf',
   './manuales/beninca-brainy-24.pdf',
   './manuales/ditec-vivah.pdf',
