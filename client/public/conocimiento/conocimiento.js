@@ -6,13 +6,16 @@
   const SESSION_KEY = "mg_knowledge_session_v59";
   const MG_DATA_KEY = "mg_data";
   const MG_USER_KEY = "mg_user";
-  const VERSION = "v59.0-piloto-conocimiento";
+  const VERSION = "v59.3-conocimiento-manuales";
+  const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
 
   const app = document.getElementById("app");
   const state = {
     view: "buscar",
     query: "",
     statusFilter: "published",
+    manualQuery: "",
+    manualBrand: "",
     selectedId: null,
     user: null,
     source: null,
@@ -242,6 +245,7 @@
   function renderSearch() {
     const cases = visibleCases();
     const selected = state.selectedId ? caseById(state.selectedId) : cases[0];
+    const brands = [...new Set(technicalManuals.map((manual) => manual.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     const content = `
       <div class="topbar">
         <div><h2>Base de conocimiento</h2><p>Casos tecnicos revisados para llegar mas rapido a diagnosticos seguros.</p></div>
@@ -263,10 +267,43 @@
           <div class="panel-header"><h3>Detalle tecnico</h3>${selected ? statusPill(selected.status) : ""}</div>
           <div class="panel-body">${selected ? detailHtml(selected) : `<div class="empty">Selecciona un caso para ver el detalle.</div>`}</div>
         </section>
-      </div>`;
+      </div>
+      <br />
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Biblioteca de manuales</h3>
+            <p style="margin:4px 0 0; color:var(--muted);">Aqui queda el acceso directo a los manuales PDF que respaldan el diagnostico.</p>
+          </div>
+          <span class="pill">${technicalManuals.length} manuales</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="full">Buscar manual
+              <input id="manualSearchInput" value="${escapeHtml(state.manualQuery)}" placeholder="Ej: Beninca, encoder, fotocelula, corredizo" />
+            </label>
+            <label>Marca
+              <select id="manualBrandFilter">
+                <option value="">Todas las marcas</option>
+                ${brands.map((brand) => `<option value="${escapeHtml(brand)}" ${state.manualBrand === brand ? "selected" : ""}>${escapeHtml(brand)}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <br />
+          <div id="manualLibrary" class="grid-3">${manualLibraryMarkup(visibleManuals())}</div>
+        </div>
+      </section>`;
     shell(content);
     document.getElementById("searchInput").addEventListener("input", (event) => { state.query = event.target.value; renderSearch(); });
     document.getElementById("statusFilter").addEventListener("change", (event) => { state.statusFilter = event.target.value; renderSearch(); });
+    document.getElementById("manualSearchInput").addEventListener("input", (event) => {
+      state.manualQuery = event.target.value;
+      renderSearch();
+    });
+    document.getElementById("manualBrandFilter").addEventListener("change", (event) => {
+      state.manualBrand = event.target.value;
+      renderSearch();
+    });
     const newCaseBtn = document.getElementById("newCaseBtn");
     if (newCaseBtn) newCaseBtn.addEventListener("click", () => { state.view = "nuevo"; render(); });
     document.querySelectorAll("[data-open-case]").forEach((button) => button.addEventListener("click", () => { state.selectedId = button.getAttribute("data-open-case"); renderSearch(); }));
@@ -291,6 +328,46 @@
     return `<div class="case-detail"><h3>${escapeHtml(item.title)}</h3>${kv("Marca / modelo", `${item.brand || ""} ${item.model || ""}`)}${kv("Equipo", item.equipmentType)}${kv("Sintomas", item.symptoms)}${kv("Mediciones", item.measurements)}${kv("Diagnostico", item.diagnosis)}${kv("Solucion recomendada", item.solution)}${kv("Evitar", item.avoid)}${kv("Confianza", item.confidenceLevel)}${kv("Creado por", item.createdBy)}${kv("Revisado por", item.reviewedBy)}${kv("Notas de revision", item.reviewNotes)}</div>`;
   }
   function kv(label, value) { return `<div class="kv"><strong>${escapeHtml(label)}</strong><div>${escapeHtml(value || "No registrado")}</div></div>`; }
+
+  function visibleManuals() {
+    const query = normalize(state.manualQuery);
+    return technicalManuals
+      .filter((manual) => !state.manualBrand || manual.brand === state.manualBrand)
+      .filter((manual) => {
+        if (!query) return true;
+        const haystack = normalize([
+          manual.brand,
+          manual.model,
+          manual.application,
+          ...(manual.specs || []),
+          ...(manual.startup || []),
+          ...(manual.safety || []),
+          ...((manual.diagnostics || []).flat ? manual.diagnostics.flat() : [])
+        ].join(" "));
+        return haystack.includes(query);
+      })
+      .sort((a, b) => `${a.brand || ""} ${a.model || ""}`.localeCompare(`${b.brand || ""} ${b.model || ""}`));
+  }
+
+  function manualLibraryMarkup(items) {
+    if (!items.length) return `<div class="empty full">No se encontraron manuales con ese filtro.</div>`;
+    return items.map((manual) => `
+      <article class="card">
+        <div class="meta">
+          <span class="pill">${escapeHtml(manual.brand || "Sin marca")}</span>
+          <span class="pill">${escapeHtml(manual.model || "Sin modelo")}</span>
+        </div>
+        <h4>${escapeHtml(`${manual.brand || ""} ${manual.model || ""}`.trim() || "Manual tecnico")}</h4>
+        <p>${escapeHtml(manual.application || "Sin descripcion")}</p>
+        <div class="toolbar">
+          <a class="btn secondary" href="${escapeHtml(manual.pdfUrl || "#")}" target="_blank" rel="noopener">Ver PDF</a>
+          <a class="btn secondary" href="${escapeHtml(manual.pdfUrl || "#")}" download>Descargar PDF</a>
+        </div>
+        <div class="kv"><strong>Datos clave</strong><div>${escapeHtml((manual.specs || []).slice(0, 3).join(" | ") || "No registrados")}</div></div>
+        <div class="kv"><strong>Seguridad</strong><div>${escapeHtml((manual.safety || []).slice(0, 2).join(" | ") || "No registrada")}</div></div>
+      </article>
+    `).join("");
+  }
 
   function renderNewCase(editingCase) {
     const item = editingCase || {};
