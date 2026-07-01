@@ -965,7 +965,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v59.5';
+      const APP_VERSION = 'v59.7';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -2169,14 +2169,15 @@
 
       function manualPreviewModal(modal) {
         const pdfUrl = normalizeManualUrl(modal.pdfUrl);
-        if (!pdfUrl) return '<p>Manual no disponible.</p>';
+        const previewUrl = manualPreviewUrl(modal.pdfUrl);
+        if (!pdfUrl || !previewUrl) return '<p>Manual no disponible.</p>';
         return `
           <div class="toolbar no-print" style="margin-bottom:12px;">
             <button class="btn" onclick="downloadManualPdf(${jsArg(modal.pdfUrl)}, ${jsArg(modal.fileName || 'manual-tecnico.pdf')})">Descargar PDF</button>
             <button class="btn secondary" onclick="openManualInBrowser(${jsArg(modal.pdfUrl)})">Abrir aparte</button>
           </div>
           <iframe
-            src="${escapeText(`${pdfUrl}#toolbar=1&navpanes=0`)}"
+            src="${escapeText(previewUrl)}"
             title="${escapeText(modal.title || 'Manual tecnico')}"
             style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"
           ></iframe>
@@ -2573,6 +2574,12 @@
         }
       }
 
+      function manualPreviewUrl(pdfUrl) {
+        const absoluteUrl = normalizeManualUrl(pdfUrl);
+        if (!absoluteUrl) return '';
+        return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(absoluteUrl)}`;
+      }
+
       function manualFileName(manual) {
         const base = `${manual?.brand || 'manual'}-${manual?.model || 'tecnico'}`
           .toLowerCase()
@@ -2618,10 +2625,10 @@
       }
 
       function openManualInBrowser(pdfUrl) {
-        const absoluteUrl = normalizeManualUrl(pdfUrl);
-        if (!absoluteUrl) return alert('Manual no disponible.');
-        const manualWindow = window.open(absoluteUrl, '_blank', 'noopener');
-        if (!manualWindow) window.location.href = absoluteUrl;
+        const previewUrl = manualPreviewUrl(pdfUrl);
+        if (!previewUrl) return alert('Manual no disponible.');
+        const manualWindow = window.open(previewUrl, '_blank', 'noopener');
+        if (!manualWindow) window.location.href = previewUrl;
       }
 
       function printJob(id) {
@@ -5232,5 +5239,7 @@
     </script>
   </body>
 </html>
+
+
 
 

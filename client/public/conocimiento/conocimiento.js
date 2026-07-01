@@ -373,6 +373,8 @@
 
   function manualPreviewMarkup() {
     if (!state.manualPreview) return "";
+    const previewUrl = manualPreviewUrl(state.manualPreview.url);
+    if (!previewUrl) return "";
     return `
       <div class="modal-backdrop">
         <section class="modal wide">
@@ -385,7 +387,7 @@
               <button class="btn" type="button" onclick='downloadManualPdf(${JSON.stringify(state.manualPreview.url || "")}, ${JSON.stringify(state.manualPreview.fileName || "manual-tecnico.pdf")})'>Descargar PDF</button>
               <button class="btn secondary" type="button" onclick='openManualInBrowser(${JSON.stringify(state.manualPreview.url || "")})'>Abrir aparte</button>
             </div>
-            <iframe src="${escapeHtml(`${state.manualPreview.url}#toolbar=1&navpanes=0`)}" style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"></iframe>
+            <iframe src="${escapeHtml(previewUrl)}" style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"></iframe>
           </div>
         </section>
       </div>
@@ -400,6 +402,12 @@
       console.error(error);
       return "";
     }
+  }
+
+  function manualPreviewUrl(pdfUrl) {
+    const url = normalizeManualUrl(pdfUrl);
+    if (!url) return "";
+    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}`;
   }
 
   function manualFileName(manual) {
@@ -446,10 +454,10 @@
   }
 
   function openManualInBrowser(pdfUrl) {
-    const url = normalizeManualUrl(pdfUrl);
-    if (!url) return alert("Manual no disponible.");
-    const popup = window.open(url, "_blank", "noopener");
-    if (!popup) window.location.href = url;
+    const previewUrl = manualPreviewUrl(pdfUrl);
+    if (!previewUrl) return alert("Manual no disponible.");
+    const popup = window.open(previewUrl, "_blank", "noopener");
+    if (!popup) window.location.href = previewUrl;
   }
 
   function renderNewCase(editingCase) {
