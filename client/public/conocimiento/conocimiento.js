@@ -16,6 +16,7 @@
     statusFilter: "published",
     manualQuery: "",
     manualBrand: "",
+    manualPreview: null,
     selectedId: null,
     user: null,
     source: null,
@@ -291,6 +292,7 @@
           </div>
           <br />
           <div id="manualLibrary" class="grid-3">${manualLibraryMarkup(visibleManuals())}</div>
+          ${manualPreviewMarkup()}
         </div>
       </section>`;
     shell(content);
@@ -360,13 +362,94 @@
         <h4>${escapeHtml(`${manual.brand || ""} ${manual.model || ""}`.trim() || "Manual tecnico")}</h4>
         <p>${escapeHtml(manual.application || "Sin descripcion")}</p>
         <div class="toolbar">
-          <a class="btn secondary" href="${escapeHtml(manual.pdfUrl || "#")}" target="_blank" rel="noopener">Ver PDF</a>
-          <a class="btn secondary" href="${escapeHtml(manual.pdfUrl || "#")}" download>Descargar PDF</a>
+          <button class="btn secondary" type="button" onclick='openManualPdf(${JSON.stringify(manual.pdfUrl || "")}, ${JSON.stringify(`${manual.brand || "Manual"} ${manual.model || "tecnico"}`)}, ${JSON.stringify(manualFileName(manual))})'>Ver PDF</button>
+          <button class="btn secondary" type="button" onclick='downloadManualPdf(${JSON.stringify(manual.pdfUrl || "")}, ${JSON.stringify(manualFileName(manual))})'>Descargar PDF</button>
         </div>
         <div class="kv"><strong>Datos clave</strong><div>${escapeHtml((manual.specs || []).slice(0, 3).join(" | ") || "No registrados")}</div></div>
         <div class="kv"><strong>Seguridad</strong><div>${escapeHtml((manual.safety || []).slice(0, 2).join(" | ") || "No registrada")}</div></div>
       </article>
     `).join("");
+  }
+
+  function manualPreviewMarkup() {
+    if (!state.manualPreview) return "";
+    return `
+      <div class="modal-backdrop">
+        <section class="modal wide">
+          <header>
+            <h3>${escapeHtml(state.manualPreview.title || "Manual tecnico")}</h3>
+            <button class="btn secondary" type="button" onclick="closeManualPreview()">Cerrar</button>
+          </header>
+          <div class="modal-body">
+            <div class="toolbar" style="margin-bottom:12px;">
+              <button class="btn" type="button" onclick='downloadManualPdf(${JSON.stringify(state.manualPreview.url || "")}, ${JSON.stringify(state.manualPreview.fileName || "manual-tecnico.pdf")})'>Descargar PDF</button>
+              <button class="btn secondary" type="button" onclick='openManualInBrowser(${JSON.stringify(state.manualPreview.url || "")})'>Abrir aparte</button>
+            </div>
+            <iframe src="${escapeHtml(`${state.manualPreview.url}#toolbar=1&navpanes=0`)}" style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"></iframe>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function normalizeManualUrl(pdfUrl) {
+    try {
+      if (!pdfUrl) return "";
+      return new URL(String(pdfUrl), window.location.origin).toString();
+    } catch (error) {
+      console.error(error);
+      return "";
+    }
+  }
+
+  function manualFileName(manual) {
+    const base = `${manual?.brand || "manual"}-${manual?.model || "tecnico"}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return `${base || "manual-tecnico"}.pdf`;
+  }
+
+  function openManualPdf(pdfUrl, title, fileName) {
+    const url = normalizeManualUrl(pdfUrl);
+    if (!url) return alert("Manual no disponible.");
+    state.manualPreview = { url, title, fileName: fileName || "manual-tecnico.pdf" };
+    renderSearch();
+  }
+
+  function closeManualPreview() {
+    state.manualPreview = null;
+    renderSearch();
+  }
+
+  async function downloadManualPdf(pdfUrl, fileName) {
+    const url = normalizeManualUrl(pdfUrl);
+    if (!url) return alert("Manual no disponible.");
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`No se pudo descargar el manual (${response.status}).`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "manual-tecnico.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    } catch (error) {
+      console.error(error);
+      alert("No se pudo descargar el manual. Intenta abrirlo aparte.");
+    }
+  }
+
+  function openManualInBrowser(pdfUrl) {
+    const url = normalizeManualUrl(pdfUrl);
+    if (!url) return alert("Manual no disponible.");
+    const popup = window.open(url, "_blank", "noopener");
+    if (!popup) window.location.href = url;
   }
 
   function renderNewCase(editingCase) {
@@ -486,3 +569,4 @@
   async function init() { readSource(); readSession(); readKnowledge(); await loadSeedIfEmpty(); render(); }
   init();
 })();
+
