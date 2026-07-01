@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v59-4';
+﻿const CACHE_NAME = 'mg-portones-v59-5';
 const ASSETS = [
   './',
   './index.html',
@@ -37,3 +37,4 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
+
