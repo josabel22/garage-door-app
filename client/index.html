@@ -1,4 +1,4 @@
-ï»¿<!doctype html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -965,7 +965,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v59.3';
+      const APP_VERSION = 'v59.4';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1817,7 +1817,7 @@
           usuarios: 'US',
           auditoria: 'AU'
         };
-        return icons[name] || 'â€¢';
+        return icons[name] || '•';
       }
 
       function render() {
@@ -3682,7 +3682,7 @@
               <label>Equipo retirado<select name="workshopEquipment">${equipment.map((item) => `<option ${selected(item, entry.equipment)}>${item}</option>`).join('')}</select></label>
               <label>Marca<input name="workshopBrand" value="${formValue(entry.brand)}" placeholder="Marca del equipo" /></label>
               <label>Modelo<input name="workshopModel" value="${formValue(entry.model)}" placeholder="Modelo o referencia" /></label>
-              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seÃ±a" /></label>
+              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seña" /></label>
               <label>Estado al retirar<select name="workshopCondition">${conditions.map((item) => `<option ${selected(item, entry.condition)}>${item}</option>`).join('')}</select></label>
               <label>Fecha entrada<input name="workshopDate" type="date" value="${formValue(entry.date || today(0))}" /></label>
               <label class="full">Motivo del retiro<textarea name="workshopReason" placeholder="Explique por que el equipo se lleva al taller">${escapeText(entry.reason || '')}</textarea></label>
