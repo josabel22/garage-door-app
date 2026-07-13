@@ -1,4 +1,4 @@
-ï»¿<!doctype html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
@@ -965,7 +965,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v59.3';
+      const APP_VERSION = 'v59.8';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1817,7 +1817,7 @@
           usuarios: 'US',
           auditoria: 'AU'
         };
-        return icons[name] || 'â€¢';
+        return icons[name] || '•';
       }
 
       function render() {
@@ -1939,6 +1939,7 @@
           jobEdit: jobEditModal,
           jobAssign: jobAssignModal,
           reportPreview: reportPreviewModal,
+          manualPreview: manualPreviewModal,
           warrantyOpen: warrantyOpenModal,
           userEdit: userEditModal,
           userDelete: userDeleteModal,
@@ -2166,6 +2167,23 @@
         `;
       }
 
+      function manualPreviewModal(modal) {
+        const pdfUrl = normalizeManualUrl(modal.pdfUrl);
+        const previewUrl = manualPreviewUrl(modal.pdfUrl);
+        if (!pdfUrl || !previewUrl) return '<p>Manual no disponible.</p>';
+        return `
+          <div class="toolbar no-print" style="margin-bottom:12px;">
+            <button class="btn" onclick="downloadManualPdf(${jsArg(modal.pdfUrl)}, ${jsArg(modal.fileName || 'manual-tecnico.pdf')})">Descargar PDF</button>
+            <button class="btn secondary" onclick="openManualInBrowser(${jsArg(modal.pdfUrl)})">Abrir aparte</button>
+          </div>
+          <iframe
+            src="${escapeText(previewUrl)}"
+            title="${escapeText(modal.title || 'Manual tecnico')}"
+            style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"
+          ></iframe>
+        `;
+      }
+
       function vehicleEditModal(modal) {
         const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
         if (!vehicle) return '<p>Movil no encontrada.</p>';
@@ -2262,6 +2280,7 @@
         const jobs = scopedJobs();
         const lowStock = scopedInventory().filter((item) => item.qty <= item.min).length;
         const alerts = visibleNotifications();
+        const control = dashboardControlSummary();
         return `
           <section class="grid stats">
             ${stat('Trabajos del dia', jobs.filter((job) => job.date === today(0)).length)}
@@ -2270,6 +2289,33 @@
             ${stat('Notificaciones', alerts.length)}
           </section>
           <br />
+          ${state.user.role === 'admin' ? `
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Panel de control</h3>
+              <span class="pill">${control.statusLabel}</span>
+            </div>
+            <div class="panel-body">
+              <section class="grid stats">
+                ${stat('Pendientes sync', control.syncQueue)}
+                ${stat('Fotos pendientes', control.photosPending)}
+                ${stat('Boletas duplicadas', control.duplicateTickets)}
+                ${stat('Fotos eliminadas', control.deletedPhotos)}
+              </section>
+              <br />
+              <div class="list">
+                <div class="list-item"><strong>Supabase:</strong> ${control.cloudReady ? 'Conectado' : 'Modo local'}${control.cloudError ? `<br><small>${escapeText(control.cloudError)}</small>` : ''}</div>
+                <div class="list-item"><strong>Reportes eliminados registrados:</strong> ${control.deletedJobs}</div>
+                <div class="list-item"><strong>Usuarios eliminados registrados:</strong> ${control.deletedUsers}</div>
+                <div class="list-item"><strong>Fotos invalidas detectadas:</strong> ${control.invalidPhotos}</div>
+                ${control.duplicateTickets
+                  ? `<div class="list-item"><strong>Boletas duplicadas:</strong><br>${control.duplicateList.map((item) => `${escapeText(item.ticket)} (${item.ids.length})`).join('<br>')}</div>`
+                  : '<div class="list-item"><strong>Boletas duplicadas:</strong> No se detectan duplicados.</div>'}
+              </div>
+            </div>
+          </section>
+          <br />
+          ` : ''}
           <section class="grid content-grid">
             <div class="panel">
               <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
@@ -2290,6 +2336,33 @@
 
       function stat(label, value) {
         return `<article class="card"><p class="stat-label">${label}</p><p class="stat-value">${value}</p></article>`;
+      }
+
+      function dashboardControlSummary() {
+        const diagnostics = buildBlackBoxDiagnostics(state.data);
+        const duplicateList = diagnostics.dataHealth?.duplicateTickets || [];
+        const invalidPhotos = diagnostics.photoSummary?.totalInvalidPhotos || 0;
+        const syncQueue = diagnostics.counts?.syncQueue || 0;
+        const photosPending = diagnostics.counts?.photosPendingUpload || 0;
+        const duplicateTickets = duplicateList.length;
+        const deletedPhotos = diagnostics.counts?.deletedPhotos || 0;
+        const deletedJobs = diagnostics.counts?.deletedJobs || 0;
+        const deletedUsers = diagnostics.counts?.deletedUsers || 0;
+        const cloudReadyNow = Boolean(diagnostics.cloud?.ready);
+        const hasIssues = syncQueue || photosPending || duplicateTickets || invalidPhotos;
+        return {
+          syncQueue,
+          photosPending,
+          duplicateTickets,
+          deletedPhotos,
+          deletedJobs,
+          deletedUsers,
+          invalidPhotos,
+          duplicateList: duplicateList.slice(0, 10),
+          cloudReady: cloudReadyNow,
+          cloudError: diagnostics.cloud?.lastError || '',
+          statusLabel: hasIssues ? 'Revisar alertas' : 'Estado estable'
+        };
       }
 
       function reportsView() {
@@ -2544,6 +2617,73 @@
         if (!job) return alert('Reporte no encontrado.');
         state.modal = { type: 'reportPreview', title: `Vista PDF ${job.ticket}`, id, wide: true };
         render();
+      }
+
+      function normalizeManualUrl(pdfUrl) {
+        try {
+          if (!pdfUrl) return '';
+          return new URL(String(pdfUrl), window.location.origin).toString();
+        } catch (error) {
+          console.error(error);
+          return '';
+        }
+      }
+
+      function manualPreviewUrl(pdfUrl) {
+        const absoluteUrl = normalizeManualUrl(pdfUrl);
+        if (!absoluteUrl) return '';
+        return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(absoluteUrl)}`;
+      }
+
+      function manualFileName(manual) {
+        const base = `${manual?.brand || 'manual'}-${manual?.model || 'tecnico'}`
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return `${base || 'manual-tecnico'}.pdf`;
+      }
+
+      function previewManualPdf(pdfUrl, fileName, title = 'Manual tecnico') {
+        const absoluteUrl = normalizeManualUrl(pdfUrl);
+        if (!absoluteUrl) return alert('Manual no disponible.');
+        state.modal = {
+          type: 'manualPreview',
+          title,
+          pdfUrl: absoluteUrl,
+          fileName: fileName || 'manual-tecnico.pdf',
+          wide: true
+        };
+        render();
+      }
+
+      async function downloadManualPdf(pdfUrl, fileName = 'manual-tecnico.pdf') {
+        const absoluteUrl = normalizeManualUrl(pdfUrl);
+        if (!absoluteUrl) return alert('Manual no disponible.');
+        try {
+          const response = await fetch(absoluteUrl, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`No se pudo descargar el manual (${response.status}).`);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+        } catch (error) {
+          console.error(error);
+          alert('No se pudo descargar el manual. Intenta abrirlo aparte.');
+        }
+      }
+
+      function openManualInBrowser(pdfUrl) {
+        const previewUrl = manualPreviewUrl(pdfUrl);
+        if (!previewUrl) return alert('Manual no disponible.');
+        const manualWindow = window.open(previewUrl, '_blank', 'noopener');
+        if (!manualWindow) window.location.href = previewUrl;
       }
 
       function printJob(id) {
@@ -3220,8 +3360,8 @@
               <p style="margin:4px 0 0; color:var(--steel);">${escapeText(manual.application)}</p>
               ${manual.pdfUrl ? `
                 <div class="toolbar" style="margin-top:10px;">
-                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver PDF</a>
-                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" download>Descargar PDF</a>
+                  <button class="btn secondary" type="button" onclick="previewManualPdf(${jsArg(manual.pdfUrl)}, ${jsArg(manualFileName(manual))}, ${jsArg(`Manual ${manual.brand} ${manual.model}`)})">Ver PDF</button>
+                  <button class="btn secondary" type="button" onclick="downloadManualPdf(${jsArg(manual.pdfUrl)}, ${jsArg(manualFileName(manual))})">Descargar PDF</button>
                 </div>
               ` : ''}
             </div>
@@ -3682,7 +3822,7 @@
               <label>Equipo retirado<select name="workshopEquipment">${equipment.map((item) => `<option ${selected(item, entry.equipment)}>${item}</option>`).join('')}</select></label>
               <label>Marca<input name="workshopBrand" value="${formValue(entry.brand)}" placeholder="Marca del equipo" /></label>
               <label>Modelo<input name="workshopModel" value="${formValue(entry.model)}" placeholder="Modelo o referencia" /></label>
-              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seÃ±a" /></label>
+              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seña" /></label>
               <label>Estado al retirar<select name="workshopCondition">${conditions.map((item) => `<option ${selected(item, entry.condition)}>${item}</option>`).join('')}</select></label>
               <label>Fecha entrada<input name="workshopDate" type="date" value="${formValue(entry.date || today(0))}" /></label>
               <label class="full">Motivo del retiro<textarea name="workshopReason" placeholder="Explique por que el equipo se lleva al taller">${escapeText(entry.reason || '')}</textarea></label>
@@ -5154,3 +5294,8 @@
     </script>
   </body>
 </html>
+
+
+
+
+

@@ -1,5 +1,18 @@
-const CACHE_NAME = 'mg-portones-v54';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './mg-logo.jpg', './mg-icon-192.png', './mg-icon-512.png', './supabase-config.js'];
+const CACHE_NAME = 'mg-portones-v59-8';
+const ASSETS = [
+  './',
+  './index.html',
+  './manuales-apoyo.js',
+  './conocimiento/index.html',
+  './conocimiento/conocimiento.css',
+  './conocimiento/conocimiento.js',
+  './conocimiento/casos-ejemplo.json',
+  './manifest.webmanifest',
+  './mg-logo.jpg',
+  './mg-icon-192.png',
+  './mg-icon-512.png',
+  './supabase-config.js'
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -24,3 +37,7 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
+
+
+
+
