@@ -1,12 +1,18 @@
-﻿const CACHE_NAME = 'mg-portones-v59-7';
+const CACHE_NAME = 'mg-portones-v60-2';
 const ASSETS = [
   './',
   './index.html',
   './manuales-apoyo.js',
-  './conocimiento/index.html',
-  './conocimiento/conocimiento.css',
-  './conocimiento/conocimiento.js',
-  './conocimiento/casos-ejemplo.json',
+  './taller/index.html',
+  './taller/taller.css',
+  './taller/taller.js',
+  './manuales/beninca-heady.pdf',
+  './manuales/beninca-brainy-24.pdf',
+  './manuales/ditec-vivah.pdf',
+  './manuales/entrematic-lcu30h.pdf',
+  './manuales/genius-sprint-383.pdf',
+  './manuales/nice-pistones.pdf',
+  './manuales/came-zlj24.pdf',
   './manifest.webmanifest',
   './mg-logo.jpg',
   './mg-icon-192.png',
@@ -17,6 +23,12 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,6 +49,3 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
-
-
-

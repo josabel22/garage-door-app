@@ -1,17 +1,22 @@
-ACTUALIZACION MG PORTONES v60.2 - SOLO TALLER
+MG PORTONES v60.2 - ACTUALIZACION SOLO TALLER
 
-Esta carpeta corrige la ruta de publicacion de Azure.
-Azure publica la carpeta client/dist, por eso debe subir esta estructura completa:
+IMPORTANTE: Azure compila desde client/index.html y client/public.
+No subir archivos a client/dist: esa carpeta se reemplaza automaticamente durante la compilacion.
 
-client/dist/index.html
-client/dist/sw.js
-client/dist/taller/index.html
-client/dist/taller/taller.css
-client/dist/taller/taller.js
-y los demas archivos dentro de client/dist.
+Subir solamente estos elementos manteniendo sus rutas:
 
-No suba la carpeta SUBIR-V60-3-TALLER-CLIENT-DIST como una subcarpeta del repositorio.
-Entre a esta carpeta y suba la carpeta client que esta dentro, para que GitHub actualice client/dist.
+1. client/index.html
+2. client/public/sw.js
+3. client/public/taller/index.html
+4. client/public/taller/taller.css
+5. client/public/taller/taller.js
 
-Incluye solamente Taller. No incluye Manuales, Apoyo tecnico ni Panel de control.
-No borra datos de Supabase ni reportes existentes.
+Forma recomendada en GitHub:
+- Abrir la carpeta client del repositorio y subir index.html.
+- Abrir client/public y subir sw.js.
+- Abrir client/public/taller y subir los tres archivos de taller.
+
+La actualizacion agrega Taller y sus permisos.
+No agrega panel de control.
+No agrega ni modifica manuales.
+No elimina datos de Supabase.
