@@ -892,7 +892,6 @@
     <div id="app"></div>
 
     <script src="./supabase-config.js"></script>
-    <script src="./manuales-apoyo.js"></script>
     <script>
       const users = [
         { id: 1, username: 'admin', password: 'deshabilitado-v58', role: 'admin', name: 'Administrador General', phone: '2222-0000', email: 'admin@mgportones.cr', active: false, createdAt: today(-120) },
@@ -947,8 +946,8 @@
       };
 
       const navByRole = {
-        admin: ['dashboard', 'reportes', 'fotos', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'apoyo', 'usuarios', 'auditoria'],
-        technician: ['dashboard', 'reportes', 'fotos', 'inventario', 'citas', 'apoyo'],
+        admin: ['dashboard', 'reportes', 'fotos', 'inventario', 'moviles', 'citas', 'garantias', 'mantenimientos', 'clientes', 'busqueda', 'usuarios', 'auditoria'],
+        technician: ['dashboard', 'reportes', 'fotos', 'inventario', 'citas'],
         client: ['dashboard', 'reportes', 'citas', 'garantias']
       };
 
@@ -963,13 +962,11 @@
         mantenimientos: 'Mantenimientos',
         clientes: 'Clientes',
         busqueda: 'Busqueda',
-        apoyo: 'Apoyo tecnico',
         usuarios: 'Usuarios',
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v60.1';
-      const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
+      const APP_VERSION = 'v60.2';
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
       const state = {
@@ -1829,7 +1826,6 @@
           mantenimientos: 'MT',
           clientes: 'CL',
           busqueda: 'BQ',
-          apoyo: 'AP',
           usuarios: 'US',
           auditoria: 'AU'
         };
@@ -1950,7 +1946,6 @@
           mantenimientos: maintenancesView,
           clientes: clientsView,
           busqueda: searchView,
-          apoyo: supportView,
           usuarios: usersView,
           auditoria: auditView
         };
@@ -2294,7 +2289,6 @@
         const jobs = scopedJobs();
         const lowStock = scopedInventory().filter((item) => item.qty <= item.min).length;
         const alerts = visibleNotifications();
-        const control = dashboardControlSummary();
         return `
           <section class="grid stats">
             ${stat('Trabajos del dia', jobs.filter((job) => job.date === today(0)).length)}
@@ -2302,36 +2296,6 @@
             ${stat('Inventario bajo', lowStock)}
             ${stat('Notificaciones', alerts.length)}
           </section>
-          <br />
-          ${state.user.role === 'admin' ? `
-          <section class="panel">
-            <div class="panel-header">
-              <h3>Panel de control</h3>
-              <span class="pill">${control.statusLabel}</span>
-            </div>
-            <div class="panel-body">
-              <section class="grid stats">
-                ${stat('Garantias por semana', control.weeklyWarranties)}
-                ${stat('Empleado con mas trabajos', control.topTechnicianLabel)}
-                ${stat('Trabajos finalizados (semana)', control.weeklyCompletedJobs)}
-                ${stat('Reportes creados (semana)', control.weeklyCreatedJobs)}
-              </section>
-              <br />
-              <div class="list">
-                <div class="list-item"><strong>Resumen semanal:</strong> ${control.topTechnicianSummary}</div>
-                <div class="list-item"><strong>Supabase:</strong> ${control.cloudReady ? 'Conectado' : 'Modo local'}${control.cloudError ? `<br><small>${escapeText(control.cloudError)}</small>` : ''}</div>
-                <div class="list-item"><strong>Pendientes sync:</strong> ${control.syncQueue}  -  <strong>Fotos pendientes:</strong> ${control.photosPending}</div>
-                <div class="list-item"><strong>Reportes eliminados registrados:</strong> ${control.deletedJobs}</div>
-                <div class="list-item"><strong>Usuarios eliminados registrados:</strong> ${control.deletedUsers}</div>
-                <div class="list-item"><strong>Fotos invalidas detectadas:</strong> ${control.invalidPhotos}</div>
-                ${control.duplicateTickets
-                  ? `<div class="list-item"><strong>Boletas duplicadas:</strong><br>${control.duplicateList.map((item) => `${escapeText(item.ticket)} (${item.ids.length})`).join('<br>')}</div>`
-                  : '<div class="list-item"><strong>Boletas duplicadas:</strong> No se detectan duplicados.</div>'}
-              </div>
-            </div>
-          </section>
-          <br />
-          ` : ''}
           <section class="grid content-grid">
             <div class="panel">
               <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
@@ -3308,104 +3272,6 @@
             </div>
           </section>
         `;
-      }
-
-      function supportView() {
-        const brands = [...new Set(technicalManuals.map((manual) => manual.brand))].sort();
-        return `
-          <section class="grid">
-            <div class="panel">
-              <div class="panel-header">
-                <div>
-                  <h3>Apoyo tecnico</h3>
-                  <small>Resumen operativo de manuales. No reemplaza el manual original ni el criterio tecnico en sitio.</small>
-                </div>
-                <span class="pill">Disponible sin internet</span>
-              </div>
-              <div class="panel-body">
-                <div class="lock-note" style="margin-bottom:12px;">
-                  Seguridad: cortar alimentacion antes de manipular cableado, fotografiar parametros actuales y probar STOP/fotocelulas antes de entregar.
-                </div>
-                ${technicalManuals.length ? '' : '<div class="list-item"><strong>Manuales no cargados.</strong><br>Sube tambien el archivo manuales-apoyo.js para activar esta seccion.</div>'}
-                <div class="form-grid no-print">
-                  <label>Buscar modelo, error o funcion
-                    <input id="manualSearch" oninput="renderSupportManuals()" placeholder="Ej. encoder, ZLJ24, fotocelula, Amp1" />
-                  </label>
-                  <label>Marca
-                    <select id="manualBrand" onchange="renderSupportManuals()">
-                      <option value="">Todas las marcas</option>
-                      ${brands.map((brand) => `<option>${escapeText(brand)}</option>`).join('')}
-                    </select>
-                  </label>
-                </div>
-                <br />
-                <div id="manualResults" class="grid">${manualCardsMarkup(technicalManuals)}</div>
-              </div>
-            </div>
-          </section>
-        `;
-      }
-
-      function manualCardsMarkup(manuals) {
-        if (!manuals.length) return '<div class="list-item">No se encontraron manuales con esos criterios.</div>';
-        return manuals.map((manual) => `
-          <article class="card support-card">
-            <div>
-              <div class="support-meta">
-                <span class="pill">${escapeText(manual.brand)}</span>
-                <span class="pill">${escapeText(manual.model)}</span>
-              </div>
-              <h4 style="margin-top:10px;">${escapeText(manual.brand)} ${escapeText(manual.model)}</h4>
-              <p style="margin:4px 0 0; color:var(--steel);">${escapeText(manual.application)}</p>
-              ${manual.pdfUrl ? `
-                <div class="toolbar" style="margin-top:10px;">
-                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver PDF</a>
-                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" download>Descargar PDF</a>
-                </div>
-              ` : ''}
-            </div>
-            <div class="form-grid">
-              <div>
-                <h4>Datos clave</h4>
-                <ul class="support-list">${manual.specs.map((item) => `<li>${escapeText(item)}</li>`).join('')}</ul>
-              </div>
-              <div>
-                <h4>Seguridad</h4>
-                <ul class="support-list">${manual.safety.map((item) => `<li>${escapeText(item)}</li>`).join('')}</ul>
-              </div>
-            </div>
-            <div>
-              <h4>Lista de verificacion</h4>
-              <div class="manual-checklist">
-                ${manual.startup.map((item) => `<label><input type="checkbox" /> <span>${escapeText(item)}</span></label>`).join('')}
-              </div>
-            </div>
-            <div>
-              <h4>Diagnostico rapido</h4>
-              <div class="table-wrap">
-                <table class="diagnostic-table">
-                  <thead><tr><th>Senal / error</th><th>Revision recomendada</th></tr></thead>
-                  <tbody>${manual.diagnostics.map((row) => `<tr><td>${escapeText(row[0])}</td><td>${escapeText(row[1])}</td></tr>`).join('')}</tbody>
-                </table>
-              </div>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      function renderSupportManuals() {
-        const query = normalizeSearchText(document.getElementById('manualSearch')?.value || '');
-        const brand = document.getElementById('manualBrand')?.value || '';
-        const results = technicalManuals.filter((manual) => {
-          const haystack = normalizeSearchText(JSON.stringify(manual));
-          return (!brand || manual.brand === brand) && (!query || haystack.includes(query));
-        });
-        const container = document.getElementById('manualResults');
-        if (container) container.innerHTML = manualCardsMarkup(results);
-      }
-
-      function normalizeSearchText(value) {
-        return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       }
 
       function auditView() {
@@ -5281,7 +5147,33 @@
       }, 30000);
 
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        window.addEventListener('load', async () => {
+          try {
+            const registration = await navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`);
+            await registration.update().catch(() => {});
+
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+
+            registration.addEventListener('updatefound', () => {
+              const nextWorker = registration.installing;
+              if (!nextWorker) return;
+              nextWorker.addEventListener('statechange', () => {
+                if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  nextWorker.postMessage({ type: 'SKIP_WAITING' });
+                }
+              });
+            });
+
+            let reloadedForUpdate = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (reloadedForUpdate) return;
+              reloadedForUpdate = true;
+              window.location.reload();
+            });
+          } catch (_) {}
+        });
       }
 
       async function initializeApp() {

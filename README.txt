@@ -1,12 +1,12 @@
-SUBIR V60.0 - TALLER
+MG Portones v60.2 - Taller
 
-Sube estos archivos manteniendo la estructura:
-- index.html
-- sw.js
-- mg-logo.jpg
-- carpeta taller\ con index.html, taller.css y taller.js
+Esta carpeta es la unica que se debe subir para esta actualizacion.
 
-Objetivo:
-- agregar boton Taller en la app principal
-- publicar la ruta ./taller/index.html
-- no tocar reportes ni PDF del flujo normal
+Incluye unicamente:
+- Taller integrado en la misma app.
+- Permiso de Taller desactivado por defecto para tecnicos.
+- El administrador puede habilitar Taller a tecnicos desde Usuarios.
+- Cache v60.2 para que los dispositivos reciban la version nueva.
+
+No incluye Manuales, Apoyo tecnico ni Panel de control / KPIs.
+No elimina ni modifica reportes, clientes, fotos, inventario ni usuarios existentes.
