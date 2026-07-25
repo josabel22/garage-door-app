@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v60-2';
+const CACHE_NAME = 'mg-portones-v60-3';
 const ASSETS = [
   './',
   './index.html',

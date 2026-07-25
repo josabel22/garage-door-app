@@ -5,7 +5,7 @@
   const APP_USER_KEY = "mg_user";
   const FALLBACK_DATA_KEY = "mg_taller_source_v60";
   const SESSION_KEY = "mg_taller_session_v60";
-  const VERSION = "v60.1";
+  const VERSION = "v60.3";
   const app = document.getElementById("app");
 
   const state = {
@@ -70,7 +70,7 @@
     const appData = safeParse(localStorage.getItem(APP_DATA_KEY), null);
     const fallback = safeParse(localStorage.getItem(FALLBACK_DATA_KEY), null);
     state.usingFallback = !(appData && typeof appData === "object");
-    state.data = appData || fallback || emptyData();
+    state.data = mergeLocalData(appData, fallback);
     normalizeData();
   }
 
@@ -86,6 +86,25 @@
     state.data.syncQueue = Array.isArray(state.data.syncQueue) ? state.data.syncQueue : [];
   }
 
+  function mergeOrders(primary = [], secondary = []) {
+    const orders = new Map();
+    [...(primary || []), ...(secondary || [])].forEach((order) => {
+      if (!order || !order.id) return;
+      const previous = orders.get(String(order.id));
+      const previousTime = Date.parse(previous?.updatedAt || previous?.createdAt || "") || 0;
+      const currentTime = Date.parse(order.updatedAt || order.createdAt || "") || 0;
+      if (!previous || currentTime >= previousTime) orders.set(String(order.id), order);
+    });
+    return Array.from(orders.values());
+  }
+
+  function mergeLocalData(appData, fallback) {
+    const base = appData && typeof appData === "object" ? { ...appData } : (fallback && typeof fallback === "object" ? { ...fallback } : emptyData());
+    base.workshopOrders = mergeOrders(appData?.workshopOrders, fallback?.workshopOrders);
+    base.auditLogs = mergeOrders(appData?.auditLogs, fallback?.auditLogs);
+    return base;
+  }
+
   function saveData(action, detail) {
     normalizeData();
     const event = {
@@ -98,10 +117,102 @@
     };
     state.data.auditLogs.unshift(event);
     state.data.syncQueue.push({ id: event.id, type: "workshop_update", createdAt: event.at, detail: action });
-    if (state.usingFallback) {
-      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
-    } else {
+    // Always keep both local copies. A workshop order must survive even if the app
+    // state was not available when this module was first opened.
+    localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
+    localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+    syncWorkshopToCloud().catch(() => null);
+  }
+
+  function supabaseConfig() {
+    const config = window.MG_SUPABASE_CONFIG || {};
+    const url = String(config.url || "").replace(/\/$/, "");
+    const anonKey = String(config.anonKey || "");
+    return { url, anonKey, ready: url.startsWith("https://") && anonKey.startsWith("sb_") };
+  }
+
+  async function supabaseRequest(path, options = {}) {
+    const config = supabaseConfig();
+    if (!config.ready) throw new Error("Supabase no configurado");
+    const response = await fetch(`${config.url}/rest/v1/${path}`, {
+      ...options,
+      headers: {
+        apikey: config.anonKey,
+        Authorization: `Bearer ${config.anonKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+        ...(options.headers || {})
+      }
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.status === 204 ? null : response.json();
+  }
+
+  function mergeWorkshopJobs(cloudJobs = [], localJobs = []) {
+    const jobs = new Map((cloudJobs || []).map((job) => [reportKey(job), job]));
+    (localJobs || []).forEach((localJob) => {
+      const key = reportKey(localJob);
+      const cloudJob = jobs.get(key);
+      if (!cloudJob) {
+        jobs.set(key, localJob);
+        return;
+      }
+      if (!localJob.workshopOrderId && !localJob.workshopSummary && localJob.status !== "En taller") return;
+      jobs.set(key, {
+        ...cloudJob,
+        workshopOrderId: localJob.workshopOrderId || cloudJob.workshopOrderId,
+        workshopStatus: localJob.workshopStatus || cloudJob.workshopStatus,
+        workshopUpdatedAt: localJob.workshopUpdatedAt || cloudJob.workshopUpdatedAt,
+        workshopTechnician: localJob.workshopTechnician || cloudJob.workshopTechnician,
+        workshopSummary: localJob.workshopSummary || cloudJob.workshopSummary,
+        workshopDeliveredAt: localJob.workshopDeliveredAt || cloudJob.workshopDeliveredAt,
+        status: localJob.status === "En taller" || localJob.workshopDeliveredAt ? localJob.status : cloudJob.status,
+        updatedAt: localJob.updatedAt || cloudJob.updatedAt
+      });
+    });
+    return Array.from(jobs.values());
+  }
+
+  async function syncWorkshopToCloud() {
+    if (!navigator.onLine || !supabaseConfig().ready) return;
+    const rows = await supabaseRequest("app_state?select=data&id=eq.production");
+    const cloudData = rows?.[0]?.data || {};
+    const merged = {
+      ...cloudData,
+      workshopOrders: mergeOrders(cloudData.workshopOrders, state.data.workshopOrders),
+      jobs: mergeWorkshopJobs(cloudData.jobs, state.data.jobs),
+      auditLogs: mergeOrders(cloudData.auditLogs, state.data.auditLogs),
+      syncQueue: (cloudData.syncQueue || []).filter((item) => item?.type !== "workshop_update")
+    };
+    const payload = { data: merged, updated_at: nowIso() };
+    const updated = await supabaseRequest("app_state?id=eq.production", { method: "PATCH", body: JSON.stringify(payload) });
+    if (!Array.isArray(updated) || !updated.length) {
+      await supabaseRequest("app_state?on_conflict=id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ id: "production", ...payload })
+      });
+    }
+    state.data.syncQueue = state.data.syncQueue.filter((item) => item?.type !== "workshop_update");
+    localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
+    localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+  }
+
+  async function loadWorkshopCloud() {
+    if (!navigator.onLine || !supabaseConfig().ready) return;
+    try {
+      const rows = await supabaseRequest("app_state?select=data&id=eq.production");
+      const cloudData = rows?.[0]?.data;
+      if (!cloudData || typeof cloudData !== "object") return;
+      state.data.workshopOrders = mergeOrders(cloudData.workshopOrders, state.data.workshopOrders);
+      state.data.jobs = mergeWorkshopJobs(cloudData.jobs, state.data.jobs);
+      state.data.auditLogs = mergeOrders(cloudData.auditLogs, state.data.auditLogs);
+      normalizeData();
       localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
+      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+    } catch (error) {
+      // Local save remains the source of continuity when a connection fails.
+      console.warn("No se pudo cargar Taller desde Supabase", error);
     }
   }
 
@@ -469,6 +580,7 @@
     } else if (job.status !== "En taller") {
       job.status = "En taller";
     }
+    job.updatedAt = nowIso();
   }
 
   function saveOrderForm(event) {
@@ -530,13 +642,14 @@
         const text = await file.text();
         const payload = JSON.parse(text);
         const data = payload.data || payload;
-        if (!data || !Array.isArray(data.jobs)) return alert("El respaldo no contiene reportes validos.");
-        data.workshopOrders = Array.isArray(data.workshopOrders) ? data.workshopOrders : [];
-        localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(data));
-        state.data = data;
-        state.usingFallback = true;
+        const importedJobs = Array.isArray(data?.jobs) ? data.jobs : (Array.isArray(data?.workshopJobs) ? data.workshopJobs : []);
+        const importedOrders = Array.isArray(data?.workshopOrders) ? data.workshopOrders : [];
+        if (!data || (!importedJobs.length && !importedOrders.length)) return alert("El respaldo no contiene datos validos de Taller.");
+        state.data.workshopOrders = mergeOrders(state.data.workshopOrders, importedOrders);
+        state.data.jobs = mergeWorkshopJobs(state.data.jobs, importedJobs);
         normalizeData();
-        alert("Respaldo cargado para taller.");
+        saveData("Restaurar respaldo de taller", `${importedOrders.length} orden(es) recuperada(s)`);
+        alert("Respaldo recuperado y guardado en Taller.");
         render();
       } catch (error) {
         alert("No se pudo leer el respaldo: " + error.message);
@@ -565,9 +678,10 @@
     URL.revokeObjectURL(url);
   }
 
-  function init() {
+  async function init() {
     readData();
     readSession();
+    await loadWorkshopCloud();
     render();
   }
 

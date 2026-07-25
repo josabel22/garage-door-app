@@ -943,6 +943,7 @@
         ],
         movements: [],
         auditLogs: [],
+        workshopOrders: [],
         syncQueue: []
       };
 
@@ -968,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v60.2';
+      const APP_VERSION = 'v60.3';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1113,6 +1114,7 @@
         ['warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
+        merged.workshopOrders = mergeById(cloudData?.workshopOrders, localData?.workshopOrders);
         merged.users = mergeUsers(cloudData?.users, localData?.users);
         merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
         merged.vehicles = cloudData?.vehicles || localData?.vehicles || [];
@@ -1393,6 +1395,7 @@
         ['warranties', 'movements', 'notifications', 'auditLogs', 'appointments', 'maintenances'].forEach((key) => {
           merged[key] = mergeById(cloudData?.[key], localData?.[key]);
         });
+        merged.workshopOrders = mergeById(cloudData?.workshopOrders, localData?.workshopOrders);
         merged.users = mergeUsers(cloudData?.users, localData?.users);
         merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
         merged.vehicles = localData?.vehicles || cloudData?.vehicles || [];
@@ -1457,6 +1460,7 @@
         state.data.notifications ||= [];
         state.data.movements ||= [];
         state.data.auditLogs ||= [];
+        state.data.workshopOrders ||= [];
         state.data.deletedClients ||= [];
         state.data.deletedUsers ||= [];
         state.data.deletedJobs ||= [];
@@ -5265,8 +5269,8 @@
           } catch (_) {}
         });
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (sessionStorage.getItem('mg_sw_reloaded_v602')) return;
-          sessionStorage.setItem('mg_sw_reloaded_v602', '1');
+    if (sessionStorage.getItem('mg_sw_reloaded_v603')) return;
+    sessionStorage.setItem('mg_sw_reloaded_v603', '1');
           window.location.reload();
         });
       }

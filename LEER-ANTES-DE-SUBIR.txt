@@ -1,22 +1,34 @@
-MG PORTONES v60.2 - ACTUALIZACION SOLO TALLER
+ACTUALIZACION V60.3 - GUARDADO REAL DE TALLER
 
-IMPORTANTE: Azure compila desde client/index.html y client/public.
-No subir archivos a client/dist: esa carpeta se reemplaza automaticamente durante la compilacion.
+Esta correccion solo atiende el modulo Taller.
+No incluye Manuales, Panel de control ni cambios de inventario.
 
-Subir solamente estos elementos manteniendo sus rutas:
+QUE CORRIGE
+- Cada orden de Taller se guarda de inmediato en la copia local del dispositivo.
+- Tambien se intenta sincronizar a Supabase al guardar.
+- La app principal conserva las ordenes de Taller al sincronizar.
+- Si no hay internet, la orden queda guardada localmente y no se borra al cerrar el modulo.
 
+SUBIR ESTOS ARCHIVOS EN EL REPOSITORIO, RESPETANDO LAS RUTAS:
 1. client/index.html
 2. client/public/sw.js
 3. client/public/taller/index.html
-4. client/public/taller/taller.css
-5. client/public/taller/taller.js
+4. client/public/taller/taller.js
 
-Forma recomendada en GitHub:
-- Abrir la carpeta client del repositorio y subir index.html.
-- Abrir client/public y subir sw.js.
-- Abrir client/public/taller y subir los tres archivos de taller.
+IMPORTANTE
+- No subir a client/dist. Azure compila client y reemplaza esa carpeta.
+- No tocar supabase-config.js.
+- Esperar el check verde "Azure Static Web Apps CI/CD".
+- Luego recargar la app con Ctrl+F5 o cerrar y abrir de nuevo en el telefono.
 
-La actualizacion agrega Taller y sus permisos.
-No agrega panel de control.
-No agrega ni modifica manuales.
-No elimina datos de Supabase.
+PRUEBA REQUERIDA
+1. Abrir Taller con administrador.
+2. Crear una orden desde una boleta que este En taller.
+3. Guardar seguimiento y cerrar Taller.
+4. Abrir Taller de nuevo: la orden debe seguir visible.
+5. Volver a la app y pulsar Sincronizar.
+
+RECUPERAR EL RESPALDO DE TALLER YA DESCARGADO
+En Taller > Respaldo > Importar JSON, selecciona el archivo
+taller-mg-portones-2026-07-25T03-45-53-143Z.json.
+Se agregan sus ordenes sin borrar reportes ni ordenes actuales.
