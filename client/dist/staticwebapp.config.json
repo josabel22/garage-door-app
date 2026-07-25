@@ -1,0 +1,17 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/manifest.webmanifest",
+      "/sw.js",
+      "/assets/*",
+      "/*.{png,jpg,jpeg,svg,ico,css,js}"
+    ]
+  },
+  "globalHeaders": {
+    "Cache-Control": "no-store"
+  },
+  "mimeTypes": {
+    ".webmanifest": "application/manifest+json"
+  }
+}
