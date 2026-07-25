@@ -81,7 +81,8 @@
         border-radius: 8px;
         background: #ffffff;
         display: block;
-        object-fit: contain;
+        -o-object-fit: contain;
+           object-fit: contain;
         padding: 4px;
       }
 
@@ -504,7 +505,8 @@
       .photo-strip img {
         width: 58px;
         height: 58px;
-        object-fit: cover;
+        -o-object-fit: cover;
+           object-fit: cover;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: #eef4f8;
@@ -546,7 +548,8 @@
       .pdf-photo-grid img {
         width: 100%;
         aspect-ratio: 4 / 3;
-        object-fit: cover;
+        -o-object-fit: cover;
+           object-fit: cover;
         border: 1px solid var(--line);
         border-radius: 8px;
       }
@@ -965,7 +968,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v59.8';
+      const APP_VERSION = 'v60.1';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1463,10 +1466,23 @@
         state.data.users = state.data.users.map((user) => ({
           phone: '',
           email: '',
+          workshopAccess: false,
           active: true,
           createdAt: today(-30),
           ...user
         }));
+        if (!localStorage.getItem('mg_workshop_permissions_reset_v601')) {
+          state.data.users = state.data.users.map((user) => user.role === 'technician'
+            ? { ...user, workshopAccess: false }
+            : user
+          );
+          localStorage.setItem('mg_workshop_permissions_reset_v601', '1');
+          try {
+            localStorage.setItem('mg_data', JSON.stringify(state.data));
+          } catch (error) {
+            console.warn('No se pudo persistir el reinicio de permisos de taller.', error);
+          }
+        }
         state.data.users = state.data.users.filter((user, index, list) => (
           index === list.findIndex((item) => item.username === user.username || item.id === user.id)
         ));
@@ -1817,7 +1833,21 @@
           usuarios: 'US',
           auditoria: 'AU'
         };
-        return icons[name] || '•';
+        return icons[name] || 'â€¢';
+      }
+
+      function hasWorkshopAccess(user = state.user) {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        return user.role === 'technician' && user.workshopAccess === true;
+      }
+
+      function canAccessWorkshop() {
+        return hasWorkshopAccess(state.user);
+      }
+
+      function openWorkshopModule() {
+        window.location.href = './taller/index.html';
       }
 
       function render() {
@@ -1841,6 +1871,7 @@
               </div>
               <nav class="nav">
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
+                ${canAccessWorkshop() ? `<button onclick="openWorkshopModule()"><span>TL</span>Taller</button>` : ''}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
                 <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - ${APP_VERSION}</span>
@@ -1939,7 +1970,6 @@
           jobEdit: jobEditModal,
           jobAssign: jobAssignModal,
           reportPreview: reportPreviewModal,
-          manualPreview: manualPreviewModal,
           warrantyOpen: warrantyOpenModal,
           userEdit: userEditModal,
           userDelete: userDeleteModal,
@@ -2167,23 +2197,6 @@
         `;
       }
 
-      function manualPreviewModal(modal) {
-        const pdfUrl = normalizeManualUrl(modal.pdfUrl);
-        const previewUrl = manualPreviewUrl(modal.pdfUrl);
-        if (!pdfUrl || !previewUrl) return '<p>Manual no disponible.</p>';
-        return `
-          <div class="toolbar no-print" style="margin-bottom:12px;">
-            <button class="btn" onclick="downloadManualPdf(${jsArg(modal.pdfUrl)}, ${jsArg(modal.fileName || 'manual-tecnico.pdf')})">Descargar PDF</button>
-            <button class="btn secondary" onclick="openManualInBrowser(${jsArg(modal.pdfUrl)})">Abrir aparte</button>
-          </div>
-          <iframe
-            src="${escapeText(previewUrl)}"
-            title="${escapeText(modal.title || 'Manual tecnico')}"
-            style="width:100%; min-height:72vh; border:1px solid #d9e2ec; border-radius:8px; background:#fff;"
-          ></iframe>
-        `;
-      }
-
       function vehicleEditModal(modal) {
         const vehicle = state.data.vehicles.find((item) => item.id === modal.id);
         if (!vehicle) return '<p>Movil no encontrada.</p>';
@@ -2234,6 +2247,7 @@
             <label>Correo<input name="email" value="${user.email || ''}" type="email" /></label>
             <label>Rol<select name="role"><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option><option value="technician" ${user.role === 'technician' ? 'selected' : ''}>Tecnico</option><option value="client" ${user.role === 'client' ? 'selected' : ''}>Cliente</option></select></label>
             <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option value="${vehicle.code}" ${vehicle.code === user.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
+            <label><input type="checkbox" name="workshopAccess" value="true" ${hasWorkshopAccess(user) ? 'checked' : ''} /> Permitir acceso a taller</label>
             <label>Estado<select name="active"><option value="true" ${user.active !== false ? 'selected' : ''}>Activo</option><option value="false" ${user.active === false ? 'selected' : ''}>Inactivo</option></select></label>
             <button class="btn full">Guardar usuario</button>
           </form>
@@ -2297,14 +2311,16 @@
             </div>
             <div class="panel-body">
               <section class="grid stats">
-                ${stat('Pendientes sync', control.syncQueue)}
-                ${stat('Fotos pendientes', control.photosPending)}
-                ${stat('Boletas duplicadas', control.duplicateTickets)}
-                ${stat('Fotos eliminadas', control.deletedPhotos)}
+                ${stat('Garantias por semana', control.weeklyWarranties)}
+                ${stat('Empleado con mas trabajos', control.topTechnicianLabel)}
+                ${stat('Trabajos finalizados (semana)', control.weeklyCompletedJobs)}
+                ${stat('Reportes creados (semana)', control.weeklyCreatedJobs)}
               </section>
               <br />
               <div class="list">
+                <div class="list-item"><strong>Resumen semanal:</strong> ${control.topTechnicianSummary}</div>
                 <div class="list-item"><strong>Supabase:</strong> ${control.cloudReady ? 'Conectado' : 'Modo local'}${control.cloudError ? `<br><small>${escapeText(control.cloudError)}</small>` : ''}</div>
+                <div class="list-item"><strong>Pendientes sync:</strong> ${control.syncQueue}  -  <strong>Fotos pendientes:</strong> ${control.photosPending}</div>
                 <div class="list-item"><strong>Reportes eliminados registrados:</strong> ${control.deletedJobs}</div>
                 <div class="list-item"><strong>Usuarios eliminados registrados:</strong> ${control.deletedUsers}</div>
                 <div class="list-item"><strong>Fotos invalidas detectadas:</strong> ${control.invalidPhotos}</div>
@@ -2338,6 +2354,35 @@
         return `<article class="card"><p class="stat-label">${label}</p><p class="stat-value">${value}</p></article>`;
       }
 
+      function parseDateOnly(dateText) {
+        if (!dateText) return null;
+        const normalized = String(dateText).trim();
+        if (!normalized) return null;
+        const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]), 12, 0, 0, 0);
+        const parsed = new Date(normalized);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+
+      function currentWeekRange() {
+        const now = new Date();
+        const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+        const day = todayDate.getDay();
+        const offsetToMonday = day === 0 ? -6 : 1 - day;
+        const start = new Date(todayDate);
+        start.setDate(todayDate.getDate() + offsetToMonday);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return { start, end };
+      }
+
+      function isDateInCurrentWeek(dateText) {
+        const date = parseDateOnly(dateText);
+        if (!date) return false;
+        const { start, end } = currentWeekRange();
+        return date >= start && date <= end;
+      }
+
       function dashboardControlSummary() {
         const diagnostics = buildBlackBoxDiagnostics(state.data);
         const duplicateList = diagnostics.dataHealth?.duplicateTickets || [];
@@ -2349,8 +2394,29 @@
         const deletedJobs = diagnostics.counts?.deletedJobs || 0;
         const deletedUsers = diagnostics.counts?.deletedUsers || 0;
         const cloudReadyNow = Boolean(diagnostics.cloud?.ready);
+        const weeklyWarranties = (state.data.warranties || []).filter((warranty) => isDateInCurrentWeek(warranty.start)).length;
+        const weeklyJobs = (state.data.jobs || []).filter((job) => isDateInCurrentWeek(job.date));
+        const weeklyCompletedJobs = weeklyJobs.filter((job) => String(job.status || '').toLowerCase() === 'finalizado').length;
+        const technicianMap = new Map();
+        weeklyJobs.forEach((job) => {
+          const key = String(job.technicianId || job.technician || 'sin-tecnico');
+          const current = technicianMap.get(key) || { name: job.technician || 'Sin tecnico', count: 0, completed: 0 };
+          current.count += 1;
+          if (String(job.status || '').toLowerCase() === 'finalizado') current.completed += 1;
+          technicianMap.set(key, current);
+        });
+        const topTechnician = Array.from(technicianMap.values()).sort((a, b) => (
+          b.count - a.count || b.completed - a.completed || a.name.localeCompare(b.name)
+        ))[0] || null;
         const hasIssues = syncQueue || photosPending || duplicateTickets || invalidPhotos;
         return {
+          weeklyWarranties,
+          weeklyCreatedJobs: weeklyJobs.length,
+          weeklyCompletedJobs,
+          topTechnicianLabel: topTechnician ? `${topTechnician.name} (${topTechnician.count})` : 'Sin datos',
+          topTechnicianSummary: topTechnician
+            ? `${topTechnician.name} lidera la semana con ${topTechnician.count} reporte(s), ${topTechnician.completed} finalizado(s).`
+            : 'Aun no hay reportes suficientes esta semana para medir rendimiento.',
           syncQueue,
           photosPending,
           duplicateTickets,
@@ -2617,73 +2683,6 @@
         if (!job) return alert('Reporte no encontrado.');
         state.modal = { type: 'reportPreview', title: `Vista PDF ${job.ticket}`, id, wide: true };
         render();
-      }
-
-      function normalizeManualUrl(pdfUrl) {
-        try {
-          if (!pdfUrl) return '';
-          return new URL(String(pdfUrl), window.location.origin).toString();
-        } catch (error) {
-          console.error(error);
-          return '';
-        }
-      }
-
-      function manualPreviewUrl(pdfUrl) {
-        const absoluteUrl = normalizeManualUrl(pdfUrl);
-        if (!absoluteUrl) return '';
-        return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(absoluteUrl)}`;
-      }
-
-      function manualFileName(manual) {
-        const base = `${manual?.brand || 'manual'}-${manual?.model || 'tecnico'}`
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '');
-        return `${base || 'manual-tecnico'}.pdf`;
-      }
-
-      function previewManualPdf(pdfUrl, fileName, title = 'Manual tecnico') {
-        const absoluteUrl = normalizeManualUrl(pdfUrl);
-        if (!absoluteUrl) return alert('Manual no disponible.');
-        state.modal = {
-          type: 'manualPreview',
-          title,
-          pdfUrl: absoluteUrl,
-          fileName: fileName || 'manual-tecnico.pdf',
-          wide: true
-        };
-        render();
-      }
-
-      async function downloadManualPdf(pdfUrl, fileName = 'manual-tecnico.pdf') {
-        const absoluteUrl = normalizeManualUrl(pdfUrl);
-        if (!absoluteUrl) return alert('Manual no disponible.');
-        try {
-          const response = await fetch(absoluteUrl, { cache: 'no-store' });
-          if (!response.ok) throw new Error(`No se pudo descargar el manual (${response.status}).`);
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-        } catch (error) {
-          console.error(error);
-          alert('No se pudo descargar el manual. Intenta abrirlo aparte.');
-        }
-      }
-
-      function openManualInBrowser(pdfUrl) {
-        const previewUrl = manualPreviewUrl(pdfUrl);
-        if (!previewUrl) return alert('Manual no disponible.');
-        const manualWindow = window.open(previewUrl, '_blank', 'noopener');
-        if (!manualWindow) window.location.href = previewUrl;
       }
 
       function printJob(id) {
@@ -3261,7 +3260,7 @@
                   return `<div class="list-item">
                     <strong>${user.name}</strong> <span class="pill">${user.active === false ? 'Inactivo' : 'Activo'}</span><br>
                     ${roleName(user.role)}  -  ${user.username}  -  ${user.phone || 'Sin telefono'}  -  ${user.email || 'Sin correo'}<br>
-                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong>  -  ' + history.length + ' trabajos  -  ' + completed + ' finalizados' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
+                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong>  -  ' + history.length + ' trabajos  -  ' + completed + ' finalizados' + '<br>Taller: <strong>' + (hasWorkshopAccess(user) ? 'Habilitado' : 'No habilitado') + '</strong>' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editUser(${user.id})">Modificar</button>
                       <button class="btn secondary" onclick="toggleUser(${user.id})">${user.active === false ? 'Activar' : 'Desactivar'}</button>
@@ -3283,6 +3282,7 @@
                   <label>Telefono<input name="phone" inputmode="tel" /></label>
                   <label>Correo<input name="email" type="email" /></label>
                   <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
+                  <label><input type="checkbox" name="workshopAccess" value="true" /> Permitir acceso a taller</label>
                   <label class="full">Direccion cliente<input name="address" placeholder="Solo para cliente" /></label>
                   <button class="btn full">Guardar usuario</button>
                 </form>
@@ -3323,9 +3323,8 @@
                 <span class="pill">Disponible sin internet</span>
               </div>
               <div class="panel-body">
-                <div class="lock-note no-print" style="margin-bottom:12px; display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
-                  <span>Seguridad: cortar alimentacion antes de manipular cableado, fotografiar parametros actuales y probar STOP/fotocelulas antes de entregar.</span>
-                  <a class="btn secondary" href="./conocimiento/index.html" target="_blank" rel="noopener">Abrir conocimiento</a>
+                <div class="lock-note" style="margin-bottom:12px;">
+                  Seguridad: cortar alimentacion antes de manipular cableado, fotografiar parametros actuales y probar STOP/fotocelulas antes de entregar.
                 </div>
                 ${technicalManuals.length ? '' : '<div class="list-item"><strong>Manuales no cargados.</strong><br>Sube tambien el archivo manuales-apoyo.js para activar esta seccion.</div>'}
                 <div class="form-grid no-print">
@@ -3360,8 +3359,8 @@
               <p style="margin:4px 0 0; color:var(--steel);">${escapeText(manual.application)}</p>
               ${manual.pdfUrl ? `
                 <div class="toolbar" style="margin-top:10px;">
-                  <button class="btn secondary" type="button" onclick="previewManualPdf(${jsArg(manual.pdfUrl)}, ${jsArg(manualFileName(manual))}, ${jsArg(`Manual ${manual.brand} ${manual.model}`)})">Ver PDF</button>
-                  <button class="btn secondary" type="button" onclick="downloadManualPdf(${jsArg(manual.pdfUrl)}, ${jsArg(manualFileName(manual))})">Descargar PDF</button>
+                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver PDF</a>
+                  <a class="btn secondary" href="${escapeText(manual.pdfUrl)}" download>Descargar PDF</a>
                 </div>
               ` : ''}
             </div>
@@ -3822,7 +3821,7 @@
               <label>Equipo retirado<select name="workshopEquipment">${equipment.map((item) => `<option ${selected(item, entry.equipment)}>${item}</option>`).join('')}</select></label>
               <label>Marca<input name="workshopBrand" value="${formValue(entry.brand)}" placeholder="Marca del equipo" /></label>
               <label>Modelo<input name="workshopModel" value="${formValue(entry.model)}" placeholder="Modelo o referencia" /></label>
-              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seña" /></label>
+              <label>Serie / identificacion<input name="workshopSerial" value="${formValue(entry.serial)}" placeholder="Numero, etiqueta o seÃ±a" /></label>
               <label>Estado al retirar<select name="workshopCondition">${conditions.map((item) => `<option ${selected(item, entry.condition)}>${item}</option>`).join('')}</select></label>
               <label>Fecha entrada<input name="workshopDate" type="date" value="${formValue(entry.date || today(0))}" /></label>
               <label class="full">Motivo del retiro<textarea name="workshopReason" placeholder="Explique por que el equipo se lleva al taller">${escapeText(entry.reason || '')}</textarea></label>
@@ -4342,6 +4341,7 @@
           phone: form.get('phone'),
           email: form.get('email'),
           vehicle: role === 'technician' ? form.get('vehicle') : '',
+          workshopAccess: role === 'technician' ? form.get('workshopAccess') === 'true' : false,
           active: true,
           createdAt: today(0)
         };
@@ -4393,6 +4393,7 @@
         user.email = form.get('email');
         user.role = form.get('role');
         user.vehicle = user.role === 'technician' ? form.get('vehicle') : '';
+        user.workshopAccess = user.role === 'technician' ? form.get('workshopAccess') === 'true' : false;
         user.active = form.get('active') === 'true';
         syncVehicleAssignments();
         queuePendingChange('user', id);
@@ -5294,8 +5295,3 @@
     </script>
   </body>
 </html>
-
-
-
-
-
