@@ -5,7 +5,7 @@
   const APP_USER_KEY = "mg_user";
   const FALLBACK_DATA_KEY = "mg_taller_source_v60";
   const SESSION_KEY = "mg_taller_session_v60";
-  const VERSION = "v61.4";
+  const VERSION = "v61.5";
   const app = document.getElementById("app");
 
   const state = {
@@ -151,18 +151,33 @@
     return response.status === 204 ? null : response.json();
   }
 
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function workshopData(job) {
+    return isRecord(job) && Boolean(job.workshopOrderId || job.workshopSummary || job.workshopStatus || job.workshopDeliveredAt || job.status === "En taller" || job.workshopEntry);
+  }
+
   function mergeWorkshopJobs(cloudJobs = [], localJobs = []) {
-    const jobs = new Map((cloudJobs || []).map((job) => [reportKey(job), job]));
-    (localJobs || []).forEach((localJob) => {
+    const jobs = new Map();
+    (Array.isArray(cloudJobs) ? cloudJobs : []).filter(isRecord).forEach((job) => {
+      const key = reportKey(job);
+      if (key) jobs.set(key, job);
+    });
+
+    (Array.isArray(localJobs) ? localJobs : []).filter(workshopData).forEach((localJob) => {
       const key = reportKey(localJob);
+      if (!key) return;
       const cloudJob = jobs.get(key);
       if (!cloudJob) {
+        // Only a report that has real Taller data can be added when it is not yet in the cloud.
         jobs.set(key, localJob);
         return;
       }
-      if (!localJob.workshopOrderId && !localJob.workshopSummary && localJob.status !== "En taller") return;
       jobs.set(key, {
         ...cloudJob,
+        workshopEntry: localJob.workshopEntry || cloudJob.workshopEntry,
         workshopOrderId: localJob.workshopOrderId || cloudJob.workshopOrderId,
         workshopStatus: localJob.workshopStatus || cloudJob.workshopStatus,
         workshopUpdatedAt: localJob.workshopUpdatedAt || cloudJob.workshopUpdatedAt,
@@ -174,6 +189,14 @@
       });
     });
     return Array.from(jobs.values());
+  }
+
+  function mergeWorkshopAuditLogs(cloudLogs = [], localLogs = []) {
+    const isWorkshopLog = (item) => isRecord(item) && (String(item.module || "").toLowerCase().includes("taller") || String(item.action || "").toLowerCase().includes("taller"));
+    return mergeOrders(
+      (Array.isArray(cloudLogs) ? cloudLogs : []).filter(isRecord),
+      (Array.isArray(localLogs) ? localLogs : []).filter(isWorkshopLog)
+    );
   }
 
   function pendingWorkshopChanges() {
@@ -209,7 +232,7 @@
         ...cloudData,
         workshopOrders: mergeOrders(cloudData.workshopOrders, state.data.workshopOrders),
         jobs: mergeWorkshopJobs(cloudData.jobs, state.data.jobs),
-        auditLogs: mergeOrders(cloudData.auditLogs, state.data.auditLogs),
+        auditLogs: mergeWorkshopAuditLogs(cloudData.auditLogs, state.data.auditLogs),
         syncQueue: (cloudData.syncQueue || []).filter((item) => item?.type !== "workshop_update")
       };
       const payload = { data: merged, updated_at: nowIso() };
@@ -232,7 +255,7 @@
       return { ok: true };
     } catch (error) {
       state.syncState = "error";
-      state.syncMessage = error?.message || "Error de sincronizacion";
+      state.syncMessage = String(error?.message || "Error de sincronizacion").slice(0, 180);
       console.warn("No se pudo sincronizar Taller con Supabase", error);
       return { ok: false, reason: "error", error };
     }
@@ -246,7 +269,7 @@
     } else if (result.reason === "offline") {
       alert("No hay internet. Los cambios siguen guardados en este dispositivo y se reintentaran al volver la conexion.");
     } else {
-      alert("No se pudo sincronizar Taller. Los cambios no se borraron; revisa la conexion y vuelve a intentarlo.");
+      alert(`No se pudo sincronizar Taller. Los cambios no se borraron. Motivo: ${state.syncMessage || "revisa la conexion y vuelve a intentarlo."}`);
     }
   }
 
@@ -258,7 +281,7 @@
       if (!cloudData || typeof cloudData !== "object") return;
       state.data.workshopOrders = mergeOrders(cloudData.workshopOrders, state.data.workshopOrders);
       state.data.jobs = mergeWorkshopJobs(cloudData.jobs, state.data.jobs);
-      state.data.auditLogs = mergeOrders(cloudData.auditLogs, state.data.auditLogs);
+      state.data.auditLogs = mergeWorkshopAuditLogs(cloudData.auditLogs, state.data.auditLogs);
       normalizeData();
       localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
       localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
@@ -310,6 +333,7 @@
   }
 
   function reportKey(job) {
+    if (!isRecord(job)) return "";
     return String(job.id || job.ticket || job.boleta || "");
   }
 

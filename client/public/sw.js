@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v61-4-taller-sync';
+const CACHE_NAME = 'mg-portones-v61-5-taller-sync';
 const ASSETS = [
   './',
   './index.html',
