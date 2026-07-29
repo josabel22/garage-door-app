@@ -23,6 +23,8 @@ button, input, select, textarea { font: inherit; }
 .nav { display: grid; gap: 8px; }
 .nav button { border: 0; background: transparent; color: white; text-align: left; padding: 12px; border-radius: 8px; cursor: pointer; }
 .nav button.active, .nav button:hover { background: rgba(255,255,255,.14); }
+.nav-return { margin-top: -8px; }
+.nav-return .btn { width: 100%; }
 .session-card { margin-top: auto; background: rgba(255,255,255,.1); border-radius: 8px; padding: 12px; font-size: 13px; }
 .main { padding: 24px; overflow: auto; }
 .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }

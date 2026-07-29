@@ -5,7 +5,7 @@
   const APP_USER_KEY = "mg_user";
   const FALLBACK_DATA_KEY = "mg_taller_source_v60";
   const SESSION_KEY = "mg_taller_session_v60";
-  const VERSION = "v60.3";
+  const VERSION = "v61.4";
   const app = document.getElementById("app");
 
   const state = {
@@ -15,7 +15,10 @@
     selectedKey: "",
     data: null,
     user: null,
-    usingFallback: false
+    usingFallback: false,
+    syncState: "pending",
+    syncMessage: "Cambios de taller pendientes de sincronizar.",
+    lastSyncAt: ""
   };
 
   const workshopStatuses = [
@@ -173,29 +176,78 @@
     return Array.from(jobs.values());
   }
 
+  function pendingWorkshopChanges() {
+    return (state.data?.syncQueue || []).filter((item) => item?.type === "workshop_update").length;
+  }
+
+  function syncLabel() {
+    const pending = pendingWorkshopChanges();
+    if (state.syncState === "syncing") return "Sincronizando Taller...";
+    if (state.syncState === "synced") return `Taller sincronizado${state.lastSyncAt ? `: ${formatDateTime(state.lastSyncAt)}` : ""}`;
+    if (state.syncState === "error") return `No se pudo sincronizar. ${pending} cambio(s) quedan guardados en este dispositivo.`;
+    if (!navigator.onLine) return `Sin internet. ${pending} cambio(s) quedan guardados en este dispositivo.`;
+    return pending ? `${pending} cambio(s) de Taller pendientes de sincronizar.` : "Taller listo para sincronizar.";
+  }
+
   async function syncWorkshopToCloud() {
-    if (!navigator.onLine || !supabaseConfig().ready) return;
-    const rows = await supabaseRequest("app_state?select=data&id=eq.production");
-    const cloudData = rows?.[0]?.data || {};
-    const merged = {
-      ...cloudData,
-      workshopOrders: mergeOrders(cloudData.workshopOrders, state.data.workshopOrders),
-      jobs: mergeWorkshopJobs(cloudData.jobs, state.data.jobs),
-      auditLogs: mergeOrders(cloudData.auditLogs, state.data.auditLogs),
-      syncQueue: (cloudData.syncQueue || []).filter((item) => item?.type !== "workshop_update")
-    };
-    const payload = { data: merged, updated_at: nowIso() };
-    const updated = await supabaseRequest("app_state?id=eq.production", { method: "PATCH", body: JSON.stringify(payload) });
-    if (!Array.isArray(updated) || !updated.length) {
-      await supabaseRequest("app_state?on_conflict=id", {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ id: "production", ...payload })
-      });
+    const pending = pendingWorkshopChanges();
+    if (!navigator.onLine) {
+      state.syncState = "offline";
+      state.syncMessage = "Sin internet";
+      return { ok: false, reason: "offline" };
     }
-    state.data.syncQueue = state.data.syncQueue.filter((item) => item?.type !== "workshop_update");
-    localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
-    localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+    if (!supabaseConfig().ready) {
+      state.syncState = "error";
+      state.syncMessage = "Supabase no configurado";
+      return { ok: false, reason: "config" };
+    }
+    state.syncState = "syncing";
+    try {
+      const rows = await supabaseRequest("app_state?select=data&id=eq.production");
+      const cloudData = rows?.[0]?.data || {};
+      const merged = {
+        ...cloudData,
+        workshopOrders: mergeOrders(cloudData.workshopOrders, state.data.workshopOrders),
+        jobs: mergeWorkshopJobs(cloudData.jobs, state.data.jobs),
+        auditLogs: mergeOrders(cloudData.auditLogs, state.data.auditLogs),
+        syncQueue: (cloudData.syncQueue || []).filter((item) => item?.type !== "workshop_update")
+      };
+      const payload = { data: merged, updated_at: nowIso() };
+      const updated = await supabaseRequest("app_state?id=eq.production", { method: "PATCH", body: JSON.stringify(payload) });
+      if (!Array.isArray(updated) || !updated.length) {
+        await supabaseRequest("app_state?on_conflict=id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify({ id: "production", ...payload })
+        });
+      }
+      // Preserve the merged cloud state locally so the next edit starts from the newest order history.
+      state.data = { ...state.data, ...merged };
+      state.data.syncQueue = state.data.syncQueue.filter((item) => item?.type !== "workshop_update");
+      localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
+      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+      state.syncState = "synced";
+      state.lastSyncAt = nowIso();
+      state.syncMessage = pending ? "Cambios enviados a Supabase" : "Datos verificados en Supabase";
+      return { ok: true };
+    } catch (error) {
+      state.syncState = "error";
+      state.syncMessage = error?.message || "Error de sincronizacion";
+      console.warn("No se pudo sincronizar Taller con Supabase", error);
+      return { ok: false, reason: "error", error };
+    }
+  }
+
+  async function syncWorkshopNow() {
+    const result = await syncWorkshopToCloud();
+    render();
+    if (result.ok) {
+      alert("Taller sincronizado con Supabase. Ya puedes verificarlo desde otro dispositivo.");
+    } else if (result.reason === "offline") {
+      alert("No hay internet. Los cambios siguen guardados en este dispositivo y se reintentaran al volver la conexion.");
+    } else {
+      alert("No se pudo sincronizar Taller. Los cambios no se borraron; revisa la conexion y vuelve a intentarlo.");
+    }
   }
 
   async function loadWorkshopCloud() {
@@ -210,6 +262,9 @@
       normalizeData();
       localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
       localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+      state.syncState = "synced";
+      state.lastSyncAt = nowIso();
+      state.syncMessage = "Datos de Taller cargados desde Supabase";
     } catch (error) {
       // Local save remains the source of continuity when a connection fails.
       console.warn("No se pudo cargar Taller desde Supabase", error);
@@ -394,12 +449,12 @@
             <div><h1>MG Portones</h1><p>Modulo Taller</p></div>
           </div>
           <nav class="nav">${nav.map(([key, label]) => `<button class="${state.view === key ? "active" : ""}" data-view="${key}">${label}</button>`).join("")}</nav>
+          <div class="nav-return"><button class="btn secondary" id="backBtn" type="button">Volver a la app</button></div>
           <div class="session-card">
             <strong>${escapeHtml(userLabel())}</strong><br />
             Rol: ${escapeHtml(role() || "sin rol")}<br />
             Datos: ${state.usingFallback ? "respaldo importado" : "app actual"}<br />
             Version: ${VERSION}
-            <button class="btn secondary" id="backBtn" type="button" style="margin-top:10px;width:100%">Volver a la app</button>
             <button class="btn secondary" id="logoutBtn" type="button" style="margin-top:10px;width:100%">Cambiar usuario</button>
           </div>
         </aside>
@@ -428,7 +483,7 @@
     const content = `
       <div class="topbar">
         <div><h2>Ordenes de taller</h2><p>Equipos retirados desde reportes con estado En taller.</p></div>
-        <div class="toolbar"><button class="btn secondary" id="exportBtn">Exportar taller</button></div>
+        <div class="toolbar"><span class="pill" title="${escapeHtml(state.syncMessage)}">${escapeHtml(syncLabel())}</span><button class="btn secondary" id="syncBtn">Sincronizar ahora</button><button class="btn secondary" id="exportBtn">Exportar taller</button></div>
       </div>
       <div class="notice"><strong>Flujo seguro:</strong> el modulo lee los reportes y guarda seguimiento en <code>workshopOrders</code>. No borra ni cambia fotos/PDF.</div><br />
       <div class="grid-3">
@@ -461,6 +516,7 @@
     document.getElementById("searchInput").addEventListener("input", (event) => { state.query = event.target.value; renderOrders(); });
     document.getElementById("statusFilter").addEventListener("change", (event) => { state.statusFilter = event.target.value; renderOrders(); });
     document.getElementById("exportBtn").addEventListener("click", exportWorkshop);
+    document.getElementById("syncBtn").addEventListener("click", syncWorkshopNow);
     document.querySelectorAll("[data-select-job]").forEach((btn) => btn.addEventListener("click", () => { state.selectedKey = btn.getAttribute("data-select-job"); renderOrders(); }));
     document.querySelectorAll("[data-open-order]").forEach((btn) => btn.addEventListener("click", () => { const job = jobByKey(btn.getAttribute("data-open-order")); if (job) { ensureOrder(job); state.selectedKey = reportKey(job); renderOrders(); } }));
     const form = document.getElementById("workshopForm");
@@ -682,6 +738,7 @@
     readData();
     readSession();
     await loadWorkshopCloud();
+    window.addEventListener("online", () => { syncWorkshopToCloud().then(() => render()).catch(() => null); });
     render();
   }
 
