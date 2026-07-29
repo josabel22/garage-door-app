@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v60.3';
+      const APP_VERSION = 'v61.2';
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1854,6 +1854,16 @@
         window.location.href = './taller/index.html';
       }
 
+      function hasGeneralInventoryAccess(user = state.user) {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        return user.inventoryGeneralAccess === true;
+      }
+
+      function openGeneralInventoryModule() {
+        window.location.href = './inventario-general/index.html';
+      }
+
       function render() {
         if (!state.user) return renderLogin();
 
@@ -1875,6 +1885,7 @@
               </div>
               <nav class="nav">
                 ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
+                ${hasGeneralInventoryAccess() ? `<button onclick="openGeneralInventoryModule()"><span>IG</span>Inventario general</button>` : ''}
                 ${canAccessWorkshop() ? `<button onclick="openWorkshopModule()"><span>TL</span>Taller</button>` : ''}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
@@ -2252,6 +2263,7 @@
             <label>Rol<select name="role"><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option><option value="technician" ${user.role === 'technician' ? 'selected' : ''}>Tecnico</option><option value="client" ${user.role === 'client' ? 'selected' : ''}>Cliente</option></select></label>
             <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option value="${vehicle.code}" ${vehicle.code === user.vehicle ? 'selected' : ''}>${vehicle.code}</option>`).join('')}</select></label>
             <label><input type="checkbox" name="workshopAccess" value="true" ${hasWorkshopAccess(user) ? 'checked' : ''} /> Permitir acceso a taller</label>
+            <label><input type="checkbox" name="inventoryGeneralAccess" value="true" ${hasGeneralInventoryAccess(user) ? 'checked' : ''} /> Permitir inventario general</label>
             <label>Estado<select name="active"><option value="true" ${user.active !== false ? 'selected' : ''}>Activo</option><option value="false" ${user.active === false ? 'selected' : ''}>Inactivo</option></select></label>
             <button class="btn full">Guardar usuario</button>
           </form>
@@ -3233,7 +3245,7 @@
                   return `<div class="list-item">
                     <strong>${user.name}</strong> <span class="pill">${user.active === false ? 'Inactivo' : 'Activo'}</span><br>
                     ${roleName(user.role)}  -  ${user.username}  -  ${user.phone || 'Sin telefono'}  -  ${user.email || 'Sin correo'}<br>
-                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong>  -  ' + history.length + ' trabajos  -  ' + completed + ' finalizados' + '<br>Taller: <strong>' + (hasWorkshopAccess(user) ? 'Habilitado' : 'No habilitado') + '</strong>' : 'Creado: ' + (user.createdAt || 'Sin fecha')}
+                    ${user.role === 'technician' ? 'Movil: <strong>' + (user.vehicle || 'Sin asignar') + '</strong>  -  ' + history.length + ' trabajos  -  ' + completed + ' finalizados' + '<br>Taller: <strong>' + (hasWorkshopAccess(user) ? 'Habilitado' : 'No habilitado') + '</strong>  -  Inventario general: <strong>' + (hasGeneralInventoryAccess(user) ? 'Habilitado' : 'No habilitado') + '</strong>' : 'Inventario general: <strong>' + (hasGeneralInventoryAccess(user) ? 'Habilitado' : 'No habilitado') + '</strong>  -  Creado: ' + (user.createdAt || 'Sin fecha')}
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editUser(${user.id})">Modificar</button>
                       <button class="btn secondary" onclick="toggleUser(${user.id})">${user.active === false ? 'Activar' : 'Desactivar'}</button>
@@ -3256,6 +3268,7 @@
                   <label>Correo<input name="email" type="email" /></label>
                   <label>Movil<select name="vehicle"><option value="">Sin asignar</option>${state.data.vehicles.map((vehicle) => `<option>${vehicle.code}</option>`).join('')}</select></label>
                   <label><input type="checkbox" name="workshopAccess" value="true" /> Permitir acceso a taller</label>
+                  <label><input type="checkbox" name="inventoryGeneralAccess" value="true" /> Permitir inventario general</label>
                   <label class="full">Direccion cliente<input name="address" placeholder="Solo para cliente" /></label>
                   <button class="btn full">Guardar usuario</button>
                 </form>
@@ -4315,6 +4328,7 @@
           email: form.get('email'),
           vehicle: role === 'technician' ? form.get('vehicle') : '',
           workshopAccess: role === 'technician' ? form.get('workshopAccess') === 'true' : false,
+          inventoryGeneralAccess: form.get('inventoryGeneralAccess') === 'true',
           active: true,
           createdAt: today(0)
         };
@@ -4367,6 +4381,7 @@
         user.role = form.get('role');
         user.vehicle = user.role === 'technician' ? form.get('vehicle') : '';
         user.workshopAccess = user.role === 'technician' ? form.get('workshopAccess') === 'true' : false;
+        user.inventoryGeneralAccess = form.get('inventoryGeneralAccess') === 'true';
         user.active = form.get('active') === 'true';
         syncVehicleAssignments();
         queuePendingChange('user', id);
