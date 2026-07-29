@@ -84,7 +84,7 @@
   function render() {
     const user = currentUser();
     if (!canUseInventory()) {
-      app.innerHTML = `<div class="shell"><header class="top"><div><h1>Inventario general MG Portones</h1><p>Modulo aislado de prueba para bodega, repuestos y control de existencias.</p></div>${sessionMarkup()}</header><section class="panel blocked"><h2>Acceso no autorizado</h2><p>${esc(user?.name)} no tiene permiso para usar Inventario General.</p><p>Un administrador debe activar su acceso desde la gestion de permisos.</p></section></div>`;
+      app.innerHTML = `<div class="shell"><header class="top"><div><h1>Inventario general MG Portones</h1><p>Control de bodega, repuestos y existencias.</p></div>${sessionMarkup()}</header><section class="panel blocked"><h2>Acceso no autorizado</h2><p>${esc(user?.name)} no tiene permiso para usar Inventario General.</p><p>Un administrador debe activar su acceso desde Usuarios en MG Portones.</p></section></div>`;
       bind();
       return;
     }
@@ -92,8 +92,8 @@
     const lowCount = state.products.filter(low).length;
     const units = state.products.reduce((sum, product) => sum + available(product), 0);
     app.innerHTML = `<div class="shell">
-      <header class="top"><div><h1>Inventario general MG Portones</h1><p>Modulo aislado de prueba para bodega, repuestos y control de existencias.</p></div>${sessionMarkup()}</header>
-      <div class="notice"><strong>Modulo aislado:</strong> guarda en este navegador y, al sincronizar, en sus tablas exclusivas de Supabase. No modifica inventario de moviles, reportes ni app_state.<span class="cloud-status">${esc(state.cloudStatus)}</span></div>
+      <header class="top"><div><h1>Inventario general MG Portones</h1><p>Control de bodega, repuestos y existencias.</p></div>${sessionMarkup()}</header>
+      <div class="notice"><strong>Inventario general:</strong> la informacion se guarda localmente y se sincroniza con Supabase. Opera sin modificar el inventario de moviles ni los reportes.<span class="cloud-status">${esc(state.cloudStatus)}</span></div>
       <section class="summary"><article class="metric"><span>Productos registrados</span><strong>${state.products.length}</strong></article><article class="metric"><span>Unidades disponibles</span><strong>${units}</strong></article><article class="metric"><span>Stock bajo</span><strong>${lowCount}</strong></article><article class="metric"><span>Movimientos hoy</span><strong>${state.movements.filter((movement) => String(movement.at || "").slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</strong></article></section>
       <section class="layout"><section class="panel"><div class="panel-header"><h2>Existencias</h2><div class="header-actions"><button class="secondary" id="sync">Sincronizar Supabase</button><button class="secondary" id="export">Descargar respaldo</button>${isAdmin() ? `<button class="secondary" id="trash">Papelera (${state.archivedProducts.length})</button>` : ""}<button class="primary" id="newProduct">Agregar producto</button></div></div><div class="panel-body"><div class="filters"><label>Buscar producto<input id="query" value="${esc(state.query)}" placeholder="Nombre, codigo, categoria, proveedor o ubicacion" /></label><label>Ubicacion<select id="location"><option value="">Todas las ubicaciones</option>${locations().map((item) => `<option ${item === state.location ? "selected" : ""}>${esc(item)}</option>`).join("")}</select></label></div><div id="products">${products.length ? products.map(productCard).join("") : '<div class="empty">No hay productos que coincidan con la busqueda.</div>'}</div></div></section>
       <aside class="panel"><div class="panel-header"><h2>Ultimos movimientos</h2></div><div class="panel-body">${state.movements.length ? state.movements.slice(0, 10).map((movement) => `<div class="movement"><strong>${esc(movement.productName)}: ${movement.type === "entrada" ? "+" : movement.type === "salida" ? "-" : "="}${movement.qty}</strong><span>${esc(movement.reason || "Sin detalle")} · ${new Date(movement.at).toLocaleString()}</span></div>`).join("") : '<div class="empty">Todavia no hay movimientos.</div>'}</div></aside></section>
@@ -104,9 +104,9 @@
   function sessionMarkup() {
     const user = currentUser();
     if (state.sharedUser) {
-      return `<div class="session"><span><strong>Sesion MG Portones</strong><small>${esc(user?.name || user?.username || user?.usuario || "Usuario")} - ${esc(user?.role || user?.rol || "Usuario")}</small></span></div>`;
+      return `<div class="session"><div class="session-user"><strong>Sesion MG Portones</strong><span>${esc(user?.name || user?.username || user?.usuario || "Usuario")} - ${esc(user?.role || user?.rol || "Usuario")}</span></div><button class="secondary" id="returnApp">Volver a MG Portones</button></div>`;
     }
-    return `<div class="session"><label>Sesion de demostracion<select id="sessionUser">${state.users.map((item) => `<option value="${esc(item.id)}" ${item.id === user?.id ? "selected" : ""}>${esc(item.name)} - ${esc(item.role)}</option>`).join("")}</select></label>${isAdmin() ? '<button class="secondary" id="permissions">Permisos</button>' : ""}</div>`;
+    return `<div class="session"><label>Sesion de demostracion<select id="sessionUser">${state.users.map((item) => `<option value="${esc(item.id)}" ${item.id === user?.id ? "selected" : ""}>${esc(item.name)} - ${esc(item.role)}</option>`).join("")}</select></label>${isAdmin() ? '<button class="secondary" id="permissions">Permisos</button>' : ""}<button class="secondary" id="returnApp">Volver a MG Portones</button></div>`;
   }
   function productCard(product) {
     return `<article class="product"><div>${product.photo ? `<img class="thumb" src="${product.photo}" alt="${esc(product.name)}" />` : '<div class="thumb">Sin foto</div>'}</div><div><h3>${esc(product.name)} ${low(product) ? '<span class="tag low">Stock bajo</span>' : ""}</h3><div class="meta"><span class="tag">${esc(product.code || "Sin codigo")}</span><span>${available(product)} unidades</span><span>Minimo: ${number(product.min)}</span><span>${esc(product.location || "Sin ubicacion")}</span></div><p>${esc(product.category || "Sin categoria")} · ${esc(product.condition || "Sin estado")} · ${esc(product.supplier || "Sin proveedor")}</p></div><div class="actions"><button class="secondary" data-edit="${product.id}">Editar</button><button class="primary" data-move="${product.id}">Movimiento</button>${isAdmin() ? `<button class="danger" data-delete="${product.id}">Eliminar</button>` : ""}</div></article>`;
@@ -127,6 +127,7 @@
   }
   function bind() {
     document.getElementById("sessionUser")?.addEventListener("change", (event) => { state.currentUserId = event.target.value; save(); render(); });
+    document.getElementById("returnApp")?.addEventListener("click", () => { window.location.href = "../index.html"; });
     document.getElementById("permissions")?.addEventListener("click", () => { state.modal = { type: "permissions" }; render(); });
     document.getElementById("trash")?.addEventListener("click", () => { state.modal = { type: "trash" }; render(); });
     document.getElementById("newProduct")?.addEventListener("click", () => { state.modal = { type: "product", id: "" }; render(); });
