@@ -1,0 +1,30 @@
+V61.6 - Traslado de Bodega General a Movil
+
+Esta actualizacion solo afecta Inventario General.
+No modifica reportes, fotos, PDFs, clientes, Taller ni elimina datos.
+
+ANTES DE SUBIR
+1. Descargue un respaldo desde la app principal y otro desde Inventario General.
+2. En Supabase > SQL Editor ejecute una sola vez:
+   ARCHIVOS-PARA-GITHUB/database/1-EJECUTAR-EN-SUPABASE.sql
+3. Debe mostrar Success. No rows returned.
+
+ARCHIVOS QUE SE SUBEN A GITHUB
+Suba solamente el contenido de ARCHIVOS-PARA-GITHUB conservando sus rutas.
+No suba la carpeta client que esta fuera de ARCHIVOS-PARA-GITHUB: es una copia de trabajo.
+- client/public/supabase-config.js
+- client/public/inventario-general/index.html
+- client/public/inventario-general/inventario.js
+- client/public/inventario-general/supabase-inventario.js
+- client/public/sw.js
+
+PRUEBA MINIMA DESPUES DEL DESPLIEGUE
+1. Abra Inventario General y presione Sincronizar Supabase.
+2. En un producto, abra Movimiento.
+3. Seleccione Traslado a movil, una movil, cantidad 1 y un motivo.
+4. Guarde. La bodega debe bajar 1 unidad.
+5. Abra la app MG Portones > Inventario y confirme que la movil recibio 1 unidad.
+6. Revise Ultimos movimientos: debe quedar la trazabilidad del traslado.
+
+Si el traslado no se puede conectar a Supabase, no descontara la bodega.
+No repita el traslado hasta confirmar el resultado en Inventario General y en la movil.
