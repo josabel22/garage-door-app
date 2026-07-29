@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v61-6';
+const CACHE_NAME = 'mg-portones-v61-8-taller-quota';
 const ASSETS = [
   './',
   './index.html',
@@ -6,11 +6,6 @@ const ASSETS = [
   './taller/index.html',
   './taller/taller.css',
   './taller/taller.js',
-  './inventario-general/index.html',
-  './inventario-general/inventario.css',
-  './inventario-general/inventario.js',
-  './inventario-general/supabase-inventario-config.js',
-  './inventario-general/supabase-inventario.js',
   './manuales/beninca-heady.pdf',
   './manuales/beninca-brainy-24.pdf',
   './manuales/ditec-vivah.pdf',

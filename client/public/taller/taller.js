@@ -3,9 +3,12 @@
 
   const APP_DATA_KEY = "mg_data";
   const APP_USER_KEY = "mg_user";
-  const FALLBACK_DATA_KEY = "mg_taller_source_v60";
+  // Taller must never duplicate the complete app state locally: reports can include
+  // photo data and quickly exceed the browser storage quota.
+  const FALLBACK_DATA_KEY = "mg_taller_cache_v61_8";
+  const LEGACY_FALLBACK_DATA_KEY = "mg_taller_source_v60";
   const SESSION_KEY = "mg_taller_session_v60";
-  const VERSION = "v61.5";
+  const VERSION = "v61.8";
   const app = document.getElementById("app");
 
   const state = {
@@ -71,10 +74,12 @@
 
   function readData() {
     const appData = safeParse(localStorage.getItem(APP_DATA_KEY), null);
-    const fallback = safeParse(localStorage.getItem(FALLBACK_DATA_KEY), null);
+    const fallback = safeParse(localStorage.getItem(FALLBACK_DATA_KEY), null)
+      || safeParse(localStorage.getItem(LEGACY_FALLBACK_DATA_KEY), null);
     state.usingFallback = !(appData && typeof appData === "object");
     state.data = mergeLocalData(appData, fallback);
     normalizeData();
+    saveWorkshopCache();
   }
 
   function emptyData() {
@@ -108,6 +113,59 @@
     return base;
   }
 
+  function compactWorkshopJob(job) {
+    if (!isRecord(job) || !workshopData(job)) return null;
+    return {
+      id: job.id || "",
+      ticket: job.ticket || "",
+      boleta: job.boleta || "",
+      client: job.client || "",
+      phone: job.phone || "",
+      address: job.address || "",
+      date: job.date || "",
+      technician: job.technician || "",
+      vehicle: job.vehicle || "",
+      status: job.status || "",
+      workshopEntry: job.workshopEntry || null,
+      workshopOrderId: job.workshopOrderId || "",
+      workshopStatus: job.workshopStatus || "",
+      workshopUpdatedAt: job.workshopUpdatedAt || "",
+      workshopTechnician: job.workshopTechnician || "",
+      workshopSummary: job.workshopSummary || "",
+      workshopDeliveredAt: job.workshopDeliveredAt || "",
+      updatedAt: job.updatedAt || ""
+    };
+  }
+
+  function compactWorkshopUser(user) {
+    if (!isRecord(user)) return null;
+    return {
+      id: user.id || "",
+      name: user.name || user.nombre || "",
+      username: user.username || user.user || "",
+      email: user.email || "",
+      role: user.role || user.rol || user.tipo || "",
+      workshopAccess: user.workshopAccess === true
+    };
+  }
+
+  function saveWorkshopCache() {
+    const compact = {
+      users: (state.data.users || []).map(compactWorkshopUser).filter(Boolean),
+      jobs: (state.data.jobs || []).map(compactWorkshopJob).filter(Boolean),
+      workshopOrders: state.data.workshopOrders || [],
+      auditLogs: (state.data.auditLogs || []).filter((item) => String(item?.module || "").toLowerCase().includes("taller")),
+      syncQueue: (state.data.syncQueue || []).filter((item) => item?.type === "workshop_update")
+    };
+    // Removing the former full duplicate first releases storage occupied by photos.
+    localStorage.removeItem(LEGACY_FALLBACK_DATA_KEY);
+    try {
+      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(compact));
+    } catch (error) {
+      console.warn("No se pudo guardar el respaldo compacto de Taller", error);
+    }
+  }
+
   function saveData(action, detail) {
     normalizeData();
     const event = {
@@ -120,10 +178,8 @@
     };
     state.data.auditLogs.unshift(event);
     state.data.syncQueue.push({ id: event.id, type: "workshop_update", createdAt: event.at, detail: action });
-    // Always keep both local copies. A workshop order must survive even if the app
-    // state was not available when this module was first opened.
-    localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
-    localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+    // Keep a compact Taller-only copy. The main app owns mg_data and may include photos.
+    saveWorkshopCache();
     syncWorkshopToCloud().catch(() => null);
   }
 
@@ -247,8 +303,7 @@
       // Preserve the merged cloud state locally so the next edit starts from the newest order history.
       state.data = { ...state.data, ...merged };
       state.data.syncQueue = state.data.syncQueue.filter((item) => item?.type !== "workshop_update");
-      localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
-      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+      saveWorkshopCache();
       state.syncState = "synced";
       state.lastSyncAt = nowIso();
       state.syncMessage = pending ? "Cambios enviados a Supabase" : "Datos verificados en Supabase";
@@ -283,8 +338,7 @@
       state.data.jobs = mergeWorkshopJobs(cloudData.jobs, state.data.jobs);
       state.data.auditLogs = mergeWorkshopAuditLogs(cloudData.auditLogs, state.data.auditLogs);
       normalizeData();
-      localStorage.setItem(APP_DATA_KEY, JSON.stringify(state.data));
-      localStorage.setItem(FALLBACK_DATA_KEY, JSON.stringify(state.data));
+      saveWorkshopCache();
       state.syncState = "synced";
       state.lastSyncAt = nowIso();
       state.syncMessage = "Datos de Taller cargados desde Supabase";
