@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v61-9-main-fast';
+const CACHE_NAME = 'mg-portones-v62-0-dashboard-fast';
 const ASSETS = [
   './',
   './index.html',

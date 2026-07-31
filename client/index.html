@@ -969,7 +969,8 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v61.9';
+      const APP_VERSION = 'v62.0';
+      const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -2345,6 +2346,10 @@
 
       function dashboardView() {
         const jobs = scopedJobs();
+        const recentJobs = jobs.slice(0, DASHBOARD_RECENT_JOBS_LIMIT);
+        const jobsSummary = jobs.length > recentJobs.length
+          ? `${recentJobs.length} recientes de ${jobs.length}`
+          : `${jobs.length} visibles`;
         const lowStock = scopedInventory().filter((item) => item.qty <= item.min).length;
         const alerts = visibleNotifications();
         return `
@@ -2356,8 +2361,8 @@
           </section>
           <section class="grid content-grid">
             <div class="panel">
-              <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobs.length} visibles</span></div>
-              <div class="panel-body">${jobsTable(jobs)}</div>
+              <div class="panel-header"><h3>Trabajos recientes</h3><span class="pill">${jobsSummary}</span></div>
+              <div class="panel-body">${jobsTable(recentJobs)}</div>
             </div>
             <div class="panel">
               <div class="panel-header"><h3>Alertas importantes</h3></div>
@@ -5321,8 +5326,8 @@
           } catch (_) {}
         });
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (sessionStorage.getItem('mg_sw_reloaded_v619')) return;
-    sessionStorage.setItem('mg_sw_reloaded_v619', '1');
+    if (sessionStorage.getItem('mg_sw_reloaded_v620')) return;
+    sessionStorage.setItem('mg_sw_reloaded_v620', '1');
           window.location.reload();
         });
       }
