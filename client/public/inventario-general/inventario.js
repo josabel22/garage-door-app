@@ -4,7 +4,7 @@
   const STORAGE_KEY = "mg_general_inventory_demo_v1";
   const APP_USER_KEY = "mg_user";
   const app = document.getElementById("app");
-  const state = { query: "", location: "", products: [], archivedProducts: [], movements: [], vehicles: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
+  const state = { query: "", location: "", products: [], archivedProducts: [], movements: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
 
   const seed = {
     products: [
@@ -93,7 +93,7 @@
     const units = state.products.reduce((sum, product) => sum + available(product), 0);
     app.innerHTML = `<div class="shell">
       <header class="top"><div><h1>Inventario general MG Portones</h1><p>Control de bodega, repuestos y existencias.</p></div>${sessionMarkup()}</header>
-      <div class="notice"><strong>Inventario general:</strong> la informacion se guarda localmente y se sincroniza con Supabase. Los traslados aprobados actualizan la existencia de la movil elegida; no modifican reportes ni Taller.<span class="cloud-status">${esc(state.cloudStatus)}</span></div>
+      <div class="notice"><strong>Inventario general:</strong> la informacion se guarda localmente y se sincroniza con Supabase. Opera sin modificar el inventario de moviles ni los reportes.<span class="cloud-status">${esc(state.cloudStatus)}</span></div>
       <section class="summary"><article class="metric"><span>Productos registrados</span><strong>${state.products.length}</strong></article><article class="metric"><span>Unidades disponibles</span><strong>${units}</strong></article><article class="metric"><span>Stock bajo</span><strong>${lowCount}</strong></article><article class="metric"><span>Movimientos hoy</span><strong>${state.movements.filter((movement) => String(movement.at || "").slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</strong></article></section>
       <section class="layout"><section class="panel"><div class="panel-header"><h2>Existencias</h2><div class="header-actions"><button class="secondary" id="sync">Sincronizar Supabase</button><button class="secondary" id="export">Descargar respaldo</button>${isAdmin() ? `<button class="secondary" id="trash">Papelera (${state.archivedProducts.length})</button>` : ""}<button class="primary" id="newProduct">Agregar producto</button></div></div><div class="panel-body"><div class="filters"><label>Buscar producto<input id="query" value="${esc(state.query)}" placeholder="Nombre, codigo, categoria, proveedor o ubicacion" /></label><label>Ubicacion<select id="location"><option value="">Todas las ubicaciones</option>${locations().map((item) => `<option ${item === state.location ? "selected" : ""}>${esc(item)}</option>`).join("")}</select></label></div><div id="products">${products.length ? products.map(productCard).join("") : '<div class="empty">No hay productos que coincidan con la busqueda.</div>'}</div></div></section>
       <aside class="panel"><div class="panel-header"><h2>Ultimos movimientos</h2></div><div class="panel-body">${state.movements.length ? state.movements.slice(0, 10).map((movement) => `<div class="movement"><strong>${esc(movement.productName)}: ${movement.type === "entrada" ? "+" : movement.type === "salida" ? "-" : "="}${movement.qty}</strong><span>${esc(movement.reason || "Sin detalle")} · ${new Date(movement.at).toLocaleString()}</span></div>`).join("") : '<div class="empty">Todavia no hay movimientos.</div>'}</div></aside></section>
@@ -115,7 +115,7 @@
     if (state.modal.type === "permissions") return permissionsMarkup();
     if (state.modal.type === "trash") return trashMarkup();
     const product = state.products.find((item) => item.id === state.modal.id) || {};
-    if (state.modal.type === "move") return `<div class="modal"><form class="dialog" id="movementForm"><div class="dialog-top"><h2>Movimiento: ${esc(product.name)}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id)}" /><div class="form-grid"><label>Tipo<select name="type"><option value="entrada">Entrada a bodega</option><option value="salida">Salida de bodega</option><option value="ajuste">Ajuste de inventario</option><option value="traslado">Traslado a movil</option></select></label><label>Cantidad<input name="qty" type="number" min="1" required /></label><label>Movil destino<select name="vehicle"><option value="">Seleccione una movil</option>${state.vehicles.map((vehicle) => `<option value="${esc(vehicle.code)}">${esc(vehicle.code)}${vehicle.name ? ` - ${esc(vehicle.name)}` : ""}</option>`).join("")}</select></label><label class="full">Motivo / referencia<input name="reason" required placeholder="Factura, boleta, reposicion, conteo..." /></label><label class="full">Responsable<input name="responsible" value="${esc(currentUser()?.name)}" /></label></div><p class="help">La movil destino se usa solo en Traslado a movil. El traslado suma el producto a esa movil y descuenta Bodega General.</p><div class="dialog-actions"><button class="primary">Guardar movimiento</button></div></div></form></div>`;
+    if (state.modal.type === "move") return `<div class="modal"><form class="dialog" id="movementForm"><div class="dialog-top"><h2>Movimiento: ${esc(product.name)}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id)}" /><div class="form-grid"><label>Tipo<select name="type"><option value="entrada">Entrada a bodega</option><option value="salida">Salida de bodega</option><option value="ajuste">Ajuste de inventario</option></select></label><label>Cantidad<input name="qty" type="number" min="1" required /></label><label class="full">Motivo / referencia<input name="reason" required placeholder="Factura, boleta, reposicion, conteo..." /></label><label class="full">Responsable<input name="responsible" value="${esc(currentUser()?.name)}" /></label></div><div class="dialog-actions"><button class="primary">Guardar movimiento</button></div></div></form></div>`;
     return `<div class="modal"><form class="dialog" id="productForm"><div class="dialog-top"><h2>${product.id ? "Editar producto" : "Agregar producto"}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id || "")}" /><div class="form-grid"><label>Nombre del producto<input name="name" required value="${esc(product.name)}" /></label><label>Codigo / SKU<input name="code" value="${esc(product.code)}" placeholder="Ej. CR-UNI-01" /></label><label>Categoria<input name="category" value="${esc(product.category)}" placeholder="Controles, motores, electrico..." /></label><label>Estado<select name="condition"><option ${product.condition === "Nuevo" ? "selected" : ""}>Nuevo</option><option ${product.condition === "Usado" ? "selected" : ""}>Usado</option><option ${product.condition === "Para revisar" ? "selected" : ""}>Para revisar</option></select></label><label>Cantidad actual<input name="qty" type="number" min="0" required value="${number(product.qty)}" /></label><label>Stock minimo<input name="min" type="number" min="0" value="${number(product.min)}" /></label><label>Stock maximo<input name="max" type="number" min="0" value="${number(product.max)}" /></label><label>Proveedor<input name="supplier" value="${esc(product.supplier)}" /></label><label class="full">Ubicacion exacta<input name="location" required value="${esc(product.location)}" placeholder="Bodega / Estante / Gaveta / Caja" /></label><label class="full">Foto del producto<input name="photo" type="file" accept="image/*" /></label><label class="full">Notas<textarea name="notes" placeholder="Compatibilidad, numero de serie, lote o advertencias">${esc(product.notes)}</textarea></label></div><div class="dialog-actions"><button class="primary">Guardar producto</button></div></div></form></div>`;
   }
   function permissionsMarkup() {
@@ -131,7 +131,17 @@
     document.getElementById("permissions")?.addEventListener("click", () => { state.modal = { type: "permissions" }; render(); });
     document.getElementById("trash")?.addEventListener("click", () => { state.modal = { type: "trash" }; render(); });
     document.getElementById("newProduct")?.addEventListener("click", () => { state.modal = { type: "product", id: "" }; render(); });
-    document.getElementById("query")?.addEventListener("input", (event) => { state.query = event.target.value; render(); });
+    document.getElementById("query")?.addEventListener("input", (event) => {
+      const cursor = event.target.selectionStart;
+      state.query = event.target.value;
+      render();
+      requestAnimationFrame(() => {
+        const query = document.getElementById("query");
+        if (!query) return;
+        query.focus();
+        query.setSelectionRange(cursor, cursor);
+      });
+    });
     document.getElementById("location")?.addEventListener("change", (event) => { state.location = event.target.value; render(); });
     document.getElementById("export")?.addEventListener("click", exportData);
     document.getElementById("sync")?.addEventListener("click", () => syncCloud(true));
@@ -167,44 +177,16 @@
     if (index >= 0) state.products[index] = product; else state.products.unshift(product);
     save(); state.modal = null; render(); syncCloud(false);
   }
-  async function saveMovement(event) {
+  function saveMovement(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const product = state.products.find((item) => item.id === form.get("id"));
     if (!product) return;
     const qty = number(form.get("qty"));
     const type = String(form.get("type"));
-    if ((type === "salida" || type === "traslado") && qty > product.qty) return alert("No hay suficiente existencia para esa salida o traslado.");
-    const reason = String(form.get("reason") || "").trim();
-    const responsible = String(form.get("responsible") || currentUser()?.name || "").trim();
-    const movementId = id("move");
-
-    if (type === "traslado") {
-      const vehicle = String(form.get("vehicle") || "").trim();
-      if (!vehicle) return alert("Seleccione la movil que recibira el producto.");
-      if (!cloud()?.ready() || !cloud()?.transferToVehicle) return alert("El traslado requiere conexion a Supabase. Primero sincronice el modulo.");
-      try {
-        state.cloudStatus = `Trasladando ${qty} unidad(es) a ${vehicle}...`;
-        render();
-        await cloud().transferToVehicle({ transferId: movementId, product, quantity: qty, vehicle, reason, responsible });
-        product.qty -= qty;
-        state.movements.unshift({ id: movementId, productId: product.id, productName: product.name, type, qty, reason: `Traslado a ${vehicle}${reason ? `: ${reason}` : ""}`, responsible, at: new Date().toISOString() });
-        save();
-        state.modal = null;
-        state.cloudStatus = `Movil ${vehicle} actualizada. Guardando salida de bodega...`;
-        render();
-        const synced = await syncCloud(false);
-        if (!synced) alert(`La movil ${vehicle} ya recibio el producto. La salida de Bodega General quedo guardada en esta copia y debe reintentarse con Sincronizar Supabase.`);
-        return;
-      } catch (error) {
-        state.cloudStatus = "No se realizo el traslado. La bodega no fue descontada.";
-        render();
-        return alert(`No se pudo trasladar a la movil. ${error.message || "Revise la conexion y vuelva a intentar."}`);
-      }
-    }
-
+    if (type === "salida" && qty > product.qty) return alert("No hay suficiente existencia para esa salida.");
     product.qty = type === "entrada" ? product.qty + qty : type === "salida" ? product.qty - qty : qty;
-    state.movements.unshift({ id: movementId, productId: product.id, productName: product.name, type, qty, reason, responsible, at: new Date().toISOString() });
+    state.movements.unshift({ id: id("move"), productId: product.id, productName: product.name, type, qty, reason: String(form.get("reason") || ""), responsible: String(form.get("responsible") || currentUser()?.name || ""), at: new Date().toISOString() });
     save(); state.modal = null; render(); syncCloud(false);
   }
   function savePermissions(event) {
@@ -252,7 +234,6 @@
       state.cloudStatus = "Consultando inventario en Supabase...";
       render();
       const remote = await cloud().load();
-      if (cloud().loadVehicles) state.vehicles = await cloud().loadVehicles();
       if (remote.products.length || remote.movements.length) {
         state.products = remote.products;
         state.archivedProducts = Array.isArray(remote.archivedProducts) ? remote.archivedProducts : state.archivedProducts;
