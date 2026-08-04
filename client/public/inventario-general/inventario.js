@@ -88,18 +88,21 @@
       bind();
       return;
     }
-    const products = matchingProducts();
     const lowCount = state.products.filter(low).length;
     const units = state.products.reduce((sum, product) => sum + available(product), 0);
     app.innerHTML = `<div class="shell">
       <header class="top"><div><h1>Inventario general MG Portones</h1><p>Control de bodega, repuestos y existencias.</p></div>${sessionMarkup()}</header>
       <div class="notice"><strong>Inventario general:</strong> la informacion se guarda localmente y se sincroniza con Supabase. Opera sin modificar el inventario de moviles ni los reportes.<span class="cloud-status">${esc(state.cloudStatus)}</span></div>
       <section class="summary"><article class="metric"><span>Productos registrados</span><strong>${state.products.length}</strong></article><article class="metric"><span>Unidades disponibles</span><strong>${units}</strong></article><article class="metric"><span>Stock bajo</span><strong>${lowCount}</strong></article><article class="metric"><span>Movimientos hoy</span><strong>${state.movements.filter((movement) => String(movement.at || "").slice(0, 10) === new Date().toISOString().slice(0, 10)).length}</strong></article></section>
-      <section class="layout"><section class="panel"><div class="panel-header"><h2>Existencias</h2><div class="header-actions"><button class="secondary" id="sync">Sincronizar Supabase</button><button class="secondary" id="export">Descargar respaldo</button>${isAdmin() ? `<button class="secondary" id="trash">Papelera (${state.archivedProducts.length})</button>` : ""}<button class="primary" id="newProduct">Agregar producto</button></div></div><div class="panel-body"><div class="filters"><label>Buscar producto<input id="query" value="${esc(state.query)}" placeholder="Nombre, codigo, categoria, proveedor o ubicacion" /></label><label>Ubicacion<select id="location"><option value="">Todas las ubicaciones</option>${locations().map((item) => `<option ${item === state.location ? "selected" : ""}>${esc(item)}</option>`).join("")}</select></label></div><div id="products">${products.length ? products.map(productCard).join("") : '<div class="empty">No hay productos que coincidan con la busqueda.</div>'}</div></div></section>
+      <section class="layout"><section class="panel"><div class="panel-header"><h2>Existencias</h2><div class="header-actions"><button class="secondary" id="sync">Sincronizar Supabase</button><button class="secondary" id="export">Descargar respaldo</button>${isAdmin() ? `<button class="secondary" id="trash">Papelera (${state.archivedProducts.length})</button>` : ""}<button class="primary" id="newProduct">Agregar producto</button></div></div><div class="panel-body"><div class="filters"><label>Buscar producto<input id="query" value="${esc(state.query)}" placeholder="Nombre, codigo, categoria, proveedor o ubicacion" /></label><label>Ubicacion<select id="location"><option value="">Todas las ubicaciones</option>${locations().map((item) => `<option ${item === state.location ? "selected" : ""}>${esc(item)}</option>`).join("")}</select></label></div><div id="products">${productsMarkup()}</div></div></section>
       <aside class="panel"><div class="panel-header"><h2>Ultimos movimientos</h2></div><div class="panel-body">${state.movements.length ? state.movements.slice(0, 10).map((movement) => `<div class="movement"><strong>${esc(movement.productName)}: ${movement.type === "entrada" ? "+" : movement.type === "salida" ? "-" : "="}${movement.qty}</strong><span>${esc(movement.reason || "Sin detalle")} · ${new Date(movement.at).toLocaleString()}</span></div>`).join("") : '<div class="empty">Todavia no hay movimientos.</div>'}</div></aside></section>
       ${state.modal ? modalMarkup() : ""}
     </div>`;
     bind();
+  }
+  function productsMarkup() {
+    const products = matchingProducts();
+    return products.length ? products.map(productCard).join("") : '<div class="empty">No hay productos que coincidan con la busqueda.</div>';
   }
   function sessionMarkup() {
     const user = currentUser();
@@ -132,27 +135,25 @@
     document.getElementById("trash")?.addEventListener("click", () => { state.modal = { type: "trash" }; render(); });
     document.getElementById("newProduct")?.addEventListener("click", () => { state.modal = { type: "product", id: "" }; render(); });
     document.getElementById("query")?.addEventListener("input", (event) => {
-      const cursor = event.target.selectionStart;
       state.query = event.target.value;
-      render();
-      requestAnimationFrame(() => {
-        const query = document.getElementById("query");
-        if (!query) return;
-        query.focus();
-        query.setSelectionRange(cursor, cursor);
-      });
+      const products = document.getElementById("products");
+      if (products) products.innerHTML = productsMarkup();
+      bindProductActions();
     });
     document.getElementById("location")?.addEventListener("change", (event) => { state.location = event.target.value; render(); });
     document.getElementById("export")?.addEventListener("click", exportData);
     document.getElementById("sync")?.addEventListener("click", () => syncCloud(true));
-    document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "product", id: button.dataset.edit }; render(); }));
-    document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.move }; render(); }));
-    document.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => archiveProduct(button.dataset.delete)));
+    bindProductActions();
     document.querySelectorAll("[data-restore]").forEach((button) => button.addEventListener("click", () => restoreProduct(button.dataset.restore)));
     document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => { state.modal = null; render(); }));
     document.getElementById("productForm")?.addEventListener("submit", saveProduct);
     document.getElementById("movementForm")?.addEventListener("submit", saveMovement);
     document.getElementById("permissionsForm")?.addEventListener("submit", savePermissions);
+  }
+  function bindProductActions() {
+    document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "product", id: button.dataset.edit }; render(); }));
+    document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.move }; render(); }));
+    document.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => archiveProduct(button.dataset.delete)));
   }
   async function saveProduct(event) {
     event.preventDefault();
