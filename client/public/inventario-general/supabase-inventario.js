@@ -4,24 +4,6 @@
   const BUCKET = "mg-general-inventory-photos";
   const config = () => window.MG_GENERAL_INVENTORY_SUPABASE || {};
   const ready = () => Boolean(config().url && config().anonKey);
-  const coreConfig = () => window.MG_SUPABASE_CONFIG || {};
-
-  async function coreRequest(path, options) {
-    const core = coreConfig();
-    if (!core.url || !core.anonKey) throw new Error("No se encontro la configuracion central de MG Portones.");
-    const response = await fetch(`${core.url.replace(/\/$/, "")}/rest/v1/${path}`, {
-      ...options,
-      headers: {
-        apikey: core.anonKey,
-        Authorization: `Bearer ${core.anonKey}`,
-        "Content-Type": "application/json",
-        ...(options?.headers || {})
-      }
-    });
-    if (!response.ok) throw new Error((await response.text()) || `Supabase respondio ${response.status}`);
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
-  }
 
   async function request(path, options) {
     if (!ready()) throw new Error("Falta configurar Supabase para Inventario General.");
@@ -79,7 +61,8 @@
     if (!ready() || !file?.size) return "";
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) throw new Error("La foto debe ser JPG, PNG o WEBP.");
-    if (file.size > 5 * 1024 * 1024) throw new Error("La foto supera el limite de 5 MB.");
+    // Las fotos de celulares actuales suelen superar 5 MB; 15 MB conserva margen sin permitir archivos excesivos.
+    if (file.size > 15 * 1024 * 1024) throw new Error("La foto supera el limite de 15 MB.");
     const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
     const objectPath = `${productId}/${Date.now()}.${extension}`;
     const response = await fetch(`${config().url.replace(/\/$/, "")}/storage/v1/object/${BUCKET}/${objectPath}`, {
@@ -150,84 +133,5 @@
     }
   }
 
-  async function loadVehicles() {
-    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
-    const data = rows?.[0]?.data || {};
-    return (Array.isArray(data.vehicles) ? data.vehicles : [])
-      .filter((vehicle) => vehicle?.code)
-      .map((vehicle) => ({ code: String(vehicle.code), name: String(vehicle.name || "") }))
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }
-
-  function samePart(left, right) {
-    return String(left || "").trim().toLocaleLowerCase() === String(right || "").trim().toLocaleLowerCase();
-  }
-
-  async function transferToVehicle({ transferId, product, quantity, vehicle, reason, responsible }) {
-    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
-    const current = rows?.[0]?.data;
-    if (!current || typeof current !== "object") throw new Error("No se encontro la copia central de la app.");
-    const vehicles = Array.isArray(current.vehicles) ? current.vehicles : [];
-    if (!vehicles.some((item) => String(item?.code) === String(vehicle))) throw new Error(`La movil ${vehicle} no existe en MG Portones.`);
-
-    const data = { ...current };
-    const inventory = Array.isArray(current.inventory) ? current.inventory.map((item) => ({ ...item })) : [];
-    const now = new Date().toISOString();
-    let target = inventory.find((item) => String(item.vehicle) === String(vehicle) && samePart(item.part, product.name));
-    const before = Number(target?.qty || 0);
-    if (target) {
-      target.qty = before + Number(quantity);
-    } else {
-      target = { id: `general-${transferId}`, vehicle: String(vehicle), part: String(product.name), qty: Number(quantity), min: 0 };
-      inventory.push(target);
-    }
-
-    const transfer = {
-      id: transferId,
-      at: now,
-      productId: product.id,
-      productName: product.name,
-      quantity: Number(quantity),
-      source: "Inventario General",
-      destinationVehicle: String(vehicle),
-      reason: String(reason || ""),
-      responsible: String(responsible || "")
-    };
-    const movement = {
-      id: `mobile-${transferId}`,
-      vehicle: String(vehicle),
-      material: String(product.name),
-      quantity: Number(quantity),
-      before,
-      after: Number(target.qty),
-      action: `Entrada desde Inventario General${reason ? `: ${reason}` : ""}`,
-      technician: String(responsible || ""),
-      date: now.slice(0, 10),
-      source: "inventario_general",
-      transferId
-    };
-    const audit = {
-      id: `audit-${transferId}`,
-      at: now,
-      action: "Traslado desde Inventario General a movil",
-      entity: "Inventario",
-      before: { vehicle: String(vehicle), product: String(product.name), quantity: before },
-      after: { vehicle: String(vehicle), product: String(product.name), quantity: Number(target.qty) },
-      detail: `Transferencia ${Number(quantity)} unidad(es) desde Bodega General. ${reason || ""}`,
-      user: String(responsible || "")
-    };
-    data.inventory = inventory;
-    data.movements = [movement, ...(Array.isArray(current.movements) ? current.movements : [])].slice(0, 1000);
-    data.auditLogs = [audit, ...(Array.isArray(current.auditLogs) ? current.auditLogs : [])].slice(0, 1000);
-    data.generalInventoryTransfers = [transfer, ...(Array.isArray(current.generalInventoryTransfers) ? current.generalInventoryTransfers : [])].slice(0, 500);
-
-    await coreRequest("app_state?id=eq.production", {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ data, updated_at: now })
-    });
-    return transfer;
-  }
-
-  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts, loadVehicles, transferToVehicle };
+  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts };
 })();
