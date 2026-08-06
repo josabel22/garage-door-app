@@ -4,6 +4,19 @@
   const BUCKET = "mg-general-inventory-photos";
   const config = () => window.MG_GENERAL_INVENTORY_SUPABASE || {};
   const ready = () => Boolean(config().url && config().anonKey);
+  const coreConfig = () => window.MG_SUPABASE_CONFIG || {};
+
+  async function coreRequest(path, options) {
+    const core = coreConfig();
+    if (!core.url || !core.anonKey) throw new Error("No se encontro la configuracion central de MG Portones.");
+    const response = await fetch(`${core.url.replace(/\/$/, "")}/rest/v1/${path}`, {
+      ...options,
+      headers: { apikey: core.anonKey, Authorization: `Bearer ${core.anonKey}`, "Content-Type": "application/json", ...(options?.headers || {}) }
+    });
+    if (!response.ok) throw new Error((await response.text()) || `Supabase respondio ${response.status}`);
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  }
 
   async function request(path, options) {
     if (!ready()) throw new Error("Falta configurar Supabase para Inventario General.");
@@ -133,5 +146,31 @@
     }
   }
 
-  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts };
+  async function loadVehicles() {
+    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
+    return (Array.isArray(rows?.[0]?.data?.vehicles) ? rows[0].data.vehicles : [])
+      .filter((vehicle) => vehicle?.code)
+      .map((vehicle) => ({ code: String(vehicle.code), name: String(vehicle.name || "") }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }
+
+  async function transferToVehicle({ transferId, product, quantity, vehicle, reason, responsible }) {
+    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
+    const current = rows?.[0]?.data;
+    if (!current) throw new Error("No se encontro la copia central de la app.");
+    if (!(current.vehicles || []).some((item) => String(item?.code) === String(vehicle))) throw new Error(`La movil ${vehicle} no existe.`);
+    const data = { ...current };
+    const inventory = (current.inventory || []).map((item) => ({ ...item }));
+    let target = inventory.find((item) => String(item.vehicle) === String(vehicle) && String(item.part || "").trim().toLowerCase() === String(product.name || "").trim().toLowerCase());
+    const before = Number(target?.qty || 0);
+    if (target) target.qty = before + Number(quantity);
+    else { target = { id: `general-${transferId}`, vehicle, part: product.name, qty: Number(quantity), min: 0 }; inventory.push(target); }
+    const now = new Date().toISOString();
+    data.inventory = inventory;
+    data.movements = [{ id: `mobile-${transferId}`, vehicle, material: product.name, quantity: Number(quantity), before, after: target.qty, action: `Entrada desde Inventario General${reason ? `: ${reason}` : ""}`, technician: responsible, date: now.slice(0, 10), source: "inventario_general", transferId }, ...(current.movements || [])].slice(0, 1000);
+    data.generalInventoryTransfers = [{ id: transferId, at: now, productId: product.id, productName: product.name, quantity: Number(quantity), source: "Inventario General", destinationVehicle: vehicle, reason, responsible }, ...(current.generalInventoryTransfers || [])].slice(0, 500);
+    await coreRequest("app_state?id=eq.production", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data, updated_at: now }) });
+  }
+
+  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts, loadVehicles, transferToVehicle };
 })();

@@ -1134,7 +1134,8 @@
         merged.users = mergeUsers(cloudData?.users, localData?.users);
         merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
         merged.vehicles = cloudData?.vehicles || localData?.vehicles || [];
-        merged.inventory = mergeInventory(cloudData?.inventory, localData?.inventory);
+        merged.inventoryTrash = mergeById(cloudData?.inventoryTrash, localData?.inventoryTrash);
+        merged.inventory = mergeInventory(cloudData?.inventory, localData?.inventory).filter((item) => !isInventoryArchived(item, merged.inventoryTrash));
         merged.syncQueue = localData.syncQueue || [];
         if ((localJobCount > cloudJobCount || (localData?.users || []).length > (cloudData?.users || []).length) && !merged.syncQueue.length) {
           merged.syncQueue = [{ id: Date.now(), type: 'recovery', createdAt: new Date().toISOString() }];
@@ -1321,6 +1322,10 @@
         return Array.from(items.values());
       }
 
+      function isInventoryArchived(item, trash = state.data?.inventoryTrash || []) {
+        return (trash || []).some((archived) => !archived.restoredAt && String(archived.id) === String(item?.id));
+      }
+
       function queueCloudSave() {
         if (!supabaseConfig().ready) return;
         window.clearTimeout(cloudSaveTimer);
@@ -1415,7 +1420,8 @@
         merged.users = mergeUsers(cloudData?.users, localData?.users);
         merged.deletedUsers = mergeDeletedUsers(cloudData?.deletedUsers, localData?.deletedUsers);
         merged.vehicles = localData?.vehicles || cloudData?.vehicles || [];
-        merged.inventory = mergeInventoryLocalWins(cloudData?.inventory, localData?.inventory);
+        merged.inventoryTrash = mergeById(cloudData?.inventoryTrash, localData?.inventoryTrash);
+        merged.inventory = mergeInventoryLocalWins(cloudData?.inventory, localData?.inventory).filter((item) => !isInventoryArchived(item, merged.inventoryTrash));
         merged.syncQueue = localData?.syncQueue || [];
         return merged;
       }
@@ -1481,6 +1487,8 @@
         state.data.deletedUsers ||= [];
         state.data.deletedJobs ||= [];
         state.data.deletedPhotos ||= [];
+        state.data.inventoryTrash ||= [];
+        state.data.inventory = (state.data.inventory || []).filter((item) => !isInventoryArchived(item));
         state.data.jobs = (state.data.jobs || []).filter((job) => !isDeletedJob(job));
         state.data.clients = (state.data.clients || []).filter((client) => !isDeletedClient(client));
         state.data.users = state.data.users.map((user) => ({
@@ -2017,6 +2025,8 @@
           inventoryAdjust: inventoryAdjustModal,
           inventoryCreate: inventoryCreateModal,
           inventoryTransfer: inventoryTransferModal,
+          inventoryDelete: inventoryDeleteModal,
+          inventoryTrash: inventoryTrashModal,
           vehicleInventory: vehicleInventoryModal,
           vehicleEdit: vehicleEditModal,
           vehicleAssign: vehicleAssignModal,
@@ -2115,7 +2125,7 @@
                 <div class="toolbar" style="margin-top:10px;">
                   <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
                   <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
-                  <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>
+                  ${state.user.role === 'admin' ? `<button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>` : ''}
                 </div>
               </div>
             `).join('') || '<div class="list-item">Sin inventario registrado.</div>'}
@@ -2204,7 +2214,7 @@
             <div class="toolbar" style="margin-top:10px;">
               <button class="btn secondary" onclick="adjustInventory('${item.id}')">Editar</button>
               <button class="btn secondary" onclick="transferInventory('${item.id}')">Transferir</button>
-              <button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>
+              ${state.user.role === 'admin' ? `<button class="btn danger" onclick="deleteInventoryItem('${item.id}')">Eliminar</button>` : ''}
             </div>
           </div>
         `).join('') || '<div class="list-item">Sin resultados.</div>';
@@ -2287,6 +2297,28 @@
             <button class="btn full">Guardar tecnicos del movil</button>
           </form>
         `;
+      }
+
+      function inventoryDeleteModal(modal) {
+        const item = state.data.inventory.find((part) => part.id === modal.id);
+        if (!item) return '<p>Producto no encontrado.</p>';
+        return `
+          <form class="form-grid" onsubmit="confirmInventoryDelete(event, '${item.id}')">
+            <div class="list-item full"><strong>${escapeText(item.part)}</strong><br>${escapeText(item.vehicle)} - ${item.qty} unidad(es)</div>
+            <label class="full" style="display:flex; gap:10px; align-items:center;">
+              <input name="returnToGeneral" type="checkbox" style="width:auto;" />
+              Devolver las existencias al Inventario General
+            </label>
+            <div class="list-item full">Si no marca la casilla, el producto se enviara a la papelera del inventario movil y podra restaurarse.</div>
+            <button class="btn danger full">Confirmar eliminacion</button>
+          </form>`;
+      }
+
+      function inventoryTrashModal() {
+        const items = (state.data.inventoryTrash || []).filter((item) => !item.restoredAt && !item.returnedToGeneralAt);
+        return `<div class="list">
+          ${items.map((item) => `<div class="list-item"><strong>${escapeText(item.part)}</strong><br>${escapeText(item.vehicle)} - ${item.qty} unidad(es) - ${escapeText(item.archivedAt?.slice(0, 10) || '')}<div class="toolbar" style="margin-top:10px;"><button class="btn secondary" onclick="restoreInventoryItem('${item.id}')">Restaurar</button></div></div>`).join('') || '<div class="list-item">La papelera esta vacia.</div>'}
+        </div>`;
       }
 
       function userEditModal(modal) {
@@ -2866,6 +2898,7 @@
                 <div class="toolbar" style="margin-bottom:12px;">
                   ${state.user.role === 'admin' ? '' : '<input id="inventorySearch" oninput="filterInventoryView(this.value)" placeholder="Buscar repuesto, movil o estado" />'}
                   <button class="btn secondary" onclick="printLowStockPdf()">PDF reposicion (${lowItems.length})</button>
+                  ${state.user.role === 'admin' ? `<button class="btn secondary" onclick="openInventoryTrash()">Papelera (${(state.data.inventoryTrash || []).filter((item) => !item.restoredAt && !item.returnedToGeneralAt).length})</button>` : ''}
                 </div>
                 <div id="inventoryResults">${state.user.role === 'admin' ? adminInventoryGroupsMarkup(items) : inventoryTableMarkup(items)}</div>
                 <br />
@@ -4747,13 +4780,57 @@
       }
 
       function deleteInventoryItem(id) {
-        const item = state.data.inventory.find((part) => part.id === id);
-        if (!item || !confirm(`Eliminar ${item.part} de ${item.vehicle}?`)) return;
-        state.data.inventory = state.data.inventory.filter((part) => part.id !== id);
-        state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: item.qty, before: item.qty, after: 0, action: 'Eliminado', technician: state.user.name, date: today(0) });
-        logAudit('Eliminar inventario', 'Inventario', item, null);
-        save();
+        if (state.user.role !== 'admin') return alert('Solo administracion puede eliminar productos del inventario movil.');
+        if (!state.data.inventory.some((part) => part.id === id)) return;
+        state.modal = { type: 'inventoryDelete', title: 'Eliminar producto del movil', id };
         render();
+      }
+
+      async function returnInventoryItemToGeneral(item) {
+        const matches = await supabaseRequest(`mg_general_inventory_products?deleted_at=is.null&name=ilike.${encodeURIComponent(item.part)}&select=*&limit=1`);
+        const existing = matches?.[0];
+        const now = new Date().toISOString();
+        if (existing) {
+          await supabaseRequest(`mg_general_inventory_products?id=eq.${encodeURIComponent(existing.id)}`, { method: 'PATCH', body: JSON.stringify({ quantity: Number(existing.quantity || 0) + Number(item.qty || 0), updated_at: now }) });
+        } else {
+          await supabaseRequest('mg_general_inventory_products', { method: 'POST', body: JSON.stringify({ id: `return-${Date.now()}`, name: item.part, quantity: Number(item.qty || 0), minimum_stock: 0, maximum_stock: 0, location: 'Bodega general', item_condition: 'Nuevo', notes: `Devuelto desde ${item.vehicle}`, updated_at: now }) });
+        }
+      }
+
+      async function confirmInventoryDelete(event, id) {
+        event.preventDefault();
+        if (state.user.role !== 'admin') return alert('Solo administracion puede realizar esta accion.');
+        const item = state.data.inventory.find((part) => part.id === id);
+        if (!item) return;
+        const returnToGeneral = new FormData(event.currentTarget).get('returnToGeneral') === 'on';
+        if (returnToGeneral) {
+          try { await returnInventoryItemToGeneral(item); }
+          catch (error) { return alert(`No se pudo devolver al Inventario General. No se elimino el producto. ${error.message || ''}`); }
+        }
+        state.data.inventoryTrash ||= [];
+        state.data.inventoryTrash = mergeById(state.data.inventoryTrash, [{ ...item, archivedAt: new Date().toISOString(), archivedBy: state.user.name, returnedToGeneralAt: returnToGeneral ? new Date().toISOString() : null }]);
+        state.data.inventory = state.data.inventory.filter((part) => part.id !== id);
+        state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: item.qty, before: item.qty, after: 0, action: returnToGeneral ? 'Devuelto a Inventario General' : 'Enviado a papelera', technician: state.user.name, date: today(0) });
+        logAudit(returnToGeneral ? 'Devolver a inventario general' : 'Archivar inventario movil', 'Inventario', item, null);
+        state.modal = null; save(); render();
+      }
+
+      function openInventoryTrash() {
+        if (state.user.role !== 'admin') return;
+        state.modal = { type: 'inventoryTrash', title: 'Papelera del inventario movil', wide: true };
+        render();
+      }
+
+      function restoreInventoryItem(id) {
+        if (state.user.role !== 'admin') return;
+        const item = (state.data.inventoryTrash || []).find((entry) => String(entry.id) === String(id));
+        if (!item) return;
+        const { archivedAt, archivedBy, ...restored } = item;
+        state.data.inventoryTrash = state.data.inventoryTrash.map((entry) => String(entry.id) === String(id) ? { ...entry, restoredAt: new Date().toISOString(), restoredBy: state.user.name } : entry);
+        state.data.inventory.push(restored);
+        state.data.movements.unshift({ id: Date.now(), vehicle: restored.vehicle, material: restored.part, quantity: restored.qty, before: 0, after: restored.qty, action: 'Restaurado desde papelera', technician: state.user.name, date: today(0) });
+        logAudit('Restaurar inventario movil', 'Inventario', null, restored);
+        save(); state.modal = { type: 'inventoryTrash', title: 'Papelera del inventario movil', wide: true }; render();
       }
 
       function transferInventory(id) {
