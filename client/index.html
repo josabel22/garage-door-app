@@ -997,9 +997,14 @@
         return date.toISOString().slice(0, 10);
       }
 
-      function save() {
+      function save({ immediate = false } = {}) {
         saveLocalData();
-        queueCloudSave();
+        if (immediate) {
+          window.clearTimeout(cloudSaveTimer);
+          syncCloudInBackground();
+        } else {
+          queueCloudSave();
+        }
       }
 
       function saveLocalData() {
@@ -1284,12 +1289,28 @@
         });
       }
 
+      function userMergeKey(user) {
+        return String(user?.username || user?.id || '');
+      }
+
+      function hasPendingUserChange(user) {
+        const id = String(user?.id || '');
+        return (state.data?.syncQueue || []).some((change) => change?.type === 'user' && String(change.id) === id);
+      }
+
+      function userUpdatedTime(user) {
+        return Date.parse(user?.updatedAt || user?.permissionsUpdatedAt || '') || 0;
+      }
+
       function mergeUsers(cloudUsers = [], localUsers = []) {
         const items = new Map();
-        (cloudUsers || []).forEach((user) => items.set(String(user.username || user.id), user));
+        (cloudUsers || []).forEach((user) => items.set(userMergeKey(user), user));
         (localUsers || []).forEach((user) => {
-          const key = String(user.username || user.id);
-          if (!items.has(key) || user.createdAt || user.active === false) items.set(key, user);
+          const key = userMergeKey(user);
+          const cloudUser = items.get(key);
+          if (!cloudUser || hasPendingUserChange(user) || userUpdatedTime(user) > userUpdatedTime(cloudUser)) {
+            items.set(key, user);
+          }
         });
         return Array.from(items.values());
       }
@@ -4405,7 +4426,8 @@
           workshopAccess: role === 'technician' ? form.get('workshopAccess') === 'true' : false,
           inventoryGeneralAccess: form.get('inventoryGeneralAccess') === 'true',
           active: true,
-          createdAt: today(0)
+          createdAt: today(0),
+          updatedAt: new Date().toISOString()
         };
 
         if (state.data.users.some((item) => item.username === user.username)) {
@@ -4433,7 +4455,7 @@
         }
         addUniqueNotification('admin', `Usuario creado: ${user.name}`, 'Usuario');
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4458,10 +4480,12 @@
         user.workshopAccess = user.role === 'technician' ? form.get('workshopAccess') === 'true' : false;
         user.inventoryGeneralAccess = form.get('inventoryGeneralAccess') === 'true';
         user.active = form.get('active') === 'true';
+        user.updatedAt = new Date().toISOString();
+        user.permissionsUpdatedAt = user.updatedAt;
         syncVehicleAssignments();
         queuePendingChange('user', id);
         state.modal = null;
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4469,9 +4493,10 @@
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
         user.active = user.active === false;
+        user.updatedAt = new Date().toISOString();
         addUniqueNotification('admin', `${user.active ? 'Usuario activado' : 'Usuario desactivado'}: ${user.name}`, 'Usuario');
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4490,9 +4515,10 @@
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
         user.password = temporaryPassword();
+        user.updatedAt = new Date().toISOString();
         alert(`Contrasena temporal para ${user.name}: ${user.password}`);
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
       }
 
       function deleteUser(id) {
@@ -5382,9 +5408,14 @@
 
       window.addEventListener('online', syncPendingWhenOnline);
       window.addEventListener('offline', render);
+      window.addEventListener('focus', () => refreshCloudData({ force: true }));
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshCloudData({ force: true });
+      });
       window.setInterval(() => {
         const hasPendingData = (state.data.syncQueue || []).length || countPendingPhotoUploads(state.data);
         if (navigator.onLine && hasPendingData) syncCloudInBackground();
+        if (navigator.onLine && state.user) refreshCloudData();
       }, 30000);
 
       if ('serviceWorker' in navigator) {
