@@ -154,15 +154,6 @@
       .sort((a, b) => a.code.localeCompare(b.code));
   }
 
-  async function loadAppUser(sessionUser) {
-    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
-    const users = Array.isArray(rows?.[0]?.data?.users) ? rows[0].data.users : [];
-    const current = users.find((user) => String(user?.id) === String(sessionUser?.id) || String(user?.username || "").toLowerCase() === String(sessionUser?.username || "").toLowerCase());
-    if (!current) return null;
-    const { password: _password, ...safeUser } = current;
-    return safeUser;
-  }
-
   async function transferToVehicle({ transferId, product, quantity, vehicle, reason, responsible }) {
     const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
     const current = rows?.[0]?.data;
@@ -181,5 +172,5 @@
     await coreRequest("app_state?id=eq.production", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data, updated_at: now }) });
   }
 
-  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts, loadVehicles, loadAppUser, transferToVehicle };
+  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts, loadVehicles, transferToVehicle };
 })();

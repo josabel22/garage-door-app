@@ -54,22 +54,6 @@
   }
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ products: state.products, archivedProducts: state.archivedProducts, movements: state.movements, users: state.users, currentUserId: state.currentUserId })); }
   function cloud() { return window.MG_GENERAL_INVENTORY_CLOUD; }
-  async function refreshSharedUser() {
-    if (!state.sharedUser || !cloud()?.loadAppUser) return;
-    try {
-      const current = await cloud().loadAppUser(state.sharedUser);
-      if (!current || current.active === false) {
-        state.sharedUser = null;
-        localStorage.removeItem(APP_USER_KEY);
-      } else {
-        state.sharedUser = current;
-        localStorage.setItem(APP_USER_KEY, JSON.stringify(current));
-      }
-      render();
-    } catch (_) {
-      // Sin conexion se conserva la ultima sesion local hasta poder actualizarla.
-    }
-  }
   async function syncCloud(showMessage) {
     if (!cloud()?.ready()) { state.cloudStatus = "Supabase no configurado. La copia queda local."; render(); return false; }
     try {
@@ -260,7 +244,6 @@
     load();
     readSharedSession();
     render();
-    await refreshSharedUser();
     if (!cloud()?.ready()) return;
     try {
       state.cloudStatus = "Consultando inventario en Supabase...";
@@ -282,8 +265,5 @@
     }
     render();
   }
-  window.addEventListener("focus", refreshSharedUser);
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshSharedUser(); });
-  window.setInterval(refreshSharedUser, 30000);
   start();
 })();
