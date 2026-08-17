@@ -990,6 +990,7 @@
       let cloudSyncInFlight = false;
       let cloudLoadInFlight = false;
       let lastCloudRefreshAt = 0;
+      let cloudRefreshDeferred = false;
       const activePhotoUploads = new Map();
       function today(offset) {
         const date = new Date();
@@ -997,9 +998,14 @@
         return date.toISOString().slice(0, 10);
       }
 
-      function save() {
+      function save({ immediate = false } = {}) {
         saveLocalData();
-        queueCloudSave();
+        if (immediate) {
+          window.clearTimeout(cloudSaveTimer);
+          syncCloudInBackground();
+        } else {
+          queueCloudSave();
+        }
       }
 
       function saveLocalData() {
@@ -1078,7 +1084,23 @@
         return response.json();
       }
 
-      async function loadCloudData({ renderAfter = false } = {}) {
+      function hasUnsavedReportWork() {
+        // Toda ventana modal puede contener información que el usuario todavía no ha confirmado.
+        // Por seguridad, ninguna actualización remota redibuja la app hasta que se cierre o guarde.
+        return state.reportFormOpen || Boolean(state.modal) || activePhotoUploads.size > 0;
+      }
+
+      function resumeCloudRefresh() {
+        if (!cloudRefreshDeferred || hasUnsavedReportWork()) return;
+        cloudRefreshDeferred = false;
+        refreshCloudData({ force: true });
+      }
+
+      async function loadCloudData({ renderAfter = false, allowDuringReportWork = false } = {}) {
+        if (!allowDuringReportWork && hasUnsavedReportWork()) {
+          cloudRefreshDeferred = true;
+          return;
+        }
         const config = supabaseConfig();
         if (!config.ready) {
           cloudError = 'Configura supabase-config.js para usar base central.';
@@ -1114,6 +1136,10 @@
 
       function refreshCloudData({ force = false } = {}) {
         if (!navigator.onLine || !supabaseConfig().ready || cloudLoadInFlight) return;
+        if (hasUnsavedReportWork()) {
+          cloudRefreshDeferred = true;
+          return;
+        }
         if (!force && Date.now() - lastCloudRefreshAt < 30000) return;
         loadCloudData({ renderAfter: true });
       }
@@ -1284,12 +1310,28 @@
         });
       }
 
+      function userMergeKey(user) {
+        return String(user?.username || user?.id || '');
+      }
+
+      function hasPendingUserChange(user) {
+        const id = String(user?.id || '');
+        return (state.data?.syncQueue || []).some((change) => change?.type === 'user' && String(change.id) === id);
+      }
+
+      function userUpdatedTime(user) {
+        return Date.parse(user?.updatedAt || user?.permissionsUpdatedAt || '') || 0;
+      }
+
       function mergeUsers(cloudUsers = [], localUsers = []) {
         const items = new Map();
-        (cloudUsers || []).forEach((user) => items.set(String(user.username || user.id), user));
+        (cloudUsers || []).forEach((user) => items.set(userMergeKey(user), user));
         (localUsers || []).forEach((user) => {
-          const key = String(user.username || user.id);
-          if (!items.has(key) || user.createdAt || user.active === false) items.set(key, user);
+          const key = userMergeKey(user);
+          const cloudUser = items.get(key);
+          if (!cloudUser || hasPendingUserChange(user) || userUpdatedTime(user) > userUpdatedTime(cloudUser)) {
+            items.set(key, user);
+          }
         });
         return Array.from(items.values());
       }
@@ -2522,6 +2564,8 @@
       }
 
       function reportFormMarkup() {
+        const draftStatus = reportDraftValue('status', 'Pendiente');
+        const draftWarranty = reportDraftValue('warranty', 'Pendiente');
         const adminFields = state.user.role === 'admin' ? `
           <label>Tecnico asignado
             <select name="technicianId" onchange="updateReportInventoryFields()" required>
@@ -2551,9 +2595,10 @@
                 <label>Direccion<input name="address" value="${reportDraftValue('address')}" autocomplete="off" required /></label>
                 <div id="selectedClientHistory" class="list-item full">Busca un cliente existente para completar sus datos y consultar trabajos anteriores.</div>
                 <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
-                <label>Estado<select name="status" onchange="toggleWorkshopFields()">${statuses().map((s) => `<option>${s}</option>`).join('')}</select></label>
+                <label>Estado<select name="status" onchange="toggleWorkshopFields(); updateWarrantyReportFields();">${statuses().map((s) => `<option ${s === draftStatus ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
                 ${adminFields}
-                <label>Garantia<select name="warranty"><option>Pendiente</option><option>Activa</option><option>Sin garantia</option></select></label>
+                <label>Garantia<select name="warranty">${['Pendiente', 'Activa', 'Sin garantia'].map((value) => `<option ${value === draftWarranty ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+                <div id="warrantySourceFields" class="full"></div>
                 <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" oninput="updateWarrantyEnd()" /></label>
                 <label>Unidad garantia<select name="warrantyUnit" onchange="updateWarrantyEnd()"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
                 <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
@@ -2578,6 +2623,59 @@
             </form>
           </section>
         `;
+      }
+
+      function eligibleWarrantySources(clientName) {
+        const normalizedClient = normalizeClientSearch(clientName);
+        if (!normalizedClient) return [];
+        return (state.data.warranties || [])
+          .filter((warranty) => warrantyStatus(warranty.end) !== 'Vencida')
+          .filter((warranty) => normalizeClientSearch(warranty.client) === normalizedClient)
+          .sort((left, right) => String(right.end || '').localeCompare(String(left.end || '')));
+      }
+
+      function warrantySourceFieldsMarkup(clientName, selectedTicket = '') {
+        const warranties = eligibleWarrantySources(clientName);
+        if (!normalizeClientSearch(clientName)) {
+          return '<div class="list-item"><strong>Garantia asociada</strong><br>Seleccione primero un cliente para ver sus boletas con garantia activa.</div>';
+        }
+        if (!warranties.length) {
+          return '<div class="list-item"><strong>Garantia asociada</strong><br>Este cliente no tiene una garantia activa disponible.</div>';
+        }
+        return `<label>Boleta anterior con garantia
+          <select name="warrantySourceTicket" onchange="applyWarrantySource(this.value)" required>
+            <option value="">Seleccione la boleta original</option>
+            ${warranties.map((warranty) => `<option value="${formValue(warranty.ticket)}" ${String(warranty.ticket) === String(selectedTicket) ? 'selected' : ''}>${escapeText(warranty.ticket)} - vence ${escapeText(warranty.end)} (${warrantyDaysText(warranty.end)})</option>`).join('')}
+          </select>
+        </label>
+        <div class="list-item"><strong>Importante:</strong> esta atencion conserva el vencimiento de la boleta anterior; no genera un mes nuevo de garantia.</div>`;
+      }
+
+      function updateWarrantyReportFields() {
+        const form = document.querySelector('.report-form');
+        const target = document.getElementById('warrantySourceFields');
+        if (!form || !target) return;
+        const isWarranty = form.elements.status?.value === 'Garantia';
+        target.innerHTML = isWarranty ? warrantySourceFieldsMarkup(form.elements.client?.value || '', form.elements.warrantySourceTicket?.value || '') : '';
+        const duration = form.elements.warrantyDuration;
+        const unit = form.elements.warrantyUnit;
+        const end = form.elements.warrantyEnd;
+        [duration, unit, end].filter(Boolean).forEach((field) => { field.readOnly = isWarranty; field.disabled = isWarranty && Boolean(form.elements.warrantySourceTicket?.value); });
+        if (!isWarranty) [duration, unit, end].filter(Boolean).forEach((field) => { field.readOnly = false; field.disabled = false; });
+        persistReportDraftFromDom(form);
+      }
+
+      function applyWarrantySource(ticket) {
+        const form = document.querySelector('.report-form');
+        const warranty = (state.data.warranties || []).find((item) => String(item.ticket) === String(ticket));
+        if (!form || !warranty) return;
+        const days = Math.max(0, warrantyDaysLeft(warranty.end));
+        form.elements.warranty.value = 'Activa';
+        form.elements.warrantyEnd.value = warranty.end;
+        form.elements.warrantyDuration.value = days;
+        form.elements.warrantyUnit.value = 'days';
+        [form.elements.warrantyDuration, form.elements.warrantyUnit, form.elements.warrantyEnd].forEach((field) => { field.readOnly = true; field.disabled = true; });
+        persistReportDraftFromDom(form);
       }
 
       function reportInventoryFields(user) {
@@ -3562,6 +3660,7 @@
         state.reportParts = [];
         state.reportFormOpen = true;
         render();
+        window.setTimeout(updateWarrantyReportFields, 0);
       }
 
       function openReportForm() {
@@ -3569,6 +3668,7 @@
         state.reportParts = [];
         state.reportFormOpen = true;
         render();
+        window.setTimeout(updateWarrantyReportFields, 0);
       }
 
       function updateReportInventoryFields() {
@@ -3642,6 +3742,7 @@
         const query = normalizeClientSearch(value);
         if (query.length < 2) {
           target.innerHTML = '';
+          updateWarrantyReportFields();
           return;
         }
         const clientCandidates = clientSearchCandidates();
@@ -3657,6 +3758,7 @@
             <small>${escapeText(client.phone || 'Sin telefono')} - ${escapeText(client.address || 'Sin direccion')}</small>
           </button>
         `).join('');
+        updateWarrantyReportFields();
       }
 
       function clientSearchCandidates() {
@@ -3701,6 +3803,7 @@
         }
         const suggestions = document.getElementById('clientSuggestions');
         if (suggestions) suggestions.innerHTML = '';
+        updateWarrantyReportFields();
         persistReportDraftFromDom(form);
       }
 
@@ -3719,11 +3822,13 @@
         state.reportParts = [];
         localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
         render();
+        resumeCloudRefresh();
       }
 
       function closeModal() {
         state.modal = null;
         render();
+        resumeCloudRefresh();
       }
 
       async function createReport(event) {
@@ -3746,7 +3851,19 @@
           : state.user;
         const usedParts = selectedReportParts(form);
         const additionalMaterials = String(form.get('materials') || '').trim();
-        const warrantyEnd = calculateWarrantyEnd(form.get('warrantyDuration'), form.get('warrantyUnit'), form.get('warrantyEnd'));
+        const isWarrantyFollowUp = form.get('status') === 'Garantia';
+        const warrantySourceTicket = String(form.get('warrantySourceTicket') || '').trim();
+        const sourceWarranty = isWarrantyFollowUp
+          ? (state.data.warranties || []).find((warranty) => String(warranty.ticket) === warrantySourceTicket)
+          : null;
+        if (isWarrantyFollowUp && (!sourceWarranty || warrantyStatus(sourceWarranty.end) === 'Vencida')) {
+          alert('Seleccione una boleta anterior con garantia activa. Esta atencion no puede crear ni extender una garantia nueva.');
+          return;
+        }
+        const warrantyEnd = sourceWarranty
+          ? sourceWarranty.end
+          : calculateWarrantyEnd(form.get('warrantyDuration'), form.get('warrantyUnit'), form.get('warrantyEnd'));
+        const warrantyDaysRemaining = sourceWarranty ? Math.max(0, warrantyDaysLeft(sourceWarranty.end)) : null;
         const materials = [
           ...usedParts.map((part) => `${part.part} x${part.quantity}`),
           additionalMaterials
@@ -3775,8 +3892,13 @@
           motorBrands,
           workshopEntry: collectWorkshopEntry(event.target),
           materials,
-          warranty: warrantyLabel(form.get('warranty'), warrantyEnd),
+          warranty: sourceWarranty
+            ? `Garantia de ${sourceWarranty.ticket} - ${warrantyDaysRemaining} dias restantes`
+            : warrantyLabel(form.get('warranty'), warrantyEnd),
           warrantyEnd,
+          warrantySourceTicket: sourceWarranty?.ticket || '',
+          warrantySourceId: sourceWarranty?.id || null,
+          warrantyDaysRemaining,
           signed: finalStatuses().includes(form.get('status')),
           closedAt: finalStatuses().includes(form.get('status')) ? new Date().toISOString() : '',
           pdfStatus: finalStatuses().includes(form.get('status')) ? 'Generado' : 'Pendiente',
@@ -3797,6 +3919,7 @@
         localStorage.removeItem(`mg_report_draft_${state.user?.id || 'guest'}`);
         state.reportFormOpen = false;
         render();
+        resumeCloudRefresh();
         alert('Reporte guardado localmente. La sincronizacion con Supabase inicio automaticamente.');
       }
 
@@ -4131,7 +4254,7 @@
       }
 
       function createWarrantyFromReport(job, endDate) {
-        if (!endDate || job.warranty === 'Sin garantia' || job.status !== 'Finalizado') return;
+        if (!endDate || job.warranty === 'Sin garantia' || job.warrantySourceTicket || job.status !== 'Finalizado') return;
         const exists = state.data.warranties.some((warranty) => warranty.ticket === job.ticket);
         if (exists) return;
         state.data.warranties.unshift({
@@ -4405,7 +4528,8 @@
           workshopAccess: role === 'technician' ? form.get('workshopAccess') === 'true' : false,
           inventoryGeneralAccess: form.get('inventoryGeneralAccess') === 'true',
           active: true,
-          createdAt: today(0)
+          createdAt: today(0),
+          updatedAt: new Date().toISOString()
         };
 
         if (state.data.users.some((item) => item.username === user.username)) {
@@ -4433,7 +4557,7 @@
         }
         addUniqueNotification('admin', `Usuario creado: ${user.name}`, 'Usuario');
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4458,10 +4582,12 @@
         user.workshopAccess = user.role === 'technician' ? form.get('workshopAccess') === 'true' : false;
         user.inventoryGeneralAccess = form.get('inventoryGeneralAccess') === 'true';
         user.active = form.get('active') === 'true';
+        user.updatedAt = new Date().toISOString();
+        user.permissionsUpdatedAt = user.updatedAt;
         syncVehicleAssignments();
         queuePendingChange('user', id);
         state.modal = null;
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4469,9 +4595,10 @@
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
         user.active = user.active === false;
+        user.updatedAt = new Date().toISOString();
         addUniqueNotification('admin', `${user.active ? 'Usuario activado' : 'Usuario desactivado'}: ${user.name}`, 'Usuario');
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
         render();
       }
 
@@ -4490,9 +4617,10 @@
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
         user.password = temporaryPassword();
+        user.updatedAt = new Date().toISOString();
         alert(`Contrasena temporal para ${user.name}: ${user.password}`);
         queuePendingChange('user', id);
-        save();
+        save({ immediate: true });
       }
 
       function deleteUser(id) {
@@ -4518,6 +4646,7 @@
         state.modal = null;
         save();
         render();
+        resumeCloudRefresh();
       }
 
       function createTechnician(event) {
@@ -5028,6 +5157,7 @@
         state.modal = null;
         save();
         render();
+        resumeCloudRefresh();
       }
 
       function openWarrantyJob(id) {
@@ -5062,8 +5192,11 @@
           email: '',
           description: form.get('description'),
           materials: '',
-          warranty: `Activa hasta ${warranty.end}`,
+          warranty: `Garantia de ${warranty.ticket} - ${Math.max(0, warrantyDaysLeft(warranty.end))} dias restantes`,
           warrantyEnd: warranty.end,
+          warrantySourceTicket: warranty.ticket,
+          warrantySourceId: warranty.id,
+          warrantyDaysRemaining: Math.max(0, warrantyDaysLeft(warranty.end)),
           signed: false,
           gps: '',
           arrival: '',
@@ -5382,9 +5515,14 @@
 
       window.addEventListener('online', syncPendingWhenOnline);
       window.addEventListener('offline', render);
+      window.addEventListener('focus', () => refreshCloudData({ force: true }));
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshCloudData({ force: true });
+      });
       window.setInterval(() => {
         const hasPendingData = (state.data.syncQueue || []).length || countPendingPhotoUploads(state.data);
         if (navigator.onLine && hasPendingData) syncCloudInBackground();
+        if (navigator.onLine && state.user) refreshCloudData();
       }, 30000);
 
       if ('serviceWorker' in navigator) {

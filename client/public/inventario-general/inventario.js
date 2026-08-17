@@ -5,6 +5,7 @@
   const APP_USER_KEY = "mg_user";
   const app = document.getElementById("app");
   const state = { query: "", location: "", products: [], archivedProducts: [], movements: [], vehicles: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
+  let sharedRefreshDeferred = false;
 
   const seed = {
     products: [
@@ -54,6 +55,30 @@
   }
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify({ products: state.products, archivedProducts: state.archivedProducts, movements: state.movements, users: state.users, currentUserId: state.currentUserId })); }
   function cloud() { return window.MG_GENERAL_INVENTORY_CLOUD; }
+  function hasActiveGeneralForm() { return Boolean(state.modal); }
+  function resumeSharedUserRefresh() {
+    if (!sharedRefreshDeferred || hasActiveGeneralForm()) return;
+    sharedRefreshDeferred = false;
+    refreshSharedUser();
+  }
+  async function refreshSharedUser() {
+    if (!state.sharedUser || !cloud()?.loadAppUser) return;
+    if (hasActiveGeneralForm()) { sharedRefreshDeferred = true; return; }
+    try {
+      const current = await cloud().loadAppUser(state.sharedUser);
+      if (hasActiveGeneralForm()) { sharedRefreshDeferred = true; return; }
+      if (!current || current.active === false) {
+        state.sharedUser = null;
+        localStorage.removeItem(APP_USER_KEY);
+      } else {
+        state.sharedUser = current;
+        localStorage.setItem(APP_USER_KEY, JSON.stringify(current));
+      }
+      render();
+    } catch (_) {
+      // Sin conexion se conserva la ultima sesion local hasta poder actualizarla.
+    }
+  }
   async function syncCloud(showMessage) {
     if (!cloud()?.ready()) { state.cloudStatus = "Supabase no configurado. La copia queda local."; render(); return false; }
     try {
@@ -145,7 +170,7 @@
     document.getElementById("sync")?.addEventListener("click", () => syncCloud(true));
     bindProductActions();
     document.querySelectorAll("[data-restore]").forEach((button) => button.addEventListener("click", () => restoreProduct(button.dataset.restore)));
-    document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => { state.modal = null; render(); }));
+    document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => { state.modal = null; render(); resumeSharedUserRefresh(); }));
     document.getElementById("productForm")?.addEventListener("submit", saveProduct);
     document.getElementById("movementForm")?.addEventListener("submit", saveMovement);
     document.getElementById("permissionsForm")?.addEventListener("submit", savePermissions);
@@ -176,7 +201,7 @@
     const product = { ...current, id: idValue, name: String(form.get("name") || "").trim(), code, category: String(form.get("category") || "").trim(), condition: String(form.get("condition") || "Nuevo"), qty: number(form.get("qty")), min: number(form.get("min")), max: number(form.get("max")), supplier: String(form.get("supplier") || "").trim(), location: String(form.get("location") || "").trim(), notes: String(form.get("notes") || "").trim(), photo };
     const index = state.products.findIndex((item) => item.id === product.id);
     if (index >= 0) state.products[index] = product; else state.products.unshift(product);
-    save(); state.modal = null; render(); syncCloud(false);
+    save(); state.modal = null; render(); resumeSharedUserRefresh(); syncCloud(false);
   }
   async function saveMovement(event) {
     event.preventDefault();
@@ -197,19 +222,19 @@
         await cloud().transferToVehicle({ transferId: movementId, product, quantity: qty, vehicle, reason, responsible });
         product.qty -= qty;
         state.movements.unshift({ id: movementId, productId: product.id, productName: product.name, type, qty, reason: `Traslado a ${vehicle}: ${reason}`, responsible, at: new Date().toISOString() });
-        save(); state.modal = null; render(); await syncCloud(false); return;
+        save(); state.modal = null; render(); resumeSharedUserRefresh(); await syncCloud(false); return;
       } catch (error) { return alert(`No se pudo trasladar a la movil. ${error.message || "Revise la conexion."}`); }
     }
     product.qty = type === "entrada" ? product.qty + qty : type === "salida" ? product.qty - qty : qty;
     state.movements.unshift({ id: movementId, productId: product.id, productName: product.name, type, qty, reason, responsible, at: new Date().toISOString() });
-    save(); state.modal = null; render(); syncCloud(false);
+    save(); state.modal = null; render(); resumeSharedUserRefresh(); syncCloud(false);
   }
   function savePermissions(event) {
     event.preventDefault();
     if (!isAdmin()) return;
     const granted = new Set(new FormData(event.currentTarget).getAll("access"));
     state.users = state.users.map((user) => ({ ...user, inventoryAccess: user.role === "Administrador" || granted.has(user.id) }));
-    save(); state.modal = null; render();
+    save(); state.modal = null; render(); resumeSharedUserRefresh();
   }
   function archiveProduct(productId) {
     if (!isAdmin()) return alert("Solo un administrador puede archivar productos.");
@@ -244,6 +269,7 @@
     load();
     readSharedSession();
     render();
+    await refreshSharedUser();
     if (!cloud()?.ready()) return;
     try {
       state.cloudStatus = "Consultando inventario en Supabase...";
@@ -265,5 +291,8 @@
     }
     render();
   }
+  window.addEventListener("focus", refreshSharedUser);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshSharedUser(); });
+  window.setInterval(refreshSharedUser, 30000);
   start();
 })();
