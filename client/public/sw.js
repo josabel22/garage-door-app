@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v62-8-proteccion-formularios';
+const CACHE_NAME = 'mg-portones-v62-9-garantia-y-sincronizacion';
 const ASSETS = [
   './',
   './index.html',
