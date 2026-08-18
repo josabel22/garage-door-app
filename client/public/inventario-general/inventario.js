@@ -4,7 +4,7 @@
   const STORAGE_KEY = "mg_general_inventory_demo_v1";
   const APP_USER_KEY = "mg_user";
   const app = document.getElementById("app");
-  const state = { query: "", location: "", products: [], archivedProducts: [], movements: [], vehicles: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
+  const state = { query: "", location: "", visibleLimit: 24, products: [], archivedProducts: [], movements: [], vehicles: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
   let sharedRefreshDeferred = false;
 
   const seed = {
@@ -127,7 +127,10 @@
   }
   function productsMarkup() {
     const products = matchingProducts();
-    return products.length ? products.map(productCard).join("") : '<div class="empty">No hay productos que coincidan con la busqueda.</div>';
+    if (!products.length) return '<div class="empty">No hay productos que coincidan con la busqueda.</div>';
+    const visible = products.slice(0, state.visibleLimit);
+    const remaining = products.length - visible.length;
+    return `${visible.map(productCard).join("")}${remaining > 0 ? `<div class="load-more"><button class="secondary" id="showMoreProducts">Mostrar ${Math.min(24, remaining)} productos mas</button><span>${visible.length} de ${products.length} productos</span></div>` : ""}`;
   }
   function sessionMarkup() {
     const user = currentUser();
@@ -137,7 +140,7 @@
     return `<div class="session"><label>Sesion de demostracion<select id="sessionUser">${state.users.map((item) => `<option value="${esc(item.id)}" ${item.id === user?.id ? "selected" : ""}>${esc(item.name)} - ${esc(item.role)}</option>`).join("")}</select></label>${isAdmin() ? '<button class="secondary" id="permissions">Permisos</button>' : ""}<button class="secondary" id="returnApp">Volver a MG Portones</button></div>`;
   }
   function productCard(product) {
-    return `<article class="product"><div>${product.photo ? `<img class="thumb" src="${product.photo}" alt="${esc(product.name)}" />` : '<div class="thumb">Sin foto</div>'}</div><div><h3>${esc(product.name)} ${low(product) ? '<span class="tag low">Stock bajo</span>' : ""}</h3><div class="meta"><span class="tag">${esc(product.code || "Sin codigo")}</span><span>${available(product)} unidades</span><span>Minimo: ${number(product.min)}</span><span>${esc(product.location || "Sin ubicacion")}</span></div><p>${esc(product.category || "Sin categoria")} · ${esc(product.condition || "Sin estado")} · ${esc(product.supplier || "Sin proveedor")}</p></div><div class="actions"><button class="secondary" data-edit="${product.id}">Editar</button><button class="primary" data-move="${product.id}">Movimiento</button>${isAdmin() ? `<button class="danger" data-delete="${product.id}">Eliminar</button>` : ""}</div></article>`;
+    return `<article class="product"><div>${product.photo ? `<img class="thumb" src="${product.photo}" alt="${esc(product.name)}" loading="lazy" decoding="async" />` : '<div class="thumb">Sin foto</div>'}</div><div><h3>${esc(product.name)} ${low(product) ? '<span class="tag low">Stock bajo</span>' : ""}</h3><div class="meta"><span class="tag">${esc(product.code || "Sin codigo")}</span><span>${available(product)} unidades</span><span>Minimo: ${number(product.min)}</span><span>${esc(product.location || "Sin ubicacion")}</span></div><p>${esc(product.category || "Sin categoria")} · ${esc(product.condition || "Sin estado")} · ${esc(product.supplier || "Sin proveedor")}</p></div><div class="actions"><button class="secondary" data-edit="${product.id}">Editar</button><button class="primary" data-move="${product.id}">Movimiento</button>${isAdmin() ? `<button class="danger" data-delete="${product.id}">Eliminar</button>` : ""}</div></article>`;
   }
   function modalMarkup() {
     if (state.modal.type === "permissions") return permissionsMarkup();
@@ -161,11 +164,13 @@
     document.getElementById("newProduct")?.addEventListener("click", () => { state.modal = { type: "product", id: "" }; render(); });
     document.getElementById("query")?.addEventListener("input", (event) => {
       state.query = event.target.value;
+      state.visibleLimit = 24;
       const products = document.getElementById("products");
       if (products) products.innerHTML = productsMarkup();
       bindProductActions();
     });
-    document.getElementById("location")?.addEventListener("change", (event) => { state.location = event.target.value; render(); });
+    document.getElementById("location")?.addEventListener("change", (event) => { state.location = event.target.value; state.visibleLimit = 24; render(); });
+    document.getElementById("showMoreProducts")?.addEventListener("click", () => { state.visibleLimit += 24; const products = document.getElementById("products"); if (products) products.innerHTML = productsMarkup(); bindProductActions(); });
     document.getElementById("export")?.addEventListener("click", exportData);
     document.getElementById("sync")?.addEventListener("click", () => syncCloud(true));
     bindProductActions();
@@ -269,22 +274,32 @@
     load();
     readSharedSession();
     render();
-    await refreshSharedUser();
+    void refreshSharedUser();
     if (!cloud()?.ready()) return;
     try {
-      state.cloudStatus = "Consultando inventario en Supabase...";
+      state.cloudStatus = "Cargando productos desde Supabase...";
       render();
-      const remote = await cloud().load();
-      if (cloud().loadVehicles) state.vehicles = await cloud().loadVehicles();
-      if (remote.products.length || remote.movements.length) {
-        state.products = remote.products;
-        state.archivedProducts = Array.isArray(remote.archivedProducts) ? remote.archivedProducts : state.archivedProducts;
-        state.movements = remote.movements;
+      const [products, vehicles] = await Promise.all([
+        cloud().loadProducts ? cloud().loadProducts() : cloud().load().then((remote) => remote.products),
+        cloud().loadVehicles ? cloud().loadVehicles() : Promise.resolve([])
+      ]);
+      if (products.length) {
+        state.products = products;
+        state.vehicles = vehicles;
         save();
-        state.cloudStatus = `Inventario cargado desde Supabase: ${new Date().toLocaleTimeString()}`;
+        state.cloudStatus = `Productos cargados: ${new Date().toLocaleTimeString()}`;
+        render();
       } else {
         await syncCloud(false);
-        return;
+      }
+      if (cloud().loadSecondary) {
+        void cloud().loadSecondary().then((secondary) => {
+          state.archivedProducts = Array.isArray(secondary.archivedProducts) ? secondary.archivedProducts : state.archivedProducts;
+          state.movements = Array.isArray(secondary.movements) ? secondary.movements : state.movements;
+          save();
+          state.cloudStatus = `Inventario actualizado: ${new Date().toLocaleTimeString()}`;
+          render();
+        }).catch(() => {});
       }
     } catch (_) {
       state.cloudStatus = "Supabase aun no esta preparado. Trabajando con copia local.";

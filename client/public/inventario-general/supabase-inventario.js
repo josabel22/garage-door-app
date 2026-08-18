@@ -92,14 +92,17 @@
     return `${config().url.replace(/\/$/, "")}/storage/v1/object/public/${BUCKET}/${objectPath}`;
   }
 
-  async function load() {
-    const [products, archivedProducts, movements] = await Promise.all([
-      request("mg_general_inventory_products?deleted_at=is.null&select=*&order=updated_at.desc"),
+  async function loadProducts() {
+    const products = await request("mg_general_inventory_products?deleted_at=is.null&select=*&order=updated_at.desc");
+    return (products || []).map(rowToProduct);
+  }
+
+  async function loadSecondary() {
+    const [archivedProducts, movements] = await Promise.all([
       request("mg_general_inventory_products?deleted_at=not.is.null&select=*&order=deleted_at.desc"),
       request("mg_general_inventory_movements?select=*&order=occurred_at.desc")
     ]);
     return {
-      products: (products || []).map(rowToProduct),
       archivedProducts: (archivedProducts || []).map((row) => ({ ...rowToProduct(row), archivedAt: row.deleted_at })),
       movements: (movements || []).map((row) => ({
         id: row.id,
@@ -112,6 +115,11 @@
         at: row.occurred_at
       }))
     };
+  }
+
+  async function load() {
+    const [products, secondary] = await Promise.all([loadProducts(), loadSecondary()]);
+    return { products, ...secondary };
   }
 
   async function sync(products, movements) {
@@ -181,5 +189,5 @@
     await coreRequest("app_state?id=eq.production", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data, updated_at: now }) });
   }
 
-  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, sync, uploadPhoto, archiveProducts, loadVehicles, loadAppUser, transferToVehicle };
+  window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, loadProducts, loadSecondary, sync, uploadPhoto, archiveProducts, loadVehicles, loadAppUser, transferToVehicle };
 })();
