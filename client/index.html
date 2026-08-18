@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v62.9';
+      const APP_VERSION = 'v63.0';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2425,13 +2425,13 @@
           ? `${recentJobs.length} recientes de ${jobs.length}`
           : `${jobs.length} visibles`;
         const lowStock = scopedInventory().filter((item) => item.qty <= item.min).length;
-        const alerts = visibleNotifications();
+        const alerts = importantWeeklyAlerts(jobs);
         return `
           <section class="grid stats">
             ${stat('Trabajos del dia', jobs.filter((job) => job.date === today(0)).length)}
             ${stat('Tecnicos activos', state.user.role === 'admin' ? technicians().length : 1)}
             ${stat('Inventario bajo', lowStock)}
-            ${stat('Notificaciones', alerts.length)}
+            ${stat('Alertas semana', alerts.length)}
           </section>
           <section class="grid content-grid">
             <div class="panel">
@@ -2439,12 +2439,9 @@
               <div class="panel-body">${jobsTable(recentJobs)}</div>
             </div>
             <div class="panel">
-              <div class="panel-header"><h3>Alertas importantes</h3></div>
+              <div class="panel-header"><h3>Alertas importantes</h3><span class="pill">Semana actual</span></div>
               <div class="panel-body list">
-                ${alerts.map((alert) => `<div class="list-item"><strong>${alert.type}:</strong> ${alert.text}</div>`).join('')}
-                ${lowStock ? `<div class="list-item"><strong>Stock bajo:</strong> ${lowStock} repuestos requieren reposicion.</div>` : ''}
-                <div class="list-item"><strong>Offline:</strong> Los tecnicos pueden crear reportes y sincronizar al volver internet.</div>
-                <div class="list-item"><strong>Garantias:</strong> ${state.data.warranties.filter((w) => w.status === 'Activa').length} garantias activas.</div>
+                ${alerts.map((alert) => `<div class="list-item"><strong>${escapeText(alert.type)}:</strong> ${escapeText(alert.text)}</div>`).join('') || '<div class="list-item">No hay alertas operativas prioritarias esta semana.</div>'}
               </div>
             </div>
           </section>
@@ -2979,6 +2976,37 @@
             </div>
           </section>
         `;
+      }
+
+      function importantWeeklyAlerts(jobs = scopedJobs()) {
+        const alerts = [];
+        const add = (priority, type, text) => alerts.push({ priority, type, text });
+        const inventory = scopedInventory().filter((item) => item.qty <= item.min);
+        const criticalInventory = inventory.filter((item) => Number(item.qty) === 0);
+        if (criticalInventory.length) add(1, 'Inventario crítico', `${criticalInventory.length} repuesto(s) sin existencias: ${criticalInventory.slice(0, 2).map((item) => `${item.part} (${item.vehicle})`).join(', ')}.`);
+        else if (inventory.length) add(3, 'Inventario', `${inventory.length} repuesto(s) con stock bajo requieren reposición.`);
+
+        (state.data.warranties || []).forEach((warranty) => {
+          const days = warrantyDaysLeft(warranty.end);
+          if (days >= 0 && days <= 7) add(days <= 1 ? 1 : 2, 'Garantía', `${warranty.ticket} - ${warranty.client}: ${warrantyDaysText(warranty.end)}.`);
+        });
+
+        (state.data.maintenances || []).forEach((maintenance) => {
+          const days = Math.ceil((parseDateOnly(maintenance.nextDate) - parseDateOnly(today(0))) / 86400000);
+          if (maintenance.status === 'Pendiente' && days >= 0 && days <= 7) add(days <= 1 ? 1 : 2, 'Mantenimiento', `${maintenance.client}: programado para ${maintenance.nextDate}.`);
+        });
+
+        (state.data.appointments || []).forEach((appointment) => {
+          const days = Math.ceil((parseDateOnly(appointment.date) - parseDateOnly(today(0))) / 86400000);
+          if (appointment.status !== 'Completada' && days >= 0 && days <= 2) add(days === 0 ? 1 : 2, 'Cita', `${appointment.client}: ${appointment.date} ${appointment.hour || ''}`.trim());
+        });
+
+        jobs.filter((job) => isDateInCurrentWeek(job.date) && !finalStatuses().includes(job.status) && ['Urgente', 'Alta'].includes(job.priority)).forEach((job) => {
+          add(job.priority === 'Urgente' ? 1 : 2, 'Trabajo', `${job.ticket} - ${job.client}: ${job.status} (${job.priority}).`);
+        });
+
+        if (!navigator.onLine) add(1, 'Conexión', 'Sin internet. Los cambios quedan guardados localmente hasta recuperar conexión.');
+        return alerts.sort((left, right) => left.priority - right.priority || left.type.localeCompare(right.type)).slice(0, 6);
       }
 
       function inventoryView() {
