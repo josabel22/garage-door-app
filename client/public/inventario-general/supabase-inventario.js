@@ -155,20 +155,32 @@
   }
 
   async function loadVehicles() {
-    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
-    return (Array.isArray(rows?.[0]?.data?.vehicles) ? rows[0].data.vehicles : [])
+    const vehicles = await loadCoreCollection("vehicles");
+    return vehicles
       .filter((vehicle) => vehicle?.code)
       .map((vehicle) => ({ code: String(vehicle.code), name: String(vehicle.name || "") }))
       .sort((a, b) => a.code.localeCompare(b.code));
   }
 
   async function loadAppUser(sessionUser) {
-    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
-    const users = Array.isArray(rows?.[0]?.data?.users) ? rows[0].data.users : [];
+    const users = await loadCoreCollection("users");
     const current = users.find((user) => String(user?.id) === String(sessionUser?.id) || String(user?.username || "").toLowerCase() === String(sessionUser?.username || "").toLowerCase());
     if (!current) return null;
     const { password: _password, ...safeUser } = current;
     return safeUser;
+  }
+
+  async function loadCoreCollection(name) {
+    try {
+      const rows = await coreRequest(`app_state?select=data->${encodeURIComponent(name)}&id=eq.production`, { method: "GET" });
+      const row = rows?.[0] || {};
+      const fragment = row[name] ?? row.data?.[name] ?? row.data;
+      if (Array.isArray(fragment)) return fragment;
+    } catch (_) {
+      // Servidores antiguos de PostgREST pueden no admitir seleccionar un fragmento JSON.
+    }
+    const rows = await coreRequest("app_state?select=data&id=eq.production", { method: "GET" });
+    return Array.isArray(rows?.[0]?.data?.[name]) ? rows[0].data[name] : [];
   }
 
   async function transferToVehicle({ transferId, product, quantity, vehicle, reason, responsible }) {

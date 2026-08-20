@@ -3,8 +3,9 @@
 
   const STORAGE_KEY = "mg_general_inventory_demo_v1";
   const APP_USER_KEY = "mg_user";
+  const VEHICLES_CACHE_KEY = "mg_general_inventory_vehicles";
   const app = document.getElementById("app");
-  const state = { query: "", location: "", visibleLimit: 24, products: [], archivedProducts: [], movements: [], vehicles: [], users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
+  const state = { query: "", location: "", visibleLimit: 24, products: [], archivedProducts: [], movements: [], vehicles: safeParse(localStorage.getItem(VEHICLES_CACHE_KEY), []), users: [], currentUserId: "admin", sharedUser: null, modal: null, cloudStatus: "Preparando copia local..." };
   let sharedRefreshDeferred = false;
 
   const seed = {
@@ -28,6 +29,21 @@
   function safeParse(value, fallback) { try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; } }
   function normalize(value) { return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
   function readSharedSession() { state.sharedUser = safeParse(localStorage.getItem(APP_USER_KEY), null); }
+  function setVehicles(vehicles) {
+    state.vehicles = Array.isArray(vehicles) ? vehicles : [];
+    localStorage.setItem(VEHICLES_CACHE_KEY, JSON.stringify(state.vehicles));
+  }
+  async function ensureVehicles() {
+    if (state.vehicles.length || !cloud()?.loadVehicles) return state.vehicles;
+    try {
+      const vehicles = await cloud().loadVehicles();
+      setVehicles(vehicles);
+      if (state.modal?.type === "move") render();
+    } catch (_) {
+      // El traslado mostrara un error claro si no hay conexion al confirmar.
+    }
+    return state.vehicles;
+  }
   function currentUser() { return state.sharedUser || state.users.find((user) => user.id === state.currentUserId) || state.users[0]; }
   function isAdmin() {
     const role = normalize(currentUser()?.role || currentUser()?.rol || currentUser()?.tipo);
@@ -179,6 +195,7 @@
       const isTransfer = event.target.value === "traslado";
       if (vehicle) { vehicle.disabled = !isTransfer; vehicle.required = isTransfer; if (!isTransfer) vehicle.value = ""; }
       if (help) help.textContent = isTransfer ? "El producto se descontara de bodega y se sumara a la movil elegida despues de la confirmacion de Supabase." : "Una salida de bodega no suma existencias a ninguna movil.";
+      if (isTransfer) { state.modal.transfer = true; void ensureVehicles(); }
     });
     bindProductActions();
     document.querySelectorAll("[data-restore]").forEach((button) => button.addEventListener("click", () => restoreProduct(button.dataset.restore)));
@@ -189,7 +206,7 @@
   }
   function bindProductActions() {
     document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "product", id: button.dataset.edit }; render(); }));
-    document.querySelectorAll("[data-transfer]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.transfer, transfer: true }; render(); }));
+    document.querySelectorAll("[data-transfer]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.transfer, transfer: true }; render(); void ensureVehicles(); }));
     document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.move, transfer: false }; render(); }));
     document.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => archiveProduct(button.dataset.delete)));
   }
@@ -284,18 +301,14 @@
     load();
     readSharedSession();
     render();
-    void refreshSharedUser();
+    window.setTimeout(refreshSharedUser, 1200);
     if (!cloud()?.ready()) return;
     try {
       state.cloudStatus = "Cargando productos desde Supabase...";
       render();
-      const [products, vehicles] = await Promise.all([
-        cloud().loadProducts ? cloud().loadProducts() : cloud().load().then((remote) => remote.products),
-        cloud().loadVehicles ? cloud().loadVehicles() : Promise.resolve([])
-      ]);
+      const products = await (cloud().loadProducts ? cloud().loadProducts() : cloud().load().then((remote) => remote.products));
       if (products.length) {
         state.products = products;
-        state.vehicles = vehicles;
         save();
         state.cloudStatus = `Productos cargados: ${new Date().toLocaleTimeString()}`;
         render();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v63-3-traslado-movil-claro';
+const CACHE_NAME = 'mg-portones-v63-4-carga-inventario-ultrarrapida';
 const ASSETS = [
   './',
   './index.html',
