@@ -180,13 +180,23 @@
     const inventory = (current.inventory || []).map((item) => ({ ...item }));
     let target = inventory.find((item) => String(item.vehicle) === String(vehicle) && String(item.part || "").trim().toLowerCase() === String(product.name || "").trim().toLowerCase());
     const before = Number(target?.qty || 0);
-    if (target) target.qty = before + Number(quantity);
-    else { target = { id: `general-${transferId}`, vehicle, part: product.name, qty: Number(quantity), min: 0 }; inventory.push(target); }
     const now = new Date().toISOString();
+    if (target) {
+      target.qty = before + Number(quantity);
+      target.updatedAt = now;
+    } else {
+      target = { id: `general-${transferId}`, vehicle, part: product.name, qty: Number(quantity), min: 0, updatedAt: now, source: "inventario_general" };
+      inventory.push(target);
+    }
     data.inventory = inventory;
     data.movements = [{ id: `mobile-${transferId}`, vehicle, material: product.name, quantity: Number(quantity), before, after: target.qty, action: `Entrada desde Inventario General${reason ? `: ${reason}` : ""}`, technician: responsible, date: now.slice(0, 10), source: "inventario_general", transferId }, ...(current.movements || [])].slice(0, 1000);
     data.generalInventoryTransfers = [{ id: transferId, at: now, productId: product.id, productName: product.name, quantity: Number(quantity), source: "Inventario General", destinationVehicle: vehicle, reason, responsible }, ...(current.generalInventoryTransfers || [])].slice(0, 500);
-    await coreRequest("app_state?id=eq.production", { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ data, updated_at: now }) });
+    const updated = await coreRequest("app_state?id=eq.production", { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ data, updated_at: now }) });
+    const savedTarget = (updated?.[0]?.data?.inventory || []).find((item) => String(item?.id) === String(target.id));
+    if (!savedTarget || Number(savedTarget.qty || 0) < Number(target.qty || 0)) {
+      throw new Error("Supabase no confirmo la entrada en el inventario de la movil.");
+    }
+    return { before, after: Number(savedTarget.qty || 0), item: savedTarget };
   }
 
   window.MG_GENERAL_INVENTORY_CLOUD = { ready, load, loadProducts, loadSecondary, sync, uploadPhoto, archiveProducts, loadVehicles, loadAppUser, transferToVehicle };

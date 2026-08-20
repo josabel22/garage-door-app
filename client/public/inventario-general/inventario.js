@@ -140,13 +140,13 @@
     return `<div class="session"><label>Sesion de demostracion<select id="sessionUser">${state.users.map((item) => `<option value="${esc(item.id)}" ${item.id === user?.id ? "selected" : ""}>${esc(item.name)} - ${esc(item.role)}</option>`).join("")}</select></label>${isAdmin() ? '<button class="secondary" id="permissions">Permisos</button>' : ""}<button class="secondary" id="returnApp">Volver a MG Portones</button></div>`;
   }
   function productCard(product) {
-    return `<article class="product"><div>${product.photo ? `<img class="thumb" src="${product.photo}" alt="${esc(product.name)}" loading="lazy" decoding="async" />` : '<div class="thumb">Sin foto</div>'}</div><div><h3>${esc(product.name)} ${low(product) ? '<span class="tag low">Stock bajo</span>' : ""}</h3><div class="meta"><span class="tag">${esc(product.code || "Sin codigo")}</span><span>${available(product)} unidades</span><span>Minimo: ${number(product.min)}</span><span>${esc(product.location || "Sin ubicacion")}</span></div><p>${esc(product.category || "Sin categoria")} · ${esc(product.condition || "Sin estado")} · ${esc(product.supplier || "Sin proveedor")}</p></div><div class="actions"><button class="secondary" data-edit="${product.id}">Editar</button><button class="primary" data-move="${product.id}">Movimiento</button>${isAdmin() ? `<button class="danger" data-delete="${product.id}">Eliminar</button>` : ""}</div></article>`;
+    return `<article class="product"><div>${product.photo ? `<img class="thumb" src="${product.photo}" alt="${esc(product.name)}" loading="lazy" decoding="async" />` : '<div class="thumb">Sin foto</div>'}</div><div><h3>${esc(product.name)} ${low(product) ? '<span class="tag low">Stock bajo</span>' : ""}</h3><div class="meta"><span class="tag">${esc(product.code || "Sin codigo")}</span><span>${available(product)} unidades</span><span>Minimo: ${number(product.min)}</span><span>${esc(product.location || "Sin ubicacion")}</span></div><p>${esc(product.category || "Sin categoria")} · ${esc(product.condition || "Sin estado")} · ${esc(product.supplier || "Sin proveedor")}</p></div><div class="actions"><button class="secondary" data-edit="${product.id}">Editar</button><button class="primary" data-transfer="${product.id}">Trasladar a movil</button><button class="secondary" data-move="${product.id}">Otro movimiento</button>${isAdmin() ? `<button class="danger" data-delete="${product.id}">Eliminar</button>` : ""}</div></article>`;
   }
   function modalMarkup() {
     if (state.modal.type === "permissions") return permissionsMarkup();
     if (state.modal.type === "trash") return trashMarkup();
     const product = state.products.find((item) => item.id === state.modal.id) || {};
-    if (state.modal.type === "move") return `<div class="modal"><form class="dialog" id="movementForm"><div class="dialog-top"><h2>Movimiento: ${esc(product.name)}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id)}" /><div class="form-grid"><label>Tipo<select name="type"><option value="entrada">Entrada a bodega</option><option value="salida">Salida de bodega</option><option value="ajuste">Ajuste de inventario</option><option value="traslado">Traslado a movil</option></select></label><label>Cantidad<input name="qty" type="number" min="1" required /></label><label>Movil destino<select name="vehicle"><option value="">Seleccione una movil</option>${state.vehicles.map((vehicle) => `<option value="${esc(vehicle.code)}">${esc(vehicle.code)}${vehicle.name ? ` - ${esc(vehicle.name)}` : ""}</option>`).join("")}</select></label><label class="full">Motivo / referencia<input name="reason" required placeholder="Factura, boleta, reposicion, conteo..." /></label><label class="full">Responsable<input name="responsible" value="${esc(currentUser()?.name)}" /></label></div><p class="help">La movil destino se usa solamente al elegir Traslado a movil.</p><div class="dialog-actions"><button class="primary">Guardar movimiento</button></div></div></form></div>`;
+    if (state.modal.type === "move") return `<div class="modal"><form class="dialog" id="movementForm"><div class="dialog-top"><h2>${state.modal.transfer ? "Trasladar a movil" : "Movimiento"}: ${esc(product.name)}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id)}" /><div class="form-grid"><label>Tipo<select name="type" id="movementType"><option value="" disabled ${state.modal.transfer ? "" : "selected"}>Seleccione el tipo</option><option value="traslado" ${state.modal.transfer ? "selected" : ""}>Traslado a movil</option><option value="entrada">Entrada a bodega</option><option value="salida">Salida de bodega</option><option value="ajuste">Ajuste de inventario</option></select></label><label>Cantidad<input name="qty" type="number" min="1" required /></label><label>Movil destino<select name="vehicle" id="movementVehicle" ${state.modal.transfer ? "required" : "disabled"}><option value="">Seleccione una movil</option>${state.vehicles.map((vehicle) => `<option value="${esc(vehicle.code)}">${esc(vehicle.code)}${vehicle.name ? ` - ${esc(vehicle.name)}` : ""}</option>`).join("")}</select></label><label class="full">Motivo / referencia<input name="reason" required placeholder="Factura, boleta, reposicion, conteo..." /></label><label class="full">Responsable<input name="responsible" value="${esc(currentUser()?.name)}" /></label></div><p class="help" id="movementHelp">${state.modal.transfer ? "El producto se descontara de bodega y se sumara a la movil elegida despues de la confirmacion de Supabase." : "Para enviar a una movil, seleccione Traslado a movil; una salida de bodega no suma existencias a ninguna movil."}</p><div class="dialog-actions"><button class="primary">Guardar movimiento</button></div></div></form></div>`;
     return `<div class="modal"><form class="dialog" id="productForm"><div class="dialog-top"><h2>${product.id ? "Editar producto" : "Agregar producto"}</h2><button class="secondary" type="button" data-close>Cerrar</button></div><div class="dialog-body"><input type="hidden" name="id" value="${esc(product.id || "")}" /><div class="form-grid"><label>Nombre del producto<input name="name" required value="${esc(product.name)}" /></label><label>Codigo / SKU<input name="code" value="${esc(product.code)}" placeholder="Ej. CR-UNI-01" /></label><label>Categoria<input name="category" value="${esc(product.category)}" placeholder="Controles, motores, electrico..." /></label><label>Estado<select name="condition"><option ${product.condition === "Nuevo" ? "selected" : ""}>Nuevo</option><option ${product.condition === "Usado" ? "selected" : ""}>Usado</option><option ${product.condition === "Para revisar" ? "selected" : ""}>Para revisar</option></select></label><label>Cantidad actual<input name="qty" type="number" min="0" required value="${number(product.qty)}" /></label><label>Stock minimo<input name="min" type="number" min="0" value="${number(product.min)}" /></label><label>Stock maximo<input name="max" type="number" min="0" value="${number(product.max)}" /></label><label>Proveedor<input name="supplier" value="${esc(product.supplier)}" /></label><label class="full">Ubicacion exacta<input name="location" required value="${esc(product.location)}" placeholder="Bodega / Estante / Gaveta / Caja" /></label><label class="full">Foto del producto<input name="photo" type="file" accept="image/*" /></label><label class="full">Notas<textarea name="notes" placeholder="Compatibilidad, numero de serie, lote o advertencias">${esc(product.notes)}</textarea></label></div><div class="dialog-actions"><button class="primary">Guardar producto</button></div></div></form></div>`;
   }
   function permissionsMarkup() {
@@ -173,6 +173,13 @@
     document.getElementById("showMoreProducts")?.addEventListener("click", () => { state.visibleLimit += 24; const products = document.getElementById("products"); if (products) products.innerHTML = productsMarkup(); bindProductActions(); });
     document.getElementById("export")?.addEventListener("click", exportData);
     document.getElementById("sync")?.addEventListener("click", () => syncCloud(true));
+    document.getElementById("movementType")?.addEventListener("change", (event) => {
+      const vehicle = document.getElementById("movementVehicle");
+      const help = document.getElementById("movementHelp");
+      const isTransfer = event.target.value === "traslado";
+      if (vehicle) { vehicle.disabled = !isTransfer; vehicle.required = isTransfer; if (!isTransfer) vehicle.value = ""; }
+      if (help) help.textContent = isTransfer ? "El producto se descontara de bodega y se sumara a la movil elegida despues de la confirmacion de Supabase." : "Una salida de bodega no suma existencias a ninguna movil.";
+    });
     bindProductActions();
     document.querySelectorAll("[data-restore]").forEach((button) => button.addEventListener("click", () => restoreProduct(button.dataset.restore)));
     document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => { state.modal = null; render(); resumeSharedUserRefresh(); }));
@@ -182,7 +189,8 @@
   }
   function bindProductActions() {
     document.querySelectorAll("[data-edit]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "product", id: button.dataset.edit }; render(); }));
-    document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.move }; render(); }));
+    document.querySelectorAll("[data-transfer]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.transfer, transfer: true }; render(); }));
+    document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { state.modal = { type: "move", id: button.dataset.move, transfer: false }; render(); }));
     document.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", () => archiveProduct(button.dataset.delete)));
   }
   async function saveProduct(event) {
@@ -215,6 +223,7 @@
     if (!product) return;
     const qty = number(form.get("qty"));
     const type = String(form.get("type"));
+    if (!["entrada", "salida", "ajuste", "traslado"].includes(type)) return alert("Seleccione el tipo de movimiento.");
     if ((type === "salida" || type === "traslado") && qty > product.qty) return alert("No hay suficiente existencia para esa salida o traslado.");
     const reason = String(form.get("reason") || "").trim();
     const responsible = String(form.get("responsible") || currentUser()?.name || "").trim();
@@ -224,9 +233,10 @@
       if (!vehicle) return alert("Seleccione la movil que recibira el producto.");
       if (!cloud()?.ready() || !cloud()?.transferToVehicle) return alert("El traslado requiere conexion a Supabase.");
       try {
-        await cloud().transferToVehicle({ transferId: movementId, product, quantity: qty, vehicle, reason, responsible });
+        const confirmed = await cloud().transferToVehicle({ transferId: movementId, product, quantity: qty, vehicle, reason, responsible });
         product.qty -= qty;
         state.movements.unshift({ id: movementId, productId: product.id, productName: product.name, type, qty, reason: `Traslado a ${vehicle}: ${reason}`, responsible, at: new Date().toISOString() });
+        state.cloudStatus = `Traslado confirmado: ${product.name} +${qty} en ${vehicle} (ahora ${confirmed.after}).`;
         save(); state.modal = null; render(); resumeSharedUserRefresh(); await syncCloud(false); return;
       } catch (error) { return alert(`No se pudo trasladar a la movil. ${error.message || "Revise la conexion."}`); }
     }

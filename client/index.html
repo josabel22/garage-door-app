@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.1';
+      const APP_VERSION = 'v63.3';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -1354,12 +1354,18 @@
         return Array.from(items.values());
       }
 
+      function inventoryUpdatedAt(item) {
+        const timestamp = Date.parse(item?.updatedAt || item?.updated_at || '');
+        return Number.isFinite(timestamp) ? timestamp : 0;
+      }
+
       function mergeInventory(cloudItems = [], localItems = []) {
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
         (localItems || []).forEach((item) => {
           const key = `${item.vehicle}|${item.part}`;
-          if (!items.has(key)) items.set(key, item);
+          const cloudItem = items.get(key);
+          if (!cloudItem || inventoryUpdatedAt(item) > inventoryUpdatedAt(cloudItem)) items.set(key, item);
         });
         return Array.from(items.values());
       }
@@ -1471,7 +1477,11 @@
       function mergeInventoryLocalWins(cloudItems = [], localItems = []) {
         const items = new Map();
         (cloudItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
-        (localItems || []).forEach((item) => items.set(`${item.vehicle}|${item.part}`, item));
+        (localItems || []).forEach((item) => {
+          const key = `${item.vehicle}|${item.part}`;
+          const cloudItem = items.get(key);
+          if (!cloudItem || inventoryUpdatedAt(item) > inventoryUpdatedAt(cloudItem)) items.set(key, item);
+        });
         return Array.from(items.values());
       }
 
@@ -4370,6 +4380,7 @@
         const before = item.qty;
         const used = Math.min(quantity, item.qty);
         item.qty = Math.max(0, item.qty - used);
+        item.updatedAt = new Date().toISOString();
         state.data.movements.unshift({
           id: Date.now() + Math.random(),
           vehicle: item.vehicle,
@@ -4877,7 +4888,8 @@
           vehicle,
           part: partName,
           qty: Number(form.get('qty')),
-          min: Number(form.get('min'))
+          min: Number(form.get('min')),
+          updatedAt: new Date().toISOString()
         };
         state.data.inventory.push(item);
         state.data.movements.unshift({
@@ -4929,6 +4941,7 @@
         const beforeItem = { ...item };
         item.qty = Math.max(0, next);
         item.min = Math.max(0, min);
+        item.updatedAt = new Date().toISOString();
         state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: Math.abs(item.qty - before), before, after: item.qty, action: 'Ajuste', technician: state.user.name, date: today(0) });
         logAudit('Ajustar inventario', 'Inventario', beforeItem, item);
         state.modal = null;
@@ -4983,6 +4996,7 @@
         const item = (state.data.inventoryTrash || []).find((entry) => String(entry.id) === String(id));
         if (!item) return;
         const { archivedAt, archivedBy, ...restored } = item;
+        restored.updatedAt = new Date().toISOString();
         state.data.inventoryTrash = state.data.inventoryTrash.map((entry) => String(entry.id) === String(id) ? { ...entry, restoredAt: new Date().toISOString(), restoredBy: state.user.name } : entry);
         state.data.inventory.push(restored);
         state.data.movements.unshift({ id: Date.now(), vehicle: restored.vehicle, material: restored.part, quantity: restored.qty, before: 0, after: restored.qty, action: 'Restaurado desde papelera', technician: state.user.name, date: today(0) });
@@ -5007,13 +5021,15 @@
         if (!toVehicle || Number.isNaN(qty) || qty <= 0 || qty > item.qty) return;
         const before = item.qty;
         item.qty -= qty;
+        item.updatedAt = new Date().toISOString();
         let target = state.data.inventory.find((part) => part.vehicle === toVehicle && part.part === item.part);
         if (!target) {
-          target = { id: `inv-${Date.now()}-${toVehicle}`, vehicle: toVehicle, part: item.part, qty: 0, min: item.min };
+          target = { id: `inv-${Date.now()}-${toVehicle}`, vehicle: toVehicle, part: item.part, qty: 0, min: item.min, updatedAt: new Date().toISOString() };
           state.data.inventory.push(target);
         }
         const targetBefore = target.qty;
         target.qty += qty;
+        target.updatedAt = new Date().toISOString();
         state.data.movements.unshift({ id: Date.now(), vehicle: item.vehicle, material: item.part, quantity: qty, before, after: item.qty, action: `Transferencia a ${toVehicle}`, technician: state.user.name, date: today(0) });
         state.data.movements.unshift({ id: Date.now() + 1, vehicle: toVehicle, material: item.part, quantity: qty, before: targetBefore, after: target.qty, action: `Transferencia desde ${item.vehicle}`, technician: state.user.name, date: today(0) });
         logAudit('Transferir inventario', 'Inventario', { from: item.vehicle, qty: before, to: targetBefore }, { from: item.qty, to: target.qty, part: item.part });
