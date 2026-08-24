@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.5';
+      const APP_VERSION = 'v63.6';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -991,6 +991,7 @@
       let cloudLoadInFlight = false;
       let lastCloudRefreshAt = 0;
       let cloudRefreshDeferred = false;
+      let deferredPwaInstall = null;
       const activePhotoUploads = new Map();
       function today(offset) {
         const date = new Date();
@@ -1987,6 +1988,7 @@
                 ${canAccessWorkshop() ? `<button onclick="openWorkshopModule()"><span>TL</span>Taller</button>` : ''}
               </nav>
               <div style="margin-top:auto; display:grid; gap:10px;">
+                ${deferredPwaInstall ? '<button class="btn secondary" onclick="installPwaApp()">Instalar aplicacion</button>' : ''}
                 <span class="status-pill ${online && cloudReady ? '' : 'offline'}"><span class="dot"></span>${cloudReady ? 'Supabase conectado' : (online ? 'Modo local' : 'Modo offline')} - ${state.data.syncQueue.length} pendientes - ${APP_VERSION}</span>
                 ${cloudError ? `<span class="pill">${cloudError}</span>` : ''}
                 <button class="logout" onclick="logout()">Cerrar sesion</button>
@@ -4608,6 +4610,20 @@
         render();
       }
 
+      async function installPwaApp() {
+        if (!deferredPwaInstall) return alert('Chrome aun no habilita la instalacion. Abra la app con internet, espere unos segundos y vuelva a intentarlo.');
+        const prompt = deferredPwaInstall;
+        deferredPwaInstall = null;
+        render();
+        try {
+          await prompt.prompt();
+          const result = await prompt.userChoice;
+          if (result?.outcome !== 'accepted') render();
+        } catch (_) {
+          render();
+        }
+      }
+
       function editUser(id) {
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return alert('Usuario no encontrado.');
@@ -5576,6 +5592,16 @@
         if (navigator.onLine && hasPendingData) syncCloudInBackground();
         if (navigator.onLine && state.user) refreshCloudData();
       }, 30000);
+
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredPwaInstall = event;
+        if (state.user) render();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredPwaInstall = null;
+        if (state.user) render();
+      });
 
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {

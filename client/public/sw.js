@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v63-5-cedula-reportes';
+const CACHE_NAME = 'mg-portones-v63-6-instalacion-pwa-a56';
 const ASSETS = [
   './',
   './index.html',
