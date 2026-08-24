@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.6';
+      const APP_VERSION = 'v63.7';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2382,6 +2382,7 @@
           <form class="form-grid" onsubmit="submitUserEdit(event, ${user.id})">
             <label>Nombre<input name="name" value="${user.name || ''}" required /></label>
             <label>Usuario<input name="username" value="${user.username || ''}" required /></label>
+            <label>Nueva contrasena opcional<input name="password" type="password" minlength="6" autocomplete="new-password" placeholder="Deje vacio para conservar la actual" /></label>
             <label>Telefono<input name="phone" value="${user.phone || ''}" inputmode="tel" /></label>
             <label>Correo<input name="email" value="${user.email || ''}" type="email" /></label>
             <label>Rol<select name="role"><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option><option value="technician" ${user.role === 'technician' ? 'selected' : ''}>Tecnico</option><option value="client" ${user.role === 'client' ? 'selected' : ''}>Cliente</option></select></label>
@@ -3463,7 +3464,7 @@
                     <div class="toolbar" style="margin-top:12px;">
                       <button class="btn secondary" onclick="editUser(${user.id})">Modificar</button>
                       <button class="btn secondary" onclick="toggleUser(${user.id})">${user.active === false ? 'Activar' : 'Desactivar'}</button>
-                      <button class="btn secondary" onclick="resetUserPassword(${user.id})">Resetear clave</button>
+                      <button class="btn secondary" onclick="resetUserPassword(${user.id})">Generar clave temporal</button>
                       ${user.role !== 'admin' ? '<button class="btn danger" onclick="deleteUser(' + user.id + ')">Borrar</button>' : ''}
                     </div>
                   </div>`;
@@ -4636,8 +4637,11 @@
         const user = state.data.users.find((item) => item.id === id);
         if (!user) return;
         const form = new FormData(event.target);
+        const newPassword = String(form.get('password') || '');
+        if (newPassword && newPassword.length < 6) return alert('La nueva contrasena debe tener al menos 6 caracteres.');
         user.name = form.get('name');
         user.username = form.get('username');
+        if (newPassword) user.password = newPassword;
         user.phone = form.get('phone');
         user.email = form.get('email');
         user.role = form.get('role');

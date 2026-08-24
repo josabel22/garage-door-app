@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v63-6-instalacion-pwa-a56';
+const CACHE_NAME = 'mg-portones-v63-7-claves-administrador';
 const ASSETS = [
   './',
   './index.html',
