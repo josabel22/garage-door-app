@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.7';
+      const APP_VERSION = 'v63.8';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -1827,14 +1827,29 @@
         return job.signed || finalStatuses().includes(job.status);
       }
 
+      function technicianReportWindowStart() {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - 6);
+        return start;
+      }
+
+      function canTechnicianAccessReport(job) {
+        if (!job || state.user?.role !== 'technician') return true;
+        const date = new Date(`${String(job.date || '')}T00:00:00`);
+        return !Number.isNaN(date.getTime()) && date >= technicianReportWindowStart();
+      }
+
+      function technicianReportBlocked(job) {
+        return state.user?.role === 'technician' && !canTechnicianAccessReport(job);
+      }
+
       function canEditJob(job) {
         if (!state.user || !job) return false;
         if (state.user.role === 'admin') return true;
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         return state.user.role === 'technician'
           && job.technicianId === state.user.id
-          && new Date(job.date) >= sevenDaysAgo
+          && canTechnicianAccessReport(job)
           && !isJobLocked(job);
       }
 
@@ -2555,6 +2570,7 @@
               </div>
             </div>
             <div class="panel-body">
+              ${state.user.role === 'technician' ? '<div class="list-item">Puede consultar reportes de los ultimos 7 dias. Los anteriores se muestran bloqueados y no permiten ver detalles, fotos ni PDF.</div>' : ''}
               <div id="reportResults">${jobsTable(jobs, true)}</div>
             </div>
           </section>
@@ -2776,21 +2792,24 @@
             <table>
               <thead><tr><th>Boleta</th><th>Cliente</th><th>Fecha</th><th>Tecnico</th><th>Movil</th><th>Prioridad</th><th>Estado</th><th>Garantia</th><th>Fotos</th><th>Firma</th>${actions ? '<th>Acciones</th>' : ''}</tr></thead>
               <tbody>
-                ${orderedJobs.map((job) => `
+                ${orderedJobs.map((job) => {
+                  const blockedForTechnician = technicianReportBlocked(job);
+                  return `
                   <tr>
                     <td data-label="Boleta"><strong>${job.ticket}</strong></td>
-                    <td data-label="Cliente">${job.client}<br><small>${job.phone}</small></td>
+                    <td data-label="Cliente">${blockedForTechnician ? '<span class="pill">Detalles restringidos</span>' : `${job.client}<br><small>${job.phone}</small>`}</td>
                     <td data-label="Fecha">${job.date}</td>
                     <td data-label="Tecnico">${job.technician}</td>
                     <td data-label="Movil">${job.vehicle}</td>
                     <td data-label="Prioridad">${job.priority || 'Media'}</td>
                     <td data-label="Estado"><span class="pill">${job.status}</span></td>
-                    <td data-label="Garantia">${job.warranty}</td>
-                    <td data-label="Fotos">${jobPhotosMarkup(job)}</td>
+                    <td data-label="Garantia">${blockedForTechnician ? '<span class="pill">Restringido</span>' : job.warranty}</td>
+                    <td data-label="Fotos">${blockedForTechnician ? '<span class="pill">Bloqueadas</span>' : jobPhotosMarkup(job)}</td>
                     <td data-label="Firma">${isJobLocked(job) ? '<span class="pill">Bloqueado</span>' : 'Pendiente'}</td>
-                    ${actions ? `<td data-label="Acciones"><button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${jsArg(job.id)})">Vista PDF</button> <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${jsArg(job.id)})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${jsArg(job.id)})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}</td>` : ''}
+                    ${actions ? `<td data-label="Acciones">${blockedForTechnician ? '<span class="pill">Bloqueado: mas de 7 dias</span>' : `<button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${jsArg(job.id)})">Vista PDF</button> <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${jsArg(job.id)})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${jsArg(job.id)})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}`}</td>` : ''}
                   </tr>
-                `).join('')}
+                `;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -2849,6 +2868,7 @@
       function previewJobPdf(id) {
         const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return alert('Reporte no encontrado.');
+        if (technicianReportBlocked(job)) return alert('Este reporte tiene mas de 7 dias y esta bloqueado para tecnicos.');
         state.modal = { type: 'reportPreview', title: `Vista PDF ${job.ticket}`, id, wide: true };
         render();
       }
@@ -2856,6 +2876,7 @@
       function printJob(id) {
         const job = state.data.jobs.find((item) => String(item.id) === String(id));
         if (!job) return alert('Reporte no encontrado.');
+        if (technicianReportBlocked(job)) return alert('Este reporte tiene mas de 7 dias y esta bloqueado para tecnicos.');
         const fileName = pdfFileName(job);
         const printWindow = window.open('', '_blank');
         if (!printWindow) return alert('Permita ventanas emergentes para generar el PDF.');
@@ -5300,6 +5321,8 @@
       }
 
       function shareJob(ticket) {
+        const job = state.data.jobs.find((item) => String(item.ticket) === String(ticket));
+        if (technicianReportBlocked(job)) return alert('Este reporte tiene mas de 7 dias y esta bloqueado para tecnicos.');
         const text = encodeURIComponent(`Reporte MG Portones ${ticket}: PDF listo para descargar.`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
       }
@@ -5563,7 +5586,8 @@
         const date = document.getElementById('searchDate').value;
         const warranty = document.getElementById('searchWarranty')?.value || '';
         const vehicle = document.getElementById('searchVehicle').value.toLowerCase();
-        const results = state.data.jobs.filter((job) => {
+        const sourceJobs = state.user?.role === 'admin' ? state.data.jobs : scopedJobs();
+        const results = sourceJobs.filter((job) => {
           const matchesText = [job.ticket, job.client, job.technician, job.vehicle, job.description, job.materials].join(' ').toLowerCase().includes(text);
           const matchesStatus = !status || job.status === status;
           const matchesDate = !date || job.date === date;
