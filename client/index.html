@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.9';
+      const APP_VERSION = 'v64.1';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -3341,18 +3341,21 @@
 
       function warrantiesView() {
         updateWarrantyStatuses();
-        const warranties = state.user.role === 'technician'
+        const assignedWarranties = state.user.role === 'technician'
           ? state.data.warranties.filter((warranty) => warranty.technicianId === state.user.id)
           : state.data.warranties;
+        const warranties = assignedWarranties
+          .filter(isVisibleWarranty)
+          .sort((left, right) => String(right.start || right.end || '').localeCompare(String(left.start || left.end || '')) || String(right.end || '').localeCompare(String(left.end || '')));
         return `
           <section class="grid content-grid">
             <div class="panel">
-              <div class="panel-header"><h3>Garantias</h3><span class="pill">${warranties.length} casos</span></div>
+              <div class="panel-header"><h3>Garantias vigentes</h3><span class="pill">${warranties.length} casos</span></div>
               <div class="panel-body">
                 <div class="table-wrap">
                   <table>
                     <thead><tr><th>Boleta</th><th>Cliente</th><th>Inicio</th><th>Vencimiento</th><th>Estado</th><th>Aprobacion</th><th>Tecnico</th><th>Acciones</th></tr></thead>
-                    <tbody>${warranties.map((w) => `<tr><td>${w.ticket}</td><td>${w.client}</td><td>${warrantyCalendar(w.start)}</td><td>${warrantyCalendar(w.end)}</td><td><span class="pill">${w.status}</span><br><small>${warrantyDaysText(w.end)}</small></td><td>${w.approval}</td><td>${w.technician}</td><td>${w.status === 'Activa' || w.status === 'Proxima a vencer' ? `<button class="btn secondary" onclick="openWarrantyJob(${w.id})">Abrir garantia</button>` : 'Fuera de plazo'}</td></tr>`).join('')}</tbody>
+                    <tbody>${warranties.map((w) => `<tr><td>${w.ticket}</td><td>${w.client}</td><td>${warrantyCalendar(w.start)}</td><td>${warrantyCalendar(w.end)}</td><td><span class="pill">${w.extraordinary ? 'Extraordinaria' : w.status}</span><br><small>${w.extraordinary ? `Autorizada fuera de plazo · ${warrantyDaysText(w.end)}` : warrantyDaysText(w.end)}</small></td><td>${w.approval}</td><td>${w.technician}</td><td><button class="btn secondary" onclick="openWarrantyJob(${w.id})">${w.extraordinary ? 'Abrir orden extraordinaria' : 'Abrir garantia'}</button></td></tr>`).join('') || '<tr><td colspan="8">No hay garantias vigentes.</td></tr>'}</tbody>
                   </table>
                 </div>
               </div>
@@ -3362,10 +3365,12 @@
                 <div class="panel-header"><h3>Aprobar y asignar garantia</h3></div>
                 <div class="panel-body">
                   <form class="form-grid" onsubmit="createWarrantyCase(event)">
-                    <label>Cliente<input name="client" required /></label>
+                    <label>Cliente<input name="client" oninput="refreshExtraordinaryWarrantySources()" required /></label>
                     <label>Boleta<input name="ticket" value="G-${Math.floor(2000 + Math.random() * 900)}" required /></label>
                     <label>Tecnico<select name="technicianId">${technicians().map((tech) => `<option value="${tech.id}">${tech.name}  -  ${reportVehicleForUser(tech) || 'Sin movil'}</option>`).join('')}</select></label>
                     <label>Vencimiento<input name="end" type="date" value="${today(90)}" required /></label>
+                    <label class="full"><input type="checkbox" name="extraordinary" value="true" onchange="toggleExtraordinaryWarranty()" /> Crear orden de garantia extraordinaria para una garantia vencida</label>
+                    <div id="extraordinaryWarrantySource" class="full"></div>
                     <label class="full">Descripcion<textarea name="description" required></textarea></label>
                     <button class="btn full">Aprobar garantia y asignar</button>
                   </form>
@@ -3385,6 +3390,52 @@
         if (days < 0) return 'Garantia vencida';
         if (days === 0) return 'Vence hoy';
         return `${days} dias restantes`;
+      }
+
+      function isExtraordinaryWarranty(warranty) {
+        return warranty?.extraordinary === true;
+      }
+
+      function isVisibleWarranty(warranty) {
+        return warrantyStatus(warranty.end) !== 'Vencida' || isExtraordinaryWarranty(warranty);
+      }
+
+      function extraordinaryWarrantySources(clientName) {
+        const normalizedClient = normalizeClientSearch(clientName);
+        if (!normalizedClient) return [];
+        return (state.data.warranties || [])
+          .filter((warranty) => warrantyStatus(warranty.end) === 'Vencida')
+          .filter((warranty) => !isExtraordinaryWarranty(warranty))
+          .filter((warranty) => normalizeClientSearch(warranty.client) === normalizedClient)
+          .sort((left, right) => String(right.end || '').localeCompare(String(left.end || '')));
+      }
+
+      function extraordinaryWarrantySourceMarkup(clientName) {
+        const sources = extraordinaryWarrantySources(clientName);
+        if (!normalizeClientSearch(clientName)) return '<div class="list-item">Escriba el cliente para seleccionar su garantia vencida original.</div>';
+        if (!sources.length) return '<div class="list-item">Este cliente no tiene una garantia vencida disponible para autorizar.</div>';
+        return `<label>Garantia vencida original<select name="extraordinarySourceId" onchange="applyExtraordinaryWarrantySource(this.value)" required><option value="">Seleccione la boleta vencida</option>${sources.map((warranty) => `<option value="${formValue(warranty.id)}">${escapeText(warranty.ticket)} - vencio ${escapeText(warranty.end)}</option>`).join('')}</select></label><div class="list-item"><strong>Importante:</strong> esta orden no extiende la garantia; queda marcada como autorizacion extraordinaria.</div>`;
+      }
+
+      function toggleExtraordinaryWarranty() {
+        const form = document.querySelector('.content-grid form');
+        const target = document.getElementById('extraordinaryWarrantySource');
+        const enabled = form?.elements.extraordinary?.checked;
+        if (target) target.innerHTML = enabled ? extraordinaryWarrantySourceMarkup(form.elements.client?.value || '') : '';
+        if (!enabled && form?.elements.end) { form.elements.end.readOnly = false; form.elements.end.value ||= today(90); }
+      }
+
+      function refreshExtraordinaryWarrantySources() {
+        const form = document.querySelector('.content-grid form');
+        if (form?.elements.extraordinary?.checked) toggleExtraordinaryWarranty();
+      }
+
+      function applyExtraordinaryWarrantySource(id) {
+        const form = document.querySelector('.content-grid form');
+        const source = (state.data.warranties || []).find((warranty) => String(warranty.id) === String(id));
+        if (!form || !source) return;
+        form.elements.end.value = source.end || '';
+        form.elements.end.readOnly = true;
       }
 
       function warrantyCalendar(dateText) {
@@ -4461,6 +4512,7 @@
       function createWarrantyCase(event) {
         event.preventDefault();
         const form = new FormData(event.target);
+        const extraordinary = form.get('extraordinary') === 'true';
         const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
         const client = findOrCreateClient({
           name: form.get('client'),
@@ -4470,6 +4522,18 @@
         });
         const id = Date.now();
         const ticket = form.get('ticket');
+        const source = extraordinary
+          ? (state.data.warranties || []).find((warranty) => String(warranty.id) === String(form.get('extraordinarySourceId')))
+          : null;
+        if (extraordinary && (!source || warrantyStatus(source.end) !== 'Vencida' || isExtraordinaryWarranty(source) || normalizeClientSearch(source.client) !== normalizeClientSearch(client.name))) {
+          alert('Seleccione una garantia vencida del mismo cliente para autorizar la orden extraordinaria.');
+          return;
+        }
+        const end = extraordinary ? source.end : form.get('end');
+        if (!extraordinary && warrantyStatus(end) === 'Vencida') {
+          alert('Una garantia normal debe tener un vencimiento vigente. Para atender una vencida, marque la orden extraordinaria.');
+          return;
+        }
 
         state.data.warranties.unshift({
           id,
@@ -4480,9 +4544,12 @@
           technician: tech.name,
           vehicle: reportVehicleForUser(tech),
           start: today(0),
-          end: form.get('end'),
-          status: 'Activa',
-          approval: 'Aprobada'
+          end,
+          status: warrantyStatus(end),
+          approval: extraordinary ? 'Extraordinaria autorizada' : 'Aprobada',
+          extraordinary,
+          originalWarrantyId: source?.id || null,
+          originalWarrantyTicket: source?.ticket || ''
         });
 
         state.data.jobs.unshift({
@@ -4501,7 +4568,11 @@
           email: client.email,
           description: form.get('description'),
           materials: '',
-          warranty: 'Activa',
+          warranty: extraordinary ? `Garantia extraordinaria de ${source.ticket} - vencida ${source.end}` : 'Activa',
+          warrantyEnd: end,
+          warrantySourceTicket: source?.ticket || '',
+          warrantySourceId: source?.id || null,
+          extraordinaryWarranty: extraordinary,
           signed: false,
           gps: '',
           arrival: '',
@@ -5267,7 +5338,7 @@
         const warranty = state.data.warranties.find((item) => item.id === id);
         if (!warranty) return alert('Garantia no encontrada.');
         const status = warrantyStatus(warranty.end);
-        if (status === 'Vencida') return alert('Esta garantia esta fuera de plazo.');
+        if (status === 'Vencida' && !isExtraordinaryWarranty(warranty)) return alert('Esta garantia esta fuera de plazo.');
         state.modal = { type: 'warrantyOpen', title: `Abrir garantia ${warranty.ticket}`, id };
         render();
       }
@@ -5275,7 +5346,7 @@
       function submitWarrantyOpen(event, id) {
         event.preventDefault();
         const warranty = state.data.warranties.find((item) => item.id === id);
-        if (!warranty || warrantyStatus(warranty.end) === 'Vencida') return alert('Esta garantia esta fuera de plazo.');
+        if (!warranty || (warrantyStatus(warranty.end) === 'Vencida' && !isExtraordinaryWarranty(warranty))) return alert('Esta garantia esta fuera de plazo.');
         const form = new FormData(event.target);
         const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
         const vehicle = form.get('vehicle') || reportVehicleForUser(tech);
@@ -5295,11 +5366,14 @@
           email: '',
           description: form.get('description'),
           materials: '',
-          warranty: `Garantia de ${warranty.ticket} - ${Math.max(0, warrantyDaysLeft(warranty.end))} dias restantes`,
+          warranty: warranty.extraordinary
+            ? `Garantia extraordinaria de ${warranty.originalWarrantyTicket || warranty.ticket} - autorizada fuera de plazo`
+            : `Garantia de ${warranty.ticket} - ${Math.max(0, warrantyDaysLeft(warranty.end))} dias restantes`,
           warrantyEnd: warranty.end,
           warrantySourceTicket: warranty.ticket,
           warrantySourceId: warranty.id,
           warrantyDaysRemaining: Math.max(0, warrantyDaysLeft(warranty.end)),
+          extraordinaryWarranty: isExtraordinaryWarranty(warranty),
           signed: false,
           gps: '',
           arrival: '',
