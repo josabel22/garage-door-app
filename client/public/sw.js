@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v63-8-reportes-tecnico-semana';
+const CACHE_NAME = 'mg-portones-v63-9-entrada-taller-solo-real';
 const ASSETS = [
   './',
   './index.html',

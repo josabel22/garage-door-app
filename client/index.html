@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v63.8';
+      const APP_VERSION = 'v63.9';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -1588,7 +1588,11 @@
           cleanJob.photos ||= { before: [], after: [] };
           cleanJob.photos.before = Array.isArray(cleanJob.photos.before) ? cleanJob.photos.before : [];
           cleanJob.photos.after = Array.isArray(cleanJob.photos.after) ? cleanJob.photos.after : [];
-          cleanJob.workshopEntry ||= {};
+          // Un reporte sin ingreso a taller no debe conservar un objeto vacio:
+          // ese objeto era interpretado como una entrada real al generar el PDF.
+          if (!cleanJob.workshopEntry || (typeof cleanJob.workshopEntry === 'object' && !Object.keys(cleanJob.workshopEntry).length)) {
+            cleanJob.workshopEntry = null;
+          }
           cleanJob.signed ||= false;
           cleanJob.pdfStatus ||= cleanJob.signed ? 'Generado' : 'Pendiente';
           cleanJob.gps ||= '';
@@ -2958,7 +2962,7 @@
             <br>
             <section class="pdf-box"><strong>Notas</strong><br>${formatMultiline(job.notes, 'Sin notas')}</section>
             <br>
-            ${job.workshopEntry ? `<section class="pdf-box"><strong>Entrada a taller</strong><br>${formatMultiline(workshopEntryText(job), 'Sin datos de taller')}</section><br>` : ''}
+            ${hasWorkshopEntry(job) ? `<section class="pdf-box"><strong>Entrada a taller</strong><br>${formatMultiline(workshopEntryText(job), 'Sin datos de taller')}</section><br>` : ''}
             <h3>Fotografias</h3>
             ${reportPrintPhotos(job)}
             <br>
@@ -4109,6 +4113,12 @@
           createdBy: state.user?.name || '',
           createdAt: new Date().toISOString()
         };
+      }
+
+      function hasWorkshopEntry(job) {
+        const entry = job?.workshopEntry;
+        if (!entry || typeof entry !== 'object') return false;
+        return Boolean(entry.createdAt || entry.date || entry.equipment || entry.brand || entry.model || entry.serial || entry.condition || entry.reason);
       }
 
       function workshopEntryText(job) {
