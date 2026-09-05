@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.1';
+      const APP_VERSION = 'v64.2';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2584,7 +2584,7 @@
 
       function reportFilters() {
         return `
-          <input id="reportFilterText" oninput="filterReports()" placeholder="Cliente, boleta, tecnico o movil" />
+          <input id="reportFilterText" oninput="filterReports()" placeholder="Cliente, direccion, boleta, trabajo, tecnico o movil" />
           <input id="reportFilterDate" type="date" onchange="filterReports()" />
           <select id="reportFilterStatus" onchange="filterReports()">
             <option value="">Todos los estados</option>
@@ -2813,7 +2813,7 @@
                     ${actions ? `<td data-label="Acciones">${blockedForTechnician ? '<span class="pill">Bloqueado: mas de 7 dias</span>' : `<button class="btn secondary" onclick="shareJob('${job.ticket}')">WhatsApp</button> <button class="btn secondary" onclick="previewJobPdf(${jsArg(job.id)})">Vista PDF</button> <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>${canEditJob(job) ? ` <button class="btn secondary" onclick="editJob(${jsArg(job.id)})">Editar</button>` : ''}${state.user.role === 'admin' ? ` <button class="btn secondary" onclick="assignJob(${jsArg(job.id)})">Asignar</button> <button class="btn danger" onclick="deleteJob('${job.id}')">Eliminar</button>` : ''}`}</td>` : ''}
                   </tr>
                 `;
-                }).join('')}
+                }).join('') || `<tr><td colspan="${actions ? 11 : 10}">No se encontraron reportes con esos criterios.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -3683,6 +3683,30 @@
 
       function normalizeSearchText(value) {
         return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      }
+
+      function reportSearchText(job) {
+        return normalizeSearchText([
+          job?.ticket,
+          job?.client,
+          job?.address,
+          job?.phone,
+          job?.email,
+          job?.technician,
+          job?.vehicle,
+          job?.description,
+          job?.materials,
+          job?.notes,
+          job?.warranty,
+          job?.status
+        ].join(' '));
+      }
+
+      function matchesReportSearch(job, query) {
+        const terms = normalizeSearchText(query).trim().split(/\s+/).filter(Boolean);
+        if (!terms.length) return true;
+        const haystack = reportSearchText(job);
+        return terms.every((term) => haystack.includes(term));
       }
 
       function auditView() {
@@ -5665,14 +5689,14 @@
       }
 
       function renderSearch() {
-        const text = document.getElementById('searchText').value.toLowerCase();
+        const text = document.getElementById('searchText').value;
         const status = document.getElementById('searchStatus').value;
         const date = document.getElementById('searchDate').value;
         const warranty = document.getElementById('searchWarranty')?.value || '';
         const vehicle = document.getElementById('searchVehicle').value.toLowerCase();
         const sourceJobs = state.user?.role === 'admin' ? state.data.jobs : scopedJobs();
         const results = sourceJobs.filter((job) => {
-          const matchesText = [job.ticket, job.client, job.technician, job.vehicle, job.description, job.materials].join(' ').toLowerCase().includes(text);
+          const matchesText = matchesReportSearch(job, text);
           const matchesStatus = !status || job.status === status;
           const matchesDate = !date || job.date === date;
           const matchesWarranty = !warranty || String(job.warranty || '').includes(warranty);
@@ -5683,12 +5707,11 @@
       }
 
       function filterReports() {
-        const text = document.getElementById('reportFilterText')?.value.toLowerCase() || '';
+        const text = document.getElementById('reportFilterText')?.value || '';
         const date = document.getElementById('reportFilterDate')?.value || '';
         const status = document.getElementById('reportFilterStatus')?.value || '';
         const results = scopedJobs().filter((job) => {
-          const haystack = [job.client, job.ticket, job.technician, job.vehicle, job.status].join(' ').toLowerCase();
-          return haystack.includes(text) && (!date || job.date === date) && (!status || job.status === status);
+          return matchesReportSearch(job, text) && (!date || job.date === date) && (!status || job.status === status);
         });
         document.getElementById('reportResults').innerHTML = jobsTable(results, true);
       }

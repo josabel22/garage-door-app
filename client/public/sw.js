@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v64-1-garantias-vigentes-extraordinarias';
+const CACHE_NAME = 'mg-portones-v64-2-busqueda-reportes-ampliada';
 const ASSETS = [
   './',
   './index.html',
