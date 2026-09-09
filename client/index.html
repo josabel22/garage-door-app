@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.2';
+      const APP_VERSION = 'v64.4';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2031,6 +2031,12 @@
           </div>
         `;
         enforceOptionalPhoneFields();
+        if (state.reportFormOpen) {
+          toggleWorkshopFields();
+          updateWarrantyReportFields();
+          refreshWorkshopDeliveryOption();
+          if (document.querySelector('.report-form')?.elements.workshopDelivery?.checked) toggleWorkshopDeliveryFields();
+        }
       }
 
       function enforceOptionalPhoneFields() {
@@ -2224,14 +2230,17 @@
             <label>Boleta<input name="ticket" value="${formValue(job.ticket)}" required /></label>
             <label>Fecha<input name="date" type="date" value="${formValue(job.date || today(0))}" required /></label>
             <label>Cliente<input name="client" value="${formValue(job.client)}" required /></label>
+            <label>Cedula / identificacion opcional<input name="identification" value="${formValue(job.identification)}" autocomplete="off" placeholder="Cedula personal o juridica" /></label>
             <label>Telefono opcional<input name="phone" value="${formValue(job.phone)}" inputmode="tel" autocomplete="tel" /></label>
             <label>Direccion<input name="address" value="${formValue(job.address)}" required /></label>
             <label>Estado<select name="status" onchange="toggleWorkshopFields()">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             ${workshopFieldsMarkup(job.workshopEntry, job.status === 'En taller')}
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
             <label>Tecnico<select name="technicianId" onchange="updateReportInventoryFields()">${technicians().map((tech) => `<option value="${formValue(tech.id)}" ${String(tech.id) === String(jobTech.id) ? 'selected' : ''}>${escapeText(tech.name)}  -  ${escapeText(reportVehicleForUser(tech) || 'Sin movil')}</option>`).join('')}</select></label>
-          <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
-            <label>Vence garantia<input name="warrantyEnd" type="date" value="${formValue(job.warrantyEnd)}" /></label>
+            <div id="editWarrantyFields" class="full form-grid" style="${job.status === 'En taller' ? 'display:none;' : ''}">
+              <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
+              <label>Vence garantia<input name="warrantyEnd" type="date" value="${formValue(job.warrantyEnd)}" /></label>
+            </div>
             <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
             <div id="reportInventoryFields" class="full">${reportInventoryFields(jobTech)}</div>
             <label class="full">Materiales<textarea name="materials">${escapeText(job.materials || '')}</textarea></label>
@@ -2431,6 +2440,7 @@
         return `
           <form class="form-grid" onsubmit="submitClientEdit(event, ${client.id})">
             <label>Nombre<input name="name" value="${client.name || ''}" required /></label>
+            <label>Cedula / identificacion opcional<input name="identification" value="${client.identification || ''}" autocomplete="off" placeholder="Cedula personal o juridica" /></label>
             <label>Telefono opcional<input name="phone" value="${client.phone || ''}" inputmode="tel" autocomplete="tel" /></label>
             <label>Correo<input name="email" value="${client.email || ''}" type="email" /></label>
             <label class="full">Direccion<input name="address" value="${client.address || ''}" required /></label>
@@ -2596,6 +2606,7 @@
       function reportFormMarkup() {
         const draftStatus = reportDraftValue('status', 'Pendiente');
         const draftWarranty = reportDraftValue('warranty', 'Pendiente');
+        const draftWorkshopDelivery = reportDraftValue('workshopDelivery') === 'true';
         const adminFields = state.user.role === 'admin' ? `
           <label>Tecnico asignado
             <select name="technicianId" onchange="updateReportInventoryFields()" required>
@@ -2628,17 +2639,20 @@
                 <label>Boleta<input name="ticket" value="${reportDraftValue('ticket', `B-${Math.floor(1100 + Math.random() * 900)}`)}" required /></label>
                 <label>Estado<select name="status" onchange="toggleWorkshopFields(); updateWarrantyReportFields();">${statuses().map((s) => `<option ${s === draftStatus ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
                 ${adminFields}
-                <label>Garantia<select name="warranty">${['Pendiente', 'Activa', 'Sin garantia'].map((value) => `<option ${value === draftWarranty ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
-                <div id="warrantySourceFields" class="full"></div>
-                <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" oninput="updateWarrantyEnd()" /></label>
-                <label>Unidad garantia<select name="warrantyUnit" onchange="updateWarrantyEnd()"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
-                <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
+                <div id="reportWarrantyFields" class="full form-grid">
+                  <label>Garantia<select name="warranty">${['Pendiente', 'Activa', 'Sin garantia'].map((value) => `<option ${value === draftWarranty ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+                  <div id="warrantySourceFields" class="full"></div>
+                  <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" oninput="updateWarrantyEnd()" /></label>
+                  <label>Unidad garantia<select name="warrantyUnit" onchange="updateWarrantyEnd()"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
+                  <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
+                </div>
                 <label>Tiempo trabajado<input name="time" placeholder="2h 30m" readonly /></label>
                 <label>Hora llegada<input name="arrival" type="time" oninput="updateWorkedTime()" /></label>
                 <label>Hora salida<input name="departure" type="time" oninput="updateWorkedTime()" /></label>
                 <label>Cantidad de motores<select name="motorCount" onchange="updateMotorBrandFields(this.value)"><option value="0">Sin motor</option><option value="1">1 motor</option><option value="2">2 motores</option><option value="3">3 motores</option><option value="4">4 motores</option><option value="5">5 motores</option></select></label>
                 <div id="motorBrandFields" class="full">${motorBrandFieldsMarkup(0)}</div>
                 ${workshopFieldsMarkup()}
+                <div id="workshopDeliveryOption" class="full" style="display:none;"><label><input type="checkbox" name="workshopDelivery" value="true" ${draftWorkshopDelivery ? 'checked' : ''} onchange="toggleWorkshopDeliveryFields()" /> Instalacion de equipo reparado en taller</label><div id="workshopDeliveryFields" class="full"></div></div>
                 <label class="full">Descripcion del trabajo<textarea name="description" required>${reportDraftValue('description')}</textarea></label>
                 <label class="full">Notas<textarea name="notes" placeholder="Observaciones internas del servicio">${reportDraftValue('notes')}</textarea></label>
                 <div id="reportInventoryFields" class="full">${reportInventoryFields(state.user.role === 'admin' ? technicians()[0] : state.user)}</div>
@@ -2685,8 +2699,17 @@
       function updateWarrantyReportFields() {
         const form = document.querySelector('.report-form');
         const target = document.getElementById('warrantySourceFields');
-        if (!form || !target) return;
+        const fields = document.getElementById('reportWarrantyFields');
+        if (!form || !target || !fields) return;
         const isWarranty = form.elements.status?.value === 'Garantia';
+        const isWorkshop = form.elements.status?.value === 'En taller';
+        fields.style.display = isWorkshop ? 'none' : '';
+        Array.from(fields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
+        if (isWorkshop) {
+          target.innerHTML = '';
+          persistReportDraftFromDom(form);
+          return;
+        }
         target.innerHTML = isWarranty ? warrantySourceFieldsMarkup(form.elements.client?.value || '', form.elements.warrantySourceTicket?.value || '') : '';
         const duration = form.elements.warrantyDuration;
         const unit = form.elements.warrantyUnit;
@@ -2958,6 +2981,7 @@
             <br>
             <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${formatMultiline(job.description, 'Sin descripcion')}</section>
             <br>
+            ${job.workshopDelivery ? `<section class="pdf-box"><strong>Equipo reparado en taller</strong><br>Boleta de retiro asociada: ${escapeText(job.workshopWithdrawalTicket || 'Sin boleta')}<br>Esta instalacion cierra la entrega del equipo reparado.</section><br>` : ''}
             <section class="pdf-box"><strong>Repuestos utilizados</strong><br>${formatMultiline(job.materials, 'Sin repuestos registrados')}</section>
             <br>
             <section class="pdf-box"><strong>Notas</strong><br>${formatMultiline(job.notes, 'Sin notas')}</section>
@@ -3512,6 +3536,7 @@
               <div class="panel-body">
                 <form class="form-grid" onsubmit="createClient(event)">
                   <label>Nombre<input name="name" required /></label>
+                  <label>Cedula / identificacion opcional<input name="identification" autocomplete="off" placeholder="Cedula personal o juridica" /></label>
                   <label>Telefono opcional<input name="phone" inputmode="tel" autocomplete="tel" /></label>
                   <label>Correo<input name="email" type="email" /></label>
                   <label class="full">Direccion<input name="address" required /></label>
@@ -3885,6 +3910,7 @@
         if (query.length < 2) {
           target.innerHTML = '';
           updateWarrantyReportFields();
+          refreshWorkshopDeliveryOption();
           return;
         }
         const clientCandidates = clientSearchCandidates();
@@ -3902,6 +3928,7 @@
           </button>
         `).join('');
         updateWarrantyReportFields();
+        refreshWorkshopDeliveryOption();
       }
 
       function clientSearchCandidates() {
@@ -3949,6 +3976,7 @@
         const suggestions = document.getElementById('clientSuggestions');
         if (suggestions) suggestions.innerHTML = '';
         updateWarrantyReportFields();
+        refreshWorkshopDeliveryOption();
         persistReportDraftFromDom(form);
       }
 
@@ -3995,9 +4023,18 @@
         const assignedTech = state.user.role === 'admin'
           ? technicians().find((tech) => String(tech.id) === String(form.get('technicianId'))) || technicians()[0]
           : state.user;
+        const isWorkshopDelivery = form.get('workshopDelivery') === 'true';
+        const workshopDelivery = isWorkshopDelivery
+          ? workshopDeliveryCandidates(client.name).find((item) => String(item.id) === String(form.get('workshopDeliveryCandidateId')))
+          : null;
+        if (isWorkshopDelivery && !workshopDelivery) {
+          alert('Seleccione un equipo pendiente de taller del mismo cliente.');
+          return;
+        }
         const usedParts = selectedReportParts(form);
         const additionalMaterials = String(form.get('materials') || '').trim();
-        const isWarrantyFollowUp = form.get('status') === 'Garantia';
+        const isWorkshopReport = form.get('status') === 'En taller';
+        const isWarrantyFollowUp = !isWorkshopReport && form.get('status') === 'Garantia';
         const warrantySourceTicket = String(form.get('warrantySourceTicket') || '').trim();
         const sourceWarranty = isWarrantyFollowUp
           ? (state.data.warranties || []).find((warranty) => String(warranty.ticket) === warrantySourceTicket)
@@ -4006,9 +4043,11 @@
           alert('Seleccione una boleta anterior con garantia activa. Esta atencion no puede crear ni extender una garantia nueva.');
           return;
         }
-        const warrantyEnd = sourceWarranty
-          ? sourceWarranty.end
-          : calculateWarrantyEnd(form.get('warrantyDuration'), form.get('warrantyUnit'), form.get('warrantyEnd'));
+        const warrantyEnd = isWorkshopReport
+          ? ''
+          : (sourceWarranty
+            ? sourceWarranty.end
+            : calculateWarrantyEnd(form.get('warrantyDuration'), form.get('warrantyUnit'), form.get('warrantyEnd')));
         const warrantyDaysRemaining = sourceWarranty ? Math.max(0, warrantyDaysLeft(sourceWarranty.end)) : null;
         const materials = [
           ...usedParts.map((part) => `${part.part} x${part.quantity}`),
@@ -4038,10 +4077,16 @@
           motorCount: Number(form.get('motorCount') || motorBrands.length || 0),
           motorBrands,
           workshopEntry: collectWorkshopEntry(event.target),
+          workshopDelivery: isWorkshopDelivery,
+          workshopDeliveryOrderId: workshopDelivery?.orderId || '',
+          workshopWithdrawalJobId: workshopDelivery?.jobKey || '',
+          workshopWithdrawalTicket: workshopDelivery?.ticket || '',
           materials,
-          warranty: sourceWarranty
-            ? `Garantia de ${sourceWarranty.ticket} - ${warrantyDaysRemaining} dias restantes`
-            : warrantyLabel(form.get('warranty'), warrantyEnd),
+          warranty: isWorkshopReport
+            ? 'Sin garantia'
+            : (sourceWarranty
+              ? `Garantia de ${sourceWarranty.ticket} - ${warrantyDaysRemaining} dias restantes`
+              : warrantyLabel(form.get('warranty'), warrantyEnd)),
           warrantyEnd,
           warrantySourceTicket: sourceWarranty?.ticket || '',
           warrantySourceId: sourceWarranty?.id || null,
@@ -4059,6 +4104,7 @@
         consumeSelectedParts(usedParts, newJob);
         consumeMaterials(additionalMaterials, newJob.vehicle, newJob);
         createWarrantyFromReport(newJob, warrantyEnd);
+        finalizeWorkshopDelivery(newJob);
         notifyAssignment(newJob);
         state.data.syncQueue.push({ id, type: 'report', createdAt: new Date().toISOString() });
         logAudit('Crear reporte', 'Reporte', null, newJob);
@@ -4165,6 +4211,12 @@
         const status = document.querySelector('select[name="status"]')?.value;
         const target = document.getElementById('workshopFields');
         if (target) target.style.display = status === 'En taller' ? '' : 'none';
+        const warrantyFields = document.getElementById('editWarrantyFields');
+        if (warrantyFields) {
+          const isWorkshop = status === 'En taller';
+          warrantyFields.style.display = isWorkshop ? 'none' : '';
+          Array.from(warrantyFields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
+        }
         persistReportDraftFromDom();
       }
 
@@ -4188,6 +4240,96 @@
           createdBy: state.user?.name || '',
           createdAt: new Date().toISOString()
         };
+      }
+
+      function workshopDeliveryCandidates(clientName = '') {
+        const normalizedClient = normalizeClientSearch(clientName);
+        if (!normalizedClient) return [];
+        const orders = (state.data.workshopOrders || [])
+          .filter((order) => order?.id && order?.ticket)
+          .filter((order) => !normalizeSearchText(order.status).includes('entreg'))
+          .filter((order) => normalizeClientSearch(order.client) === normalizedClient)
+          .map((order) => ({
+            id: `order:${order.id}`,
+            orderId: order.id,
+            jobKey: order.jobKey || '',
+            ticket: order.ticket,
+            client: order.client,
+            phone: order.phone || '',
+            address: order.address || '',
+            equipment: order.equipment || 'Equipo',
+            updatedAt: order.updatedAt || order.createdAt || ''
+          }));
+        const linkedJobIds = new Set(orders.map((order) => String(order.jobKey)));
+        const directJobs = (state.data.jobs || [])
+          .filter((job) => job?.id && !job.workshopInstallationTicket)
+          .filter((job) => hasWorkshopEntry(job) || job.status === 'En taller')
+          .filter((job) => normalizeClientSearch(job.client) === normalizedClient)
+          .filter((job) => !linkedJobIds.has(String(job.id)))
+          .map((job) => ({
+            id: `job:${job.id}`,
+            orderId: '',
+            jobKey: job.id,
+            ticket: job.ticket,
+            client: job.client,
+            phone: job.phone || '',
+            address: job.address || '',
+            equipment: job.workshopEntry?.equipment || 'Equipo',
+            updatedAt: job.updatedAt || job.date || ''
+          }));
+        return [...orders, ...directJobs]
+          .sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)));
+      }
+
+      function workshopDeliveryFieldsMarkup(clientName, selectedId = '') {
+        const orders = workshopDeliveryCandidates(clientName);
+        if (!orders.length) return '<div class="list-item">No hay equipos de este cliente pendientes de taller.</div>';
+        return `<label>Boleta de retiro / orden de taller<select name="workshopDeliveryCandidateId" onchange="applyWorkshopDeliveryOrder(this.value)" required><option value="">Seleccione el equipo reparado</option>${orders.map((order) => `<option value="${formValue(order.id)}" ${String(order.id) === String(selectedId) ? 'selected' : ''}>${escapeText(order.ticket)} - ${escapeText(order.equipment || 'Equipo')}</option>`).join('')}</select></label><div class="list-item"><strong>Enlace de taller:</strong> al finalizar esta boleta de instalacion se marcara el retiro original como entregado y la garantia iniciara hoy.</div>`;
+      }
+
+      function refreshWorkshopDeliveryOption() {
+        const form = document.querySelector('.report-form');
+        const option = document.getElementById('workshopDeliveryOption');
+        const target = document.getElementById('workshopDeliveryFields');
+        if (!form || !option || !target) return;
+        const orders = workshopDeliveryCandidates(form.elements.client?.value || '');
+        option.style.display = orders.length ? '' : 'none';
+        if (!orders.length) {
+          form.elements.workshopDelivery.checked = false;
+          target.innerHTML = '';
+        }
+      }
+
+      function toggleWorkshopDeliveryFields() {
+        const form = document.querySelector('.report-form');
+        const target = document.getElementById('workshopDeliveryFields');
+        if (!form || !target) return;
+        const enabled = form.elements.workshopDelivery?.checked;
+        target.innerHTML = enabled ? workshopDeliveryFieldsMarkup(form.elements.client?.value || '', form.elements.workshopDeliveryCandidateId?.value || '') : '';
+        persistReportDraftFromDom(form);
+      }
+
+      function applyWorkshopDeliveryOrder(candidateId) {
+        const form = document.querySelector('.report-form');
+        const delivery = workshopDeliveryCandidates(form?.elements.client?.value || '').find((item) => String(item.id) === String(candidateId));
+        if (!form || !delivery) return;
+        const sourceJob = (state.data.jobs || []).find((job) => String(job.id) === String(delivery.jobKey) || String(job.ticket) === String(delivery.ticket));
+        form.elements.client.value = delivery.client || sourceJob?.client || '';
+        form.elements.phone.value = delivery.phone || sourceJob?.phone || '';
+        form.elements.address.value = delivery.address || sourceJob?.address || '';
+        form.elements.status.value = 'Finalizado';
+        form.elements.warranty.value = 'Activa';
+        form.elements.warrantyDuration.value = '30';
+        form.elements.warrantyUnit.value = 'days';
+        form.elements.warrantyEnd.value = calculateWarrantyEnd('30', 'days', today(0));
+        const prefix = `Instalacion de equipo reparado en taller. Boleta de retiro: ${delivery.ticket}.`;
+        if (!String(form.elements.description.value || '').includes(delivery.ticket)) {
+          form.elements.description.value = [prefix, form.elements.description.value].filter(Boolean).join('\n');
+        }
+        toggleWorkshopFields();
+        updateWarrantyReportFields();
+        showClientSuggestions(form.elements.client.value);
+        persistReportDraftFromDom(form);
       }
 
       function hasWorkshopEntry(job) {
@@ -4421,9 +4563,42 @@
           start: job.date,
           end: endDate,
           status: warrantyStatus(endDate),
-          approval: 'Aprobada'
+          approval: 'Aprobada',
+          origin: job.workshopDelivery ? 'Equipo reparado en taller' : 'Reporte finalizado',
+          workshopOrderId: job.workshopDeliveryOrderId || '',
+          withdrawalTicket: job.workshopWithdrawalTicket || ''
         });
         logAudit('Crear garantia', 'Garantia', null, state.data.warranties[0]);
+      }
+
+      function finalizeWorkshopDelivery(job) {
+        if (!job?.workshopDelivery || !finalStatuses().includes(job.status)) return;
+        const now = new Date().toISOString();
+        const order = (state.data.workshopOrders || []).find((item) => String(item.id) === String(job.workshopDeliveryOrderId));
+        const withdrawal = (state.data.jobs || []).find((item) => (
+          String(item.id) === String(job.workshopWithdrawalJobId)
+          || String(item.ticket) === String(job.workshopWithdrawalTicket)
+        ));
+        let changed = false;
+        if (order && !normalizeSearchText(order.status).includes('entreg')) {
+          order.status = 'Entregado';
+          order.deliveryDate = today(0);
+          order.deliveryTicket = job.ticket;
+          order.updatedAt = now;
+          order.updatedBy = state.user?.name || '';
+          order.history ||= [];
+          order.history.push({ at: now, user: state.user?.name || '', action: 'Equipo instalado y entregado', detail: `Boleta de instalacion: ${job.ticket}` });
+          changed = true;
+        }
+        if (withdrawal && String(withdrawal.workshopInstallationTicket || '') !== String(job.ticket)) {
+          withdrawal.workshopInstallationTicket = job.ticket;
+          withdrawal.workshopInstallationJobId = job.id;
+          withdrawal.workshopDeliveredAt = now;
+          withdrawal.workshopStatus = 'Entregado';
+          withdrawal.updatedAt = now;
+          changed = true;
+        }
+        if (changed) logAudit('Entregar equipo de taller', 'Taller', null, { retiro: job.workshopWithdrawalTicket, instalacion: job.ticket });
       }
 
       function findOrCreateClient(input) {
@@ -4614,6 +4789,7 @@
         const form = new FormData(event.target);
         const client = findOrCreateClient({
           name: form.get('name'),
+          identification: form.get('identification'),
           phone: form.get('phone'),
           email: form.get('email'),
           address: form.get('address')
@@ -4637,12 +4813,14 @@
         const form = new FormData(event.target);
         const oldName = client.name;
         client.name = form.get('name');
+        client.identification = String(form.get('identification') || '').trim();
         client.phone = form.get('phone');
         client.email = form.get('email');
         client.address = form.get('address');
         state.data.jobs.forEach((job) => {
           if (job.clientId === id) {
             job.client = client.name;
+            job.identification = client.identification;
             job.phone = client.phone;
             job.email = client.email;
             job.address = client.address;
@@ -5302,6 +5480,7 @@
         job.ticket = nextTicket;
         job.date = form.get('date');
         job.client = form.get('client');
+        job.identification = String(form.get('identification') || '').trim();
         job.phone = form.get('phone');
         job.address = form.get('address');
         job.status = nextStatus;
@@ -5319,12 +5498,25 @@
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
         await uploadPendingPhotosForJob(job);
         queuePendingChange('report_update', id);
-        job.warranty = form.get('warranty') || job.warranty;
-        job.warrantyEnd = form.get('warrantyEnd') || job.warrantyEnd || '';
+        if (nextStatus === 'En taller') {
+          job.warranty = 'Sin garantia';
+          job.warrantyEnd = '';
+          job.warrantySourceTicket = '';
+          job.warrantySourceId = null;
+          job.warrantyDaysRemaining = null;
+        } else {
+          job.warranty = form.get('warranty') || job.warranty;
+          job.warrantyEnd = form.get('warrantyEnd') || job.warrantyEnd || '';
+        }
         if (tech) {
           job.technicianId = tech.id;
           job.technician = tech.name;
           job.vehicle = reportVehicleForUser(tech);
+        }
+        if (state.user.role === 'admin') {
+          const client = (state.data.clients || []).find((item) => String(item.id) === String(job.clientId))
+            || (state.data.clients || []).find((item) => normalizeClientSearch(item.name) === normalizeClientSearch(job.client));
+          if (client && job.identification) client.identification = job.identification;
         }
         consumeSelectedParts(usedParts, job);
         if (finalStatuses().includes(job.status)) {
@@ -5343,13 +5535,15 @@
             ticket: job.ticket,
             date: today(0)
           });
+          createWarrantyFromReport(job, job.warrantyEnd);
+          finalizeWorkshopDelivery(job);
         } else if (state.user.role === 'admin' && isJobLocked(before)) {
           job.signed = false;
           job.closedAt = '';
           job.pdfStatus = 'Pendiente';
         }
         job.updatedAt = new Date().toISOString();
-        logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
+        logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'identification', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
         if (newPhotos.before.length || newPhotos.after.length) logAudit('Agregar fotos', 'Reporte', { before: before.photos }, { after: job.photos });
         logAudit('Editar reporte', 'Reporte', before, job);
         state.modal = null;
