@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.7';
+      const APP_VERSION = 'v64.8';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -5678,8 +5678,6 @@
         job.photos ||= { before: [], after: [] };
         job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
-        await uploadPendingPhotosForJob(job);
-        queuePendingChange('report_update', id);
         if (nextStatus === 'En taller') {
           job.warranty = 'Sin garantia';
           job.warrantyEnd = '';
@@ -5739,9 +5737,20 @@
         if (newPhotos.before.length || newPhotos.after.length) logAudit('Agregar fotos', 'Reporte', { before: before.photos }, { after: job.photos });
         logAudit('Editar reporte', 'Reporte', before, job);
         state.modal = null;
+        queuePendingChange('report_update', id);
         save();
         render();
         resumeCloudRefresh();
+        // La edicion queda guardada primero; las fotos se suben sin bloquear el formulario.
+        if (newPhotos.before.length || newPhotos.after.length) {
+          uploadPendingPhotosForJob(job)
+            .then(() => {
+              queuePendingChange('report_update', id);
+              save({ immediate: true });
+              render();
+            })
+            .catch((error) => console.error('No se pudieron subir todas las fotos del reporte.', error));
+        }
       }
 
       function openWarrantyJob(id) {

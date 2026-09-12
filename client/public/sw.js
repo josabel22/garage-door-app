@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v64-7-pdf-boletas-asociadas';
+const CACHE_NAME = 'mg-portones-v64-8-guardado-rapido-fotos';
 const ASSETS = [
   './',
   './index.html',
