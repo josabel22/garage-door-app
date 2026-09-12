@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.8';
+      const APP_VERSION = 'v64.9';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -5643,6 +5643,10 @@
         if (!canEditJob(job)) return alert('Reporte bloqueado. Solo administracion puede modificarlo.');
         const before = { ...job };
         const form = new FormData(event.target);
+        const previousTicket = String(job.ticket || '');
+        const selectedRelatedTickets = state.user.role === 'admin'
+          ? form.getAll('relatedReportTicket').map((ticket) => String(ticket || '').trim()).filter(Boolean)
+          : null;
         const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
         const nextTicket = form.get('ticket');
         const nextStatus = form.get('status');
