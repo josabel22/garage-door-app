@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v64-5-asociar-garantia-edicion';
+const CACHE_NAME = 'mg-portones-v64-7-pdf-boletas-asociadas';
 const ASSETS = [
   './',
   './index.html',

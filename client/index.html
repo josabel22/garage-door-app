@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.5';
+      const APP_VERSION = 'v64.7';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2231,6 +2231,7 @@
             <label>Fecha<input name="date" type="date" value="${formValue(job.date || today(0))}" required /></label>
             <label>Cliente<input name="client" value="${formValue(job.client)}" required /></label>
             <label>Cedula / identificacion opcional<input name="identification" value="${formValue(job.identification)}" autocomplete="off" placeholder="Cedula personal o juridica" /></label>
+            <div class="list-item full"><strong>Boletas relacionadas</strong><br><small>Marque visitas del mismo cliente que pertenecen al mismo trabajo. Solo administracion puede cambiar estas asociaciones.</small><div style="margin-top:8px; display:grid; gap:6px;">${relatedReportsMarkup(job)}</div></div>
             <label>Telefono opcional<input name="phone" value="${formValue(job.phone)}" inputmode="tel" autocomplete="tel" /></label>
             <label>Direccion<input name="address" value="${formValue(job.address)}" required /></label>
             <label>Estado<select name="status" onchange="toggleWorkshopFields(); updateEditWarrantyFields()">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
@@ -2337,6 +2338,7 @@
         return `
           <div class="toolbar" style="margin-bottom:12px;">
             <button class="btn" onclick="printJob(${jsArg(job.id)})">Descargar PDF</button>
+            ${state.user.role === 'admin' && associatedReportGroup(job).length > 1 ? `<button class="btn secondary" onclick="printAssociatedJobs(${jsArg(job.id)})">Descargar PDF asociado</button>` : ''}
             <button class="btn secondary" onclick="shareJob('${job.ticket}')">Compartir WhatsApp</button>
           </div>
           ${reportPrintTemplate(job)}
@@ -2879,6 +2881,72 @@
         `;
       }
 
+      function relatedReportsForJob(job) {
+        const clientId = String(job?.clientId || '');
+        const clientName = normalizeClientSearch(job?.client);
+        return (state.data.jobs || [])
+          .filter((item) => String(item.id) !== String(job?.id))
+          .filter((item) => (
+            (clientId && String(item.clientId || '') === clientId)
+            || (!clientId && clientName && normalizeClientSearch(item.client) === clientName)
+          ))
+          .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+      }
+
+      function relatedReportsMarkup(job) {
+        const relatedTickets = new Set((job?.relatedTickets || []).map((ticket) => String(ticket)));
+        const reports = relatedReportsForJob(job);
+        if (!reports.length) return '<small>No hay otras boletas de este cliente para asociar.</small>';
+        return reports.map((report) => `<label><input type="checkbox" name="relatedReportTicket" value="${formValue(report.ticket)}" ${relatedTickets.has(String(report.ticket)) ? 'checked' : ''} /> <strong>${escapeText(report.ticket)}</strong> - ${escapeText(report.date || '')} - ${escapeText(report.status || '')}</label>`).join('');
+      }
+
+      function relatedReportsText(job) {
+        const tickets = (job?.relatedTickets || []).map((ticket) => String(ticket)).filter(Boolean);
+        return tickets.length ? tickets.join(', ') : '';
+      }
+
+      function associatedReportGroup(job) {
+        if (!job) return [];
+        const allJobs = state.data.jobs || [];
+        const group = new Map([[String(job.id), job]]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          allJobs.forEach((candidate) => {
+            if (group.has(String(candidate.id))) return;
+            const candidateTicket = String(candidate.ticket || '');
+            const candidateLinks = (candidate.relatedTickets || []).map((ticket) => String(ticket));
+            const connected = [...group.values()].some((current) => {
+              const currentLinks = (current.relatedTickets || []).map((ticket) => String(ticket));
+              return currentLinks.includes(candidateTicket) || candidateLinks.includes(String(current.ticket || ''));
+            });
+            if (connected) {
+              group.set(String(candidate.id), candidate);
+              changed = true;
+            }
+          });
+        }
+        return [...group.values()].sort((left, right) => String(left.date || '').localeCompare(String(right.date || '')) || String(left.ticket || '').localeCompare(String(right.ticket || '')));
+      }
+
+      function updateRelatedReports(job, previousTicket, selectedTickets) {
+        const currentTicket = String(job.ticket || '');
+        const selected = [...new Set(selectedTickets.map((ticket) => String(ticket).trim()).filter((ticket) => ticket && ticket !== currentTicket))];
+        const selectedSet = new Set(selected);
+        state.data.jobs.forEach((otherJob) => {
+          if (String(otherJob.id) === String(job.id)) return;
+          const current = Array.isArray(otherJob.relatedTickets) ? otherJob.relatedTickets.map((ticket) => String(ticket)) : [];
+          const wasLinked = current.includes(String(previousTicket || '')) || current.includes(currentTicket);
+          const shouldLink = selectedSet.has(String(otherJob.ticket));
+          if (!wasLinked && !shouldLink) return;
+          const next = current.filter((ticket) => ticket !== String(previousTicket || '') && ticket !== currentTicket);
+          if (shouldLink) next.push(currentTicket);
+          otherJob.relatedTickets = [...new Set(next)];
+          otherJob.updatedAt = new Date().toISOString();
+        });
+        job.relatedTickets = selected;
+      }
+
       function jobPhotosMarkup(job, options = {}) {
         const { allowDelete = false, limit = 4 } = options;
         const beforePhotos = Array.isArray(job.photos?.before) ? job.photos.before : [];
@@ -2983,6 +3051,70 @@
         setTimeout(() => printWindow.print(), 900);
       }
 
+      function printAssociatedJobs(id) {
+        if (state.user?.role !== 'admin') return alert('Solo administracion puede descargar el PDF asociado.');
+        const job = state.data.jobs.find((item) => String(item.id) === String(id));
+        if (!job) return alert('Reporte no encontrado.');
+        const reports = associatedReportGroup(job);
+        if (reports.length < 2) return alert('Este reporte no tiene otras boletas relacionadas.');
+        const fileName = `PDF-asociado-${pdfFileName(job)}`;
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert('Permita ventanas emergentes para generar el PDF.');
+        printWindow.document.write(`
+          <!doctype html>
+          <html lang="es">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>${fileName}</title>
+              <style>
+                body { margin: 0; padding: 24px; color: #172033; font-family: Arial, sans-serif; background: #fff; }
+                .pdf-preview { max-width: 920px; margin: 0 auto; }
+                h1, h2, h3 { color: #0f2a44; margin: 0 0 8px; }
+                .pdf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+                .pdf-box { border: 1px solid #d9e2ec; border-radius: 8px; padding: 10px; background: #fbfdff; }
+                .pdf-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+                .pdf-photo-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border: 1px solid #d9e2ec; border-radius: 8px; }
+                .pdf-photo-item:empty { display: none; }
+                .signature-line { border-top: 1px solid #172033; padding-top: 8px; min-height: 48px; }
+                .related-cover { max-width: 920px; margin: 0 auto; min-height: 85vh; display: flex; flex-direction: column; justify-content: center; }
+                .related-report { break-before: page; page-break-before: always; }
+                @media print { body { padding: 0; } .pdf-preview, .related-cover { max-width: none; } .related-report { break-before: page; page-break-before: always; } }
+                @media (max-width: 700px) { .pdf-grid, .pdf-photo-grid { grid-template-columns: 1fr; } body { padding: 12px; } }
+              </style>
+            </head>
+            <body>
+              ${associatedReportsCoverTemplate(job, reports)}
+              ${reports.map((report) => `<section class="related-report">${reportPrintTemplate(report)}</section>`).join('')}
+              <script>
+                function removeBrokenPhotos() {
+                  document.querySelectorAll('.pdf-photo-grid img').forEach((image) => {
+                    if (image.complete && image.naturalWidth === 0) image.parentElement.remove();
+                  });
+                }
+                window.addEventListener('load', removeBrokenPhotos);
+                setTimeout(removeBrokenPhotos, 700);
+              <\/script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 1200);
+      }
+
+      function associatedReportsCoverTemplate(rootJob, reports) {
+        return `
+          <section class="related-cover">
+            <img src="./mg-logo.jpg" alt="MG Portones" style="width:180px; max-height:90px; object-fit:contain; margin-bottom:22px;" />
+            <h1>Historial de trabajo asociado</h1>
+            <p><strong>Cliente:</strong> ${escapeText(rootJob.client || 'Sin cliente')}<br><strong>Direccion:</strong> ${escapeText(rootJob.address || 'Sin direccion')}<br><strong>Boleta consultada:</strong> ${escapeText(rootJob.ticket || '')}</p>
+            <section class="pdf-box"><strong>Boletas incluidas (${reports.length})</strong><br>${reports.map((report, index) => `${index + 1}. ${escapeText(report.ticket || '')} - ${escapeText(report.date || '')} - ${escapeText(report.status || '')}`).join('<br>')}</section>
+            <p><small>Las siguientes paginas contienen cada reporte completo, en orden cronologico. Cada boleta conserva sus propias fotos, materiales, firmas y garantia.</small></p>
+          </section>
+        `;
+      }
+
       function pdfFileName(job) {
         const client = String(job.client || 'Cliente').replace(/[^\w-]+/g, '-').replace(/-+/g, '-');
         const ticket = String(job.ticket || 'Boleta').replace(/[^\w-]+/g, '-');
@@ -3017,6 +3149,7 @@
             <br>
             <section class="pdf-box"><strong>Descripcion del trabajo</strong><br>${formatMultiline(job.description, 'Sin descripcion')}</section>
             <br>
+            ${relatedReportsText(job) ? `<section class="pdf-box"><strong>Boletas relacionadas</strong><br>${escapeText(relatedReportsText(job))}</section><br>` : ''}
             ${job.workshopDelivery ? `<section class="pdf-box"><strong>Equipo reparado en taller</strong><br>Boleta de retiro asociada: ${escapeText(job.workshopWithdrawalTicket || 'Sin boleta')}<br>Esta instalacion cierra la entrega del equipo reparado.</section><br>` : ''}
             <section class="pdf-box"><strong>Repuestos utilizados</strong><br>${formatMultiline(job.materials, 'Sin repuestos registrados')}</section>
             <br>
@@ -5459,6 +5592,10 @@
         if (!job) return;
         const before = { ...job };
         const form = new FormData(event.target);
+        const previousTicket = String(job.ticket || '');
+        const selectedRelatedTickets = state.user.role === 'admin'
+          ? form.getAll('relatedReportTicket').map((ticket) => String(ticket || '').trim()).filter(Boolean)
+          : null;
         const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId'))) || technicians()[0];
         job.technicianId = tech.id;
         job.technician = tech.name;
@@ -5529,6 +5666,7 @@
         job.address = form.get('address');
         job.status = nextStatus;
         job.priority = form.get('priority');
+        if (selectedRelatedTickets) updateRelatedReports(job, previousTicket, selectedRelatedTickets);
         const usedParts = selectedReportParts(form);
         const additionalMaterials = String(form.get('materials') || '').trim();
         const usedPartsText = usedParts.map((part) => `${part.part} x${part.quantity}`).join(', ');
@@ -5597,7 +5735,7 @@
           job.pdfStatus = 'Pendiente';
         }
         job.updatedAt = new Date().toISOString();
-        logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'identification', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
+        logFieldChanges('Reporte', before, job, ['ticket', 'date', 'client', 'identification', 'phone', 'address', 'status', 'priority', 'description', 'materials', 'notes', 'warranty', 'warrantyEnd', 'relatedTickets', 'technician', 'vehicle', 'signed', 'closedAt', 'pdfStatus']);
         if (newPhotos.before.length || newPhotos.after.length) logAudit('Agregar fotos', 'Reporte', { before: before.photos }, { after: job.photos });
         logAudit('Editar reporte', 'Reporte', before, job);
         state.modal = null;
