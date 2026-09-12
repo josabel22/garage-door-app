@@ -969,7 +969,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v64.4';
+      const APP_VERSION = 'v64.5';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
@@ -2233,13 +2233,14 @@
             <label>Cedula / identificacion opcional<input name="identification" value="${formValue(job.identification)}" autocomplete="off" placeholder="Cedula personal o juridica" /></label>
             <label>Telefono opcional<input name="phone" value="${formValue(job.phone)}" inputmode="tel" autocomplete="tel" /></label>
             <label>Direccion<input name="address" value="${formValue(job.address)}" required /></label>
-            <label>Estado<select name="status" onchange="toggleWorkshopFields()">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
+            <label>Estado<select name="status" onchange="toggleWorkshopFields(); updateEditWarrantyFields()">${statuses().map((status) => `<option ${status === job.status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
             ${workshopFieldsMarkup(job.workshopEntry, job.status === 'En taller')}
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
             <label>Tecnico<select name="technicianId" onchange="updateReportInventoryFields()">${technicians().map((tech) => `<option value="${formValue(tech.id)}" ${String(tech.id) === String(jobTech.id) ? 'selected' : ''}>${escapeText(tech.name)}  -  ${escapeText(reportVehicleForUser(tech) || 'Sin movil')}</option>`).join('')}</select></label>
             <div id="editWarrantyFields" class="full form-grid" style="${job.status === 'En taller' ? 'display:none;' : ''}">
               <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
               <label>Vence garantia<input name="warrantyEnd" type="date" value="${formValue(job.warrantyEnd)}" /></label>
+              <div id="editWarrantySourceFields" class="full">${job.status === 'Garantia' ? editWarrantySourceFieldsMarkup(job) : ''}</div>
             </div>
             <label class="full">Descripcion<textarea name="description" required>${escapeText(job.description || '')}</textarea></label>
             <div id="reportInventoryFields" class="full">${reportInventoryFields(jobTech)}</div>
@@ -2694,6 +2695,41 @@
           </select>
         </label>
         <div class="list-item"><strong>Importante:</strong> esta atencion conserva el vencimiento de la boleta anterior; no genera un mes nuevo de garantia.</div>`;
+      }
+
+      function editWarrantySourceFieldsMarkup(job) {
+        const warranties = eligibleWarrantySources(job?.client)
+          .filter((warranty) => String(warranty.ticket) !== String(job?.ticket));
+        if (!warranties.length) {
+          return '<div class="list-item"><strong>Garantia asociada</strong><br>Este cliente no tiene una boleta con garantia vigente para asociar.</div>';
+        }
+        const selectedTicket = job?.warrantySourceTicket || '';
+        return `<label>Boleta anterior con garantia<select name="editWarrantySourceTicket" onchange="applyEditWarrantySource(this.value)" required><option value="">Seleccione la boleta original</option>${warranties.map((warranty) => `<option value="${formValue(warranty.ticket)}" ${String(warranty.ticket) === String(selectedTicket) ? 'selected' : ''}>${escapeText(warranty.ticket)} - vence ${escapeText(warranty.end)} (${warrantyDaysText(warranty.end)})</option>`).join('')}</select></label><div class="list-item"><strong>Importante:</strong> esta atencion conserva el vencimiento de la boleta anterior; no genera una garantia nueva.</div>`;
+      }
+
+      function updateEditWarrantyFields() {
+        const form = document.querySelector('form[onsubmit*="submitJobEdit"]');
+        const target = document.getElementById('editWarrantySourceFields');
+        if (!form || !target) return;
+        const isWarranty = form.elements.status?.value === 'Garantia';
+        if (!isWarranty) {
+          target.innerHTML = '';
+          return;
+        }
+        const currentJob = (state.data.jobs || []).find((job) => String(job.ticket) === String(form.elements.ticket?.value));
+        target.innerHTML = editWarrantySourceFieldsMarkup({
+          ticket: form.elements.ticket?.value || '',
+          client: form.elements.client?.value || '',
+          warrantySourceTicket: currentJob?.warrantySourceTicket || ''
+        });
+      }
+
+      function applyEditWarrantySource(ticket) {
+        const form = document.querySelector('form[onsubmit*="submitJobEdit"]');
+        const warranty = (state.data.warranties || []).find((item) => String(item.ticket) === String(ticket));
+        if (!form || !warranty) return;
+        form.elements.warranty.value = 'Activa';
+        form.elements.warrantyEnd.value = warranty.end || '';
       }
 
       function updateWarrantyReportFields() {
@@ -5473,8 +5509,16 @@
         const tech = technicians().find((item) => String(item.id) === String(form.get('technicianId')));
         const nextTicket = form.get('ticket');
         const nextStatus = form.get('status');
+        const editWarrantySourceTicket = String(form.get('editWarrantySourceTicket') || '').trim();
+        const sourceWarranty = nextStatus === 'Garantia'
+          ? (state.data.warranties || []).find((warranty) => String(warranty.ticket) === editWarrantySourceTicket)
+          : null;
         if (state.user.role === 'technician' && !technicianStatuses().includes(nextStatus)) {
           alert('Estado no permitido para tecnico.');
+          return;
+        }
+        if (nextStatus === 'Garantia' && (!sourceWarranty || warrantyStatus(sourceWarranty.end) === 'Vencida' || String(sourceWarranty.ticket) === String(nextTicket))) {
+          alert('Seleccione una boleta anterior con garantia vigente para asociar este reporte.');
           return;
         }
         job.ticket = nextTicket;
@@ -5504,9 +5548,19 @@
           job.warrantySourceTicket = '';
           job.warrantySourceId = null;
           job.warrantyDaysRemaining = null;
+        } else if (nextStatus === 'Garantia') {
+          const daysRemaining = Math.max(0, warrantyDaysLeft(sourceWarranty.end));
+          job.warranty = `Garantia de ${sourceWarranty.ticket} - ${daysRemaining} dias restantes`;
+          job.warrantyEnd = sourceWarranty.end;
+          job.warrantySourceTicket = sourceWarranty.ticket;
+          job.warrantySourceId = sourceWarranty.id;
+          job.warrantyDaysRemaining = daysRemaining;
         } else {
           job.warranty = form.get('warranty') || job.warranty;
           job.warrantyEnd = form.get('warrantyEnd') || job.warrantyEnd || '';
+          job.warrantySourceTicket = '';
+          job.warrantySourceId = null;
+          job.warrantyDaysRemaining = null;
         }
         if (tech) {
           job.technicianId = tech.id;

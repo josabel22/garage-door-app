@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v64-4-cedula-editar-reporte';
+const CACHE_NAME = 'mg-portones-v64-5-asociar-garantia-edicion';
 const ASSETS = [
   './',
   './index.html',
