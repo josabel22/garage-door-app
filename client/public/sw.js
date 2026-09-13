@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v65-1-diagramas-admin';
+const CACHE_NAME = 'mg-portones-v65-2-solo-diagrama';
 const ASSETS = [
   './',
   './index.html',
