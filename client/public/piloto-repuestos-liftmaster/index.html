@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MG Portones | Piloto de repuestos LiftMaster</title>
+    <style>
+      :root { --navy:#123654; --blue:#23608f; --line:#d4e0eb; --bg:#eef3f7; --ok:#19745f; --warn:#9b5800; }
+      * { box-sizing: border-box; }
+      body { margin:0; color:#172b3d; background:var(--bg); font-family:Arial, sans-serif; }
+      .shell { width:min(1180px, 100%); margin:auto; padding:22px; }
+      header { padding:22px; color:#fff; background:var(--navy); border-radius:10px; }
+      h1 { margin:0; font-size:28px; } header p { margin:7px 0 0; color:#d8e8f4; }
+      .notice { margin:16px 0; padding:12px 15px; border-left:4px solid #e3a21c; background:#fff7df; color:#5a4414; }
+      .layout { display:grid; grid-template-columns:minmax(0, 1.2fr) minmax(320px, .8fr); gap:18px; align-items:start; }
+      .panel { overflow:hidden; border:1px solid var(--line); border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(17,54,84,.08); }
+      .panel h2 { margin:0; padding:17px 19px; color:var(--navy); border-bottom:1px solid var(--line); font-size:20px; }
+      .diagram-wrap { padding:18px; background:linear-gradient(145deg,#f9fcff,#eef4f8); }
+      svg { display:block; width:100%; height:auto; border:1px solid #c5d5e2; border-radius:8px; background:#fff; }
+      .part { cursor:pointer; outline:none; } .part .shape { stroke:#244e6e; stroke-width:3; transition:.16s ease; }
+      .part:hover .shape, .part:focus .shape, .part.active .shape { stroke:#e27413; stroke-width:7; filter:drop-shadow(0 2px 3px #a7b9c7); }
+      .marker { fill:#e27413; stroke:#fff; stroke-width:3; } .marker-label { fill:#fff; font-size:16px; font-weight:800; text-anchor:middle; dominant-baseline:middle; pointer-events:none; }
+      .legend { margin:12px 0 0; color:#506b82; font-size:13px; line-height:1.45; }
+      .details { padding:18px; min-height:360px; }
+      .eyebrow { margin:0 0 7px; color:#55708a; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+      .details h3 { margin:0; color:var(--navy); font-size:24px; }
+      .code { display:inline-block; margin:10px 0 14px; padding:5px 9px; border-radius:999px; color:#254b69; background:#e7f0f7; font-weight:800; }
+      .details p { line-height:1.45; }
+      .stock { display:grid; gap:8px; margin:16px 0; }
+      .stock-row { display:flex; justify-content:space-between; gap:12px; padding:11px; border:1px solid var(--line); border-radius:7px; background:#fbfdff; }
+      .stock-row strong.ok { color:var(--ok); } .stock-row strong.none { color:var(--warn); }
+      button, a.btn { border:0; border-radius:7px; padding:11px 14px; background:var(--blue); color:#fff; font:inherit; font-weight:800; text-decoration:none; cursor:pointer; }
+      .secondary { color:#173c58; background:#e5edf4; }
+      .actions { display:flex; gap:9px; flex-wrap:wrap; margin-top:16px; }
+      .list { display:grid; gap:0; }
+      .list button { width:100%; display:flex; justify-content:space-between; align-items:center; border-radius:0; padding:13px 17px; color:#1c344a; background:#fff; border-bottom:1px solid var(--line); text-align:left; }
+      .list button:hover, .list button.active { background:#eff6fb; color:var(--navy); }
+      .list small { color:#587086; font-weight:400; }
+      .empty { padding:28px 0; color:#587086; text-align:center; }
+      footer { margin:17px 0 0; color:#5b7184; font-size:12px; line-height:1.45; }
+      @media(max-width:780px) { .shell { padding:12px; } .layout { grid-template-columns:1fr; } h1 { font-size:23px; } .details { min-height:0; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <h1>Piloto: repuestos interactivos LiftMaster</h1>
+        <p>Motor de cadena 1240 / 1245 / 1246 / 1250 · Referencia interna para técnicos</p>
+      </header>
+      <div class="notice"><strong>Cómo usarlo:</strong> toque una pieza numerada en el diagrama. El piloto muestra su nombre en español, número de fábrica y disponibilidad encontrada en Inventario General.</div>
+      <section class="layout">
+        <article class="panel">
+          <h2>Unidad de motor — diagrama de referencia</h2>
+          <div class="diagram-wrap">
+            <svg viewBox="0 0 1136 733" role="img" aria-label="Diagrama explotado de unidad de motor LiftMaster con repuestos tocables">
+              <image href="./liftmaster-1240-1250-unidad-motor.png" width="1136" height="733" />
+              <g class="part" tabindex="0" data-part="motor"><circle class="marker" cx="610" cy="445" r="22"/><text class="marker-label" x="610" y="445">12</text></g>
+              <g class="part" tabindex="0" data-part="gear"><circle class="marker" cx="530" cy="205" r="22"/><text class="marker-label" x="530" y="205">02A</text></g>
+              <g class="part" tabindex="0" data-part="board"><circle class="marker" cx="298" cy="386" r="22"/><text class="marker-label" x="298" y="386">21</text></g>
+              <g class="part" tabindex="0" data-part="capacitor"><circle class="marker" cx="683" cy="352" r="22"/><text class="marker-label" x="683" y="352">09</text></g>
+              <g class="part" tabindex="0" data-part="sprocket"><circle class="marker" cx="386" cy="103" r="22"/><text class="marker-label" x="386" y="103">01</text></g>
+              <g class="part" tabindex="0" data-part="limit"><circle class="marker" cx="512" cy="521" r="22"/><text class="marker-label" x="512" y="521">15</text></g>
+              <g class="part" tabindex="0" data-part="sensor"><circle class="marker" cx="447" cy="478" r="22"/><text class="marker-label" x="447" y="478">16</text></g>
+            </svg>
+            <p class="legend">Diagrama de referencia para uso interno. Los puntos naranjas abren la ficha en español; confirme siempre modelo, potencia y número de parte antes de reparar.</p>
+          </div>
+        </article>
+        <aside class="panel">
+          <h2>Detalle de repuesto</h2>
+          <div class="details" id="details"></div>
+          <div class="list" id="partsList"></div>
+        </aside>
+      </section>
+      <footer>Diagrama de referencia suministrado para este piloto interno. Datos de compatibilidad a validar por MG Portones antes de usar una pieza.</footer>
+    </main>
+    <script>
+      const parts = {
+        motor: { ref:'12', name:'Motor con soporte para motor de cadena', factory:'041D3058', inventoryKeys:['041d3058','motor liftmaster cadena'], strictInventory:true, aliases:[], description:'Motor y soporte de reemplazo de 1/2 HP para esta familia de motores de cadena. Confirme la potencia indicada en la etiqueta antes de usarlo.', fallback:0 },
+        gear: { ref:'02A', name:'Campanola para motor LiftMaster', factory:'041C4220A', inventoryKeys:['cpml','campanola para motor liftmaste','campanola para motor liftmaster'], aliases:['campanola','engranaje','sprocket','gear'], description:'Campanola o conjunto de engranaje y sprocket. Es una pieza de desgaste frecuente cuando el motor funciona pero la puerta no se mueve.', fallback:0 },
+        board: { ref:'21', name:'Tarjeta lógica para motor de cadena', factory:'41A5021', inventoryKeys:['41a5021','tarjeta logica liftmaster cadena'], strictInventory:true, aliases:[], description:'Tarjeta de control específica de esta familia LiftMaster de cadena. No debe sustituirse por tarjetas de motores de cremallera o pistones; confirme el número exacto porque varias versiones están descontinuadas.', fallback:0 },
+        capacitor: { ref:'09', name:'Capacitor para motor de cadena', factory:'K030B0532-1', inventoryKeys:['k030b0532-1','capacitor liftmaster cadena'], strictInventory:true, aliases:[], description:'Capacitor específico para esta familia de motor de cadena. Verifique la capacidad y la especificación del equipo antes de sustituirlo.', fallback:0 },
+        sprocket: { ref:'01', name:'Guía distribuidora de cadena', factory:'041A4208-2', inventoryKeys:['041a4208-2','guia distribuidora de cadena liftmaster'], strictInventory:true, aliases:[], description:'Guía de cadena con tornillos para este operador de cadena. No asociar con rieles, cadenas o motores de otras familias.', fallback:0 },
+        limit: { ref:'15', name:'Conjunto de interruptor de límite para cadena', factory:'041D3452', inventoryKeys:['041d3452','interruptor limite liftmaster cadena'], strictInventory:true, aliases:[], description:'Conjunto de límite específico de esta familia LiftMaster de cadena. Debe confirmarse modelo y año antes de sustituirlo.', fallback:0 },
+        sensor: { ref:'16', name:'Sensor RPM para motor de cadena', factory:'041C4398A', inventoryKeys:['041c4398a','sensor rpm liftmaster cadena'], strictInventory:true, aliases:[], description:'Sensor de velocidad específico de esta familia de cadena. No mezclar con sensores de cremalleras, pistones u otros operadores.', fallback:0 }
+      };
+      const inventory = (() => { try { return JSON.parse(localStorage.getItem('mg_general_inventory_demo_v1') || '{}').products || []; } catch (_) { return []; } })();
+      const details = document.getElementById('details');
+      const list = document.getElementById('partsList');
+      function matchInventory(part) {
+        const haystack = (item) => [item.code, item.name, item.category, item.notes].join(' ').toLowerCase();
+        const exactTerms = (part.inventoryKeys || [part.factory, part.name]).map((value) => String(value).toLowerCase());
+        const exactMatches = inventory.filter((item) => exactTerms.some((term) => haystack(item).includes(term)));
+        if (exactMatches.length) return exactMatches;
+        if (part.strictInventory) return [];
+        const terms = [part.factory, part.name, ...part.aliases].map((value) => String(value).toLowerCase());
+        return inventory.filter((item) => terms.some((term) => haystack(item).includes(term)));
+      }
+      function selectPart(key) {
+        const part = parts[key];
+        const matches = matchInventory(part);
+        document.querySelectorAll('.part, .list button').forEach((element) => element.classList.toggle('active', element.dataset.part === key));
+        const stock = matches.length ? matches.map((item) => `<div class="stock-row"><span>${item.name}<br><small>${item.code || 'Sin código'}</small></span><strong class="${Number(item.qty) > 0 ? 'ok' : 'none'}">${Number(item.qty || 0)} un.</strong></div>`).join('') : '<div class="stock-row"><span>Inventario General</span><strong class="none">Sin asociar</strong></div>';
+        details.innerHTML = `<p class="eyebrow">Referencia ${part.ref}</p><h3>${part.name}</h3><span class="code">Código de fábrica: ${part.factory}</span><p>${part.description}</p><div class="stock"><strong>Disponibilidad detectada</strong>${stock}</div><div class="actions"><a class="btn" href="../inventario-general/index.html">Abrir Inventario General</a><button class="secondary" type="button" onclick="alert('En la siguiente fase, este botón agregará la pieza directamente al reporte activo.')">Agregar al reporte</button></div>`;
+      }
+      list.innerHTML = Object.entries(parts).map(([key, part]) => `<button type="button" data-part="${key}"><span><strong>${part.ref} · ${part.name}</strong><br><small>${part.factory}</small></span><span>›</span></button>`).join('');
+      document.querySelectorAll('[data-part]').forEach((element) => { element.addEventListener('click', () => selectPart(element.dataset.part)); element.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPart(element.dataset.part); } }); });
+      selectPart('gear');
+    </script>
+  </body>
+</html>

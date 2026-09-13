@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MG Portones | Ajustar puntos Beninca</title>
+    <style>
+      :root{--navy:#123654;--blue:#23608f;--line:#d4e0eb;--bg:#eef3f7;--orange:#e27413;--red:#a93030}*{box-sizing:border-box}body{margin:0;color:#172b3d;background:var(--bg);font-family:Arial,sans-serif}.shell{width:min(1160px,100%);margin:auto;padding:20px}header{padding:20px;color:#fff;background:var(--navy);border-radius:10px}h1{margin:0;font-size:27px}header p{margin:7px 0 0;color:#d8e8f4}.panel{margin-top:16px;padding:17px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 8px 24px rgba(17,54,84,.08)}.tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.tools label{font-weight:700}.tools select{min-height:42px;padding:8px;border:1px solid #aebfcd;border-radius:7px;font:inherit}button{border:0;border-radius:7px;padding:11px 14px;background:var(--blue);color:#fff;font:inherit;font-weight:800;cursor:pointer}button.danger{background:var(--red)}.help{margin:14px 0 0;padding:11px 13px;border-left:4px solid #e3a21c;background:#fff7df;line-height:1.45}.canvas-wrap{margin-top:16px;overflow:auto;border:1px solid #c5d5e2;border-radius:8px;background:#fff}.stage{display:block;width:100%;min-width:680px;height:auto;touch-action:none}.marker{fill:var(--orange);stroke:#fff;stroke-width:3}.marker-text{fill:#fff;font-size:13px;font-weight:800;text-anchor:middle;dominant-baseline:middle;pointer-events:none}.status{margin:14px 0 0;color:#466075;font-weight:700}.footer{margin-top:14px;color:#5b7184;font-size:12px}@media(max-width:700px){.shell{padding:12px}h1{font-size:23px}.tools button{flex:1 1 150px}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header><h1>Mover números — Beninca BOB50M</h1><p>Editor interno para corregir las posiciones del despiece BOB50M / BOB50ME.</p></header>
+      <section class="panel">
+        <div class="tools"><label for="partNumber">Número que desea mover</label><select id="partNumber"></select><button id="reset" type="button" class="danger">Restablecer posiciones</button><button id="apply" type="button">Aplicar al piloto</button></div>
+        <p class="help"><strong>Uso:</strong> elija el número y toque su ubicación correcta en la imagen. Puede cambiar tantos puntos como necesite. Al terminar, presione <strong>Aplicar al piloto</strong>.</p>
+        <div class="canvas-wrap"><svg class="stage" id="stage" viewBox="0 0 883 606" role="img" aria-label="Despiece Beninca BOB50M para ajustar números"><image href="./beninca-bob50m-despiece.png" width="883" height="606"/><g id="markers"></g></svg></div>
+        <p class="status" id="status" aria-live="polite"></p><p class="footer">Los ajustes se guardan solamente en este navegador y no modifican inventario ni reportes.</p>
+      </section>
+    </main>
+    <script>
+      const storageKey='mg_beninca_bob50m_marker_layout_v1';
+      const keys=['cover','releaseLever','releaseAssembly','bottle','motor','upperCover','gear','wormScrew','pinLock','lowerCover','limitStop','cables','wormSupport','encoder'];
+      const labels=['Cubierta de plástico','Palanca de liberación','Grupo de desbloqueo','Botella','Motor','Tapa superior','Engranaje','Tornillo sin fin','Bloqueo con pasador','Tapa inferior','Tope límite (solo BOB 5M)','Cables','Soporte de tornillo sin fin','Codificador (solo BOB 5ME)'];
+      const defaults=[[157,69],[439,45],[475,85],[117,333],[258,303],[590,36],[280,390],[556,217],[382,408],[532,486],[740,451],[740,475],[679,369],[226,337]];
+      const stage=document.getElementById('stage');const markers=document.getElementById('markers');const select=document.getElementById('partNumber');const status=document.getElementById('status');const state=(()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');return{markers:{...saved.markers}}}catch(_){return{markers:{}}}})();
+      labels.forEach((label,index)=>{const option=document.createElement('option');option.value=index;option.textContent=`${index+1} · ${label}`;select.append(option)});
+      function point(event){const rect=stage.getBoundingClientRect();return{x:Math.max(0,Math.min(883,(event.clientX-rect.left)*883/rect.width)),y:Math.max(0,Math.min(606,(event.clientY-rect.top)*606/rect.height))}}
+      function persist(){localStorage.setItem(storageKey,JSON.stringify(state))}function current(index){return state.markers[keys[index]]||{x:defaults[index][0],y:defaults[index][1]}}
+      function render(){markers.innerHTML='';keys.forEach((key,index)=>{const pos=current(index);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','marker');circle.setAttribute('cx',pos.x);circle.setAttribute('cy',pos.y);circle.setAttribute('r','20');const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('class','marker-text');text.setAttribute('x',pos.x);text.setAttribute('y',pos.y);text.textContent=String(index+1);markers.append(circle,text)})}
+      stage.addEventListener('pointerdown',(event)=>{const index=Number(select.value);state.markers[keys[index]]=point(event);persist();render();status.textContent=`Número ${index+1} colocado. Elija otro número o presione Aplicar al piloto.`});
+      document.getElementById('reset').addEventListener('click',()=>{state.markers={};persist();render();status.textContent='Los números volvieron a las posiciones iniciales.'});document.getElementById('apply').addEventListener('click',()=>{persist();location.href='./index.html?ajustado=1'});render();status.textContent='Elija un número y toque la pieza correcta.';
+    </script>
+  </body>
+</html>

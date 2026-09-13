@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MG Portones | Ajustar puntos CAME AXO</title>
+    <style>
+      :root { --navy:#123654; --blue:#23608f; --line:#d4e0eb; --bg:#eef3f7; --orange:#e27413; --red:#a93030; }
+      * { box-sizing:border-box; } body { margin:0; color:#172b3d; background:var(--bg); font-family:Arial,sans-serif; }.shell { width:min(1160px,100%); margin:auto; padding:20px; } header { padding:20px; color:#fff; background:var(--navy); border-radius:10px; } h1 { margin:0; font-size:27px; } header p { margin:7px 0 0; color:#d8e8f4; }
+      .panel { margin-top:16px; padding:17px; border:1px solid var(--line); border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(17,54,84,.08); }.tools { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }.tools label { font-weight:700; }.tools select,.tools input { min-height:42px; padding:8px; border:1px solid #aebfcd; border-radius:7px; font:inherit; } button { border:0; border-radius:7px; padding:11px 14px; background:var(--blue); color:#fff; font:inherit; font-weight:800; cursor:pointer; } button.active { outline:3px solid #e3a21c; } button.danger { background:var(--red); }.help { margin:14px 0 0; padding:11px 13px; border-left:4px solid #e3a21c; background:#fff7df; line-height:1.45; }
+      .canvas-wrap { margin-top:16px; overflow:auto; border:1px solid #c5d5e2; border-radius:8px; background:#fff; }.stage { display:block; width:100%; min-width:680px; height:auto; touch-action:none; }.marker { fill:var(--orange); stroke:#fff; stroke-width:3; }.marker-text { fill:#fff; font-size:13px; font-weight:800; text-anchor:middle; dominant-baseline:middle; pointer-events:none; }.stroke { fill:none; stroke:#c22f23; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }.status { margin:14px 0 0; color:#466075; font-weight:700; }.footer { margin-top:14px; color:#5b7184; font-size:12px; }
+      @media(max-width:700px) { .shell { padding:12px; } h1 { font-size:23px; }.tools { align-items:stretch; }.tools button { flex:1 1 135px; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header><h1>Colocar números — CAME AXO 3024</h1><p>Editor interno para corregir los puntos del despiece original.</p></header>
+      <section class="panel">
+        <div class="tools">
+          <button id="markerTool" class="active" type="button">Colocar número</button>
+          <button id="pencilTool" type="button">Lápiz</button>
+          <button id="undoTool" type="button">Deshacer</button>
+          <label for="partNumber">Número</label><select id="partNumber"></select>
+          <label for="width">Grosor</label><input id="width" type="range" min="2" max="12" value="4" />
+          <button id="clearLines" type="button" class="danger">Borrar trazos</button>
+          <button id="clearMarkers" type="button" class="danger">Restablecer números</button>
+          <button id="apply" type="button">Aplicar al piloto</button>
+        </div>
+        <p class="help"><strong>Uso:</strong> elija <em>Colocar número</em>, seleccione el número y toque la pieza correcta. Con <em>Lápiz</em> puede dibujar flechas o notas rojas. Cada cambio se guarda en este navegador; al presionar <strong>Aplicar al piloto</strong>, el piloto usará las posiciones que usted colocó.</p>
+        <div class="canvas-wrap">
+          <svg class="stage" id="stage" viewBox="0 0 900 560" role="img" aria-label="Despiece original del CAME AXO 3024 para editar los números">
+            <image href="https://i0.wp.com/www.cameproducts.co.uk/wp-content/uploads/2023/03/119RID098.png?fit=416%2C392&amp;ssl=1" x="150" y="5" width="600" height="550" preserveAspectRatio="xMidYMid meet" />
+            <g id="strokes"></g><g id="markers"></g>
+          </svg>
+        </div>
+        <p class="status" id="status" aria-live="polite"></p>
+        <p class="footer">El lápiz y los números se guardan localmente en este dispositivo. No se modifica el inventario ni ningún reporte.</p>
+      </section>
+    </main>
+    <script>
+      const storageKey='mg_came_axo_marker_layout_v1';
+      const partKeys=['tailJoint','lockCylinder','mechanicalStops','brakeDisc','releaseKey','encoderBoard','nutBushing','reductionUnit','motorBrake','shell143','shell144','coupling','accessoryBox','electrobrake'];
+      const labels=['Articulación trasera','Cilindro de desbloqueo','Topes mecánicos','Disco de freno','Llave trilobular','Tarjeta con encoder','Tuerca, buje y soporte','Unidad reductora','Motor y freno','Carcasa versión A','Carcasa versión B','Acople de transmisión','Caja de accesorios','Electrofreno'];
+      const defaults=[[334,430],[278,508],[605,407],[470,184],[438,308],[525,346],[414,174],[504,222],[360,222],[485,326],[530,385],[513,132],[585,442],[386,450]];
+      const stage=document.getElementById('stage'); const markersLayer=document.getElementById('markers'); const strokesLayer=document.getElementById('strokes'); const select=document.getElementById('partNumber'); const status=document.getElementById('status'); let mode='marker'; let drawing=null;
+      const state=(()=>{ try { const saved=JSON.parse(localStorage.getItem(storageKey)||'{}'); return { markers:{...saved.markers}, strokes:Array.isArray(saved.strokes)?saved.strokes:[] }; } catch (_) { return {markers:{},strokes:[]}; } })();
+      labels.forEach((label,index)=>{ const option=document.createElement('option'); option.value=index; option.textContent=`${index+1} · ${label}`; select.append(option); });
+      function pointForEvent(event) { const rect=stage.getBoundingClientRect(); return { x:Math.max(0,Math.min(900,(event.clientX-rect.left)*900/rect.width)), y:Math.max(0,Math.min(560,(event.clientY-rect.top)*560/rect.height)) }; }
+      function persist() { localStorage.setItem(storageKey,JSON.stringify(state)); }
+      function markerPoint(index) { const key=partKeys[index]; return state.markers[key] || {x:defaults[index][0],y:defaults[index][1]}; }
+      function render() { markersLayer.innerHTML=''; strokesLayer.innerHTML=''; partKeys.forEach((key,index)=>{ const point=markerPoint(index); const group=document.createElementNS('http://www.w3.org/2000/svg','g'); const circle=document.createElementNS('http://www.w3.org/2000/svg','circle'); circle.setAttribute('class','marker'); circle.setAttribute('cx',point.x); circle.setAttribute('cy',point.y); circle.setAttribute('r','20'); const text=document.createElementNS('http://www.w3.org/2000/svg','text'); text.setAttribute('class','marker-text'); text.setAttribute('x',point.x); text.setAttribute('y',point.y); text.textContent=String(index+1); group.append(circle,text); markersLayer.append(group); }); state.strokes.forEach((stroke)=>{ const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('class','stroke'); path.setAttribute('stroke-width',stroke.width); path.setAttribute('d',stroke.points.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ')); strokesLayer.append(path); }); }
+      function setMode(next) { mode=next; document.getElementById('markerTool').classList.toggle('active',mode==='marker'); document.getElementById('pencilTool').classList.toggle('active',mode==='pencil'); status.textContent=mode==='marker'?'Toque la pieza correcta para colocar el número seleccionado.':'Dibuje una flecha o nota roja sobre la imagen.'; }
+      stage.addEventListener('pointerdown',(event)=>{ stage.setPointerCapture(event.pointerId); const point=pointForEvent(event); if(mode==='marker') { const index=Number(select.value); state.markers[partKeys[index]]=point; persist(); render(); status.textContent=`Número ${index+1} colocado. Puede elegir otro número.`; return; } drawing={width:Number(document.getElementById('width').value),points:[point]}; });
+      stage.addEventListener('pointermove',(event)=>{ if(!drawing) return; drawing.points.push(pointForEvent(event)); render(); const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('class','stroke'); path.setAttribute('stroke-width',drawing.width); path.setAttribute('d',drawing.points.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ')); strokesLayer.append(path); });
+      stage.addEventListener('pointerup',()=>{ if(!drawing) return; if(drawing.points.length>1) { state.strokes.push(drawing); persist(); } drawing=null; render(); status.textContent='Trazo guardado.'; });
+      document.getElementById('markerTool').addEventListener('click',()=>setMode('marker')); document.getElementById('pencilTool').addEventListener('click',()=>setMode('pencil'));
+      document.getElementById('undoTool').addEventListener('click',()=>{ if(state.strokes.length) { state.strokes.pop(); persist(); render(); status.textContent='Último trazo eliminado.'; } else status.textContent='No hay trazos para deshacer.'; });
+      document.getElementById('clearLines').addEventListener('click',()=>{ state.strokes=[]; persist(); render(); status.textContent='Se borraron solo los trazos rojos.'; });
+      document.getElementById('clearMarkers').addEventListener('click',()=>{ state.markers={}; persist(); render(); status.textContent='Los números volvieron a su posición inicial.'; });
+      document.getElementById('apply').addEventListener('click',()=>{ persist(); location.href='./index.html?ajustado=1'; }); render(); setMode('marker');
+    </script>
+  </body>
+</html>

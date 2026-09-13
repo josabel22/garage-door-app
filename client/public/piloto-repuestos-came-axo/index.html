@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MG Portones | Piloto CAME AXO 3024</title>
+    <style>
+      :root { --navy:#123654; --blue:#23608f; --line:#d4e0eb; --bg:#eef3f7; --ok:#19745f; --warn:#9b5800; --orange:#e27413; }
+      * { box-sizing:border-box; } body { margin:0; color:#172b3d; background:var(--bg); font-family:Arial,sans-serif; }
+      .shell { width:min(1180px,100%); margin:auto; padding:22px; } header { padding:22px; color:#fff; background:var(--navy); border-radius:10px; }
+      h1 { margin:0; font-size:28px; } header p { margin:7px 0 0; color:#d8e8f4; }.notice { margin:16px 0; padding:12px 15px; border-left:4px solid #e3a21c; background:#fff7df; color:#5a4414; }
+      .layout { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr); gap:18px; align-items:start; }.panel { overflow:hidden; border:1px solid var(--line); border-radius:10px; background:#fff; box-shadow:0 8px 24px rgba(17,54,84,.08); }
+      .panel h2 { margin:0; padding:17px 19px; color:var(--navy); border-bottom:1px solid var(--line); font-size:20px; }.diagram-wrap { padding:18px; background:linear-gradient(145deg,#f9fcff,#eef4f8); }
+      svg { display:block; width:100%; height:auto; border:1px solid #c5d5e2; border-radius:8px; background:#fff; }.legacy-diagram { display:none; }.part { cursor:pointer; outline:none; }.part .shape { stroke:#244e6e; stroke-width:3; transition:.16s ease; }
+      .part:hover .shape,.part:focus .shape,.part.active .shape { stroke:var(--orange); stroke-width:7; filter:drop-shadow(0 2px 3px #a7b9c7); }.marker { fill:var(--orange); stroke:#fff; stroke-width:3; }.marker-label { fill:#fff; font-size:13px; font-weight:800; text-anchor:middle; dominant-baseline:middle; pointer-events:none; }
+      .legend { margin:12px 0 0; color:#506b82; font-size:13px; line-height:1.45; }.details { padding:18px; min-height:380px; }.eyebrow { margin:0 0 7px; color:#55708a; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }.details h3 { margin:0; color:var(--navy); font-size:24px; }
+      .code { display:inline-block; margin:10px 0 14px; padding:5px 9px; border-radius:999px; color:#254b69; background:#e7f0f7; font-weight:800; }.details p { line-height:1.45; }.stock { display:grid; gap:8px; margin:16px 0; }.stock-row { display:flex; justify-content:space-between; gap:12px; padding:11px; border:1px solid var(--line); border-radius:7px; background:#fbfdff; }.stock-row strong.ok { color:var(--ok); }.stock-row strong.none { color:var(--warn); }
+      button,a.btn { border:0; border-radius:7px; padding:11px 14px; background:var(--blue); color:#fff; font:inherit; font-weight:800; text-decoration:none; cursor:pointer; }.secondary { color:#173c58; background:#e5edf4; }.actions { display:flex; gap:9px; flex-wrap:wrap; margin-top:16px; }.list { display:grid; gap:0; }.list button { width:100%; display:flex; justify-content:space-between; align-items:center; border-radius:0; padding:13px 17px; color:#1c344a; background:#fff; border-bottom:1px solid var(--line); text-align:left; }.list button:hover,.list button.active { background:#eff6fb; color:var(--navy); }.list small { color:#587086; font-weight:400; } footer { margin:17px 0 0; color:#5b7184; font-size:12px; line-height:1.45; }
+      @media(max-width:780px) { .shell { padding:12px; }.layout { grid-template-columns:1fr; }h1 { font-size:23px; }.details { min-height:0; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header><h1>Piloto: repuestos interactivos CAME AXO 3024</h1><p>Actuador de brazo para portón batiente · Referencia interna para técnicos</p></header>
+      <div class="notice"><strong>Cómo usarlo:</strong> revise el despiece original y toque un número naranja o un repuesto de la lista. Solo se mostrarán existencias del Inventario General cuando coincidan exactamente con el código CAME de este AXO 3024.</div>
+      <section class="layout">
+        <article class="panel">
+          <h2>Actuador AXO 3024 — despiece original de referencia</h2>
+          <div class="diagram-wrap">
+            <svg viewBox="0 0 900 560" role="img" aria-label="Despiece original del actuador CAME AXO 3024">
+              <defs><linearGradient id="metal" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#f6fafc"/><stop offset=".5" stop-color="#c9d7e0"/><stop offset="1" stop-color="#9bafbd"/></linearGradient></defs>
+              <image href="https://i0.wp.com/www.cameproducts.co.uk/wp-content/uploads/2023/03/119RID098.png?fit=416%2C392&amp;ssl=1" x="150" y="5" width="600" height="550" preserveAspectRatio="xMidYMid meet" />
+              <g class="image-markers">
+                <g class="part" tabindex="0" data-part="tailJoint"><circle class="marker" cx="334" cy="430" r="20"/><text class="marker-label" x="334" y="430">1</text></g>
+                <g class="part" tabindex="0" data-part="lockCylinder"><circle class="marker" cx="278" cy="508" r="20"/><text class="marker-label" x="278" y="508">2</text></g>
+                <g class="part" tabindex="0" data-part="mechanicalStops"><circle class="marker" cx="605" cy="407" r="20"/><text class="marker-label" x="605" y="407">3</text></g>
+                <g class="part" tabindex="0" data-part="brakeDisc"><circle class="marker" cx="470" cy="184" r="20"/><text class="marker-label" x="470" y="184">4</text></g>
+                <g class="part" tabindex="0" data-part="releaseKey"><circle class="marker" cx="438" cy="308" r="20"/><text class="marker-label" x="438" y="308">5</text></g>
+                <g class="part" tabindex="0" data-part="encoderBoard"><circle class="marker" cx="525" cy="346" r="20"/><text class="marker-label" x="525" y="346">6</text></g>
+                <g class="part" tabindex="0" data-part="nutBushing"><circle class="marker" cx="414" cy="174" r="20"/><text class="marker-label" x="414" y="174">7</text></g>
+                <g class="part" tabindex="0" data-part="reductionUnit"><circle class="marker" cx="504" cy="222" r="20"/><text class="marker-label" x="504" y="222">8</text></g>
+                <g class="part" tabindex="0" data-part="motorBrake"><circle class="marker" cx="360" cy="222" r="20"/><text class="marker-label" x="360" y="222">9</text></g>
+                <g class="part" tabindex="0" data-part="shell143"><circle class="marker" cx="485" cy="326" r="20"/><text class="marker-label" x="485" y="326">10</text></g>
+                <g class="part" tabindex="0" data-part="shell144"><circle class="marker" cx="530" cy="385" r="20"/><text class="marker-label" x="530" y="385">11</text></g>
+                <g class="part" tabindex="0" data-part="coupling"><circle class="marker" cx="513" cy="132" r="20"/><text class="marker-label" x="513" y="132">12</text></g>
+                <g class="part" tabindex="0" data-part="accessoryBox"><circle class="marker" cx="585" cy="442" r="20"/><text class="marker-label" x="585" y="442">13</text></g>
+                <g class="part" tabindex="0" data-part="electrobrake"><circle class="marker" cx="386" cy="450" r="20"/><text class="marker-label" x="386" y="450">14</text></g>
+              </g>
+              <g class="legacy-diagram" aria-hidden="true">
+              <rect x="70" y="224" width="106" height="112" rx="16" fill="url(#metal)" stroke="#244e6e" stroke-width="4"/><circle cx="122" cy="280" r="25" fill="#6d8798" stroke="#244e6e" stroke-width="4"/>
+              <path d="M176 245 L622 182 Q677 177 709 225 L739 290 Q751 330 711 355 L176 315Z" fill="url(#metal)" stroke="#244e6e" stroke-width="4"/>
+              <path d="M710 224 L827 192 L849 332 L715 358Z" fill="#dce7ee" stroke="#244e6e" stroke-width="4"/><circle cx="794" cy="275" r="40" fill="#5c7486" stroke="#244e6e" stroke-width="5"/><circle cx="794" cy="275" r="13" fill="#e6f0f5"/>
+              <path d="M221 251 L616 199" stroke="#6c8494" stroke-width="5" stroke-dasharray="12 8"/><path d="M223 308 L700 343" stroke="#7a909f" stroke-width="4"/>
+              <rect x="310" y="234" width="170" height="70" rx="10" fill="#244e6e" opacity=".9"/><rect x="337" y="248" width="57" height="42" rx="4" fill="#68a8cf"/><path d="M405 259h56m-56 13h56m-56 13h56" stroke="#d8e8f4" stroke-width="5"/>
+              <circle cx="570" cy="267" r="49" fill="#8fa5b3" stroke="#244e6e" stroke-width="4"/><path d="M538 267h64M570 235v64" stroke="#dce7ee" stroke-width="9"/>
+              <path d="M95 390 H805" stroke="#b7c7d1" stroke-width="3"/><text x="450" y="447" text-anchor="middle" fill="#506b82" font-size="19" font-weight="700">CUERPO DEL ACTUADOR · NO ES UN DIAGRAMA DE FÁBRICA</text><text x="450" y="477" text-anchor="middle" fill="#506b82" font-size="15">Use los códigos CAME para confirmar compatibilidad antes de reparar.</text>
+              <g class="part" tabindex="0" data-part="tailJoint"><rect class="shape" x="75" y="215" width="100" height="45" rx="12" fill="transparent"/><circle class="marker" cx="92" cy="204" r="20"/><text class="marker-label" x="92" y="204">1</text></g>
+              <g class="part" tabindex="0" data-part="lockCylinder"><circle class="shape" cx="122" cy="280" r="28" fill="transparent"/><circle class="marker" cx="70" cy="284" r="20"/><text class="marker-label" x="70" y="284">2</text></g>
+              <g class="part" tabindex="0" data-part="mechanicalStops"><rect class="shape" x="180" y="302" width="46" height="22" fill="transparent"/><circle class="marker" cx="203" cy="352" r="20"/><text class="marker-label" x="203" y="352">3</text></g>
+              <g class="part" tabindex="0" data-part="brakeDisc"><circle class="shape" cx="794" cy="275" r="39" fill="transparent"/><circle class="marker" cx="850" cy="258" r="20"/><text class="marker-label" x="850" y="258">4</text></g>
+              <g class="part" tabindex="0" data-part="releaseKey"><rect class="shape" x="112" y="265" width="20" height="32" fill="transparent"/><circle class="marker" cx="121" cy="339" r="20"/><text class="marker-label" x="121" y="339">5</text></g>
+              <g class="part" tabindex="0" data-part="encoderBoard"><rect class="shape" x="310" y="234" width="170" height="70" rx="10" fill="transparent"/><circle class="marker" cx="392" cy="204" r="20"/><text class="marker-label" x="392" y="204">6</text></g>
+              <g class="part" tabindex="0" data-part="nutBushing"><circle class="shape" cx="248" cy="277" r="24" fill="transparent"/><circle class="marker" cx="248" cy="225" r="20"/><text class="marker-label" x="248" y="225">7</text></g>
+              <g class="part" tabindex="0" data-part="reductionUnit"><circle class="shape" cx="570" cy="267" r="49" fill="transparent"/><circle class="marker" cx="570" cy="191" r="20"/><text class="marker-label" x="570" y="191">8</text></g>
+              <g class="part" tabindex="0" data-part="motorBrake"><rect class="shape" x="625" y="195" width="86" height="140" rx="14" fill="transparent"/><circle class="marker" cx="672" cy="170" r="20"/><text class="marker-label" x="672" y="170">9</text></g>
+              <g class="part" tabindex="0" data-part="shell143"><path class="shape" d="M176 245 L622 182 L646 221 L180 279Z" fill="transparent"/><circle class="marker" cx="460" cy="152" r="20"/><text class="marker-label" x="460" y="152">10</text></g>
+              <g class="part" tabindex="0" data-part="shell144"><path class="shape" d="M176 315 L715 358 L700 333 L180 278Z" fill="transparent"/><circle class="marker" cx="478" cy="382" r="20"/><text class="marker-label" x="478" y="382">11</text></g>
+              <g class="part" tabindex="0" data-part="coupling"><rect class="shape" x="704" y="257" width="35" height="41" fill="transparent"/><circle class="marker" cx="718" cy="225" r="20"/><text class="marker-label" x="718" y="225">12</text></g>
+              <g class="part" tabindex="0" data-part="accessoryBox"><rect class="shape" x="263" y="335" width="90" height="44" rx="7" fill="transparent"/><circle class="marker" cx="307" cy="410" r="20"/><text class="marker-label" x="307" y="410">13</text></g>
+              <g class="part" tabindex="0" data-part="electrobrake"><rect class="shape" x="650" y="300" width="61" height="46" rx="8" fill="transparent"/><circle class="marker" cx="665" cy="386" r="20"/><text class="marker-label" x="665" y="386">14</text></g>
+              </g>
+            </svg>
+            <p class="legend">Despiece original de referencia del catálogo AXO 3024. Los números naranjas y la lista abren la ficha con nombre en español, código CAME y coincidencia exacta en Inventario General.</p>
+          </div>
+        </article>
+        <aside class="panel"><h2>Detalle de repuesto</h2><div class="details" id="details"></div><div class="list" id="partsList"></div></aside>
+      </section>
+      <footer>Fuente de códigos: catálogo de repuestos CAME AXO 3024. La asociación a inventario es deliberadamente estricta para evitar mezclar repuestos de otros motores. <a href="./editar-puntos.html">Ajustar números sobre el despiece</a></footer>
+    </main>
+    <script>
+      const parts = {
+        tailJoint:{ref:'1',name:'Articulación trasera',factory:'119RID098',description:'Unión posterior del actuador AXO 3024 con el soporte del portón.'},
+        lockCylinder:{ref:'2',name:'Cilindro de desbloqueo',factory:'119RID141',description:'Cilindro para liberar manualmente el actuador AXO 3024.'},
+        mechanicalStops:{ref:'3',name:'Topes mecánicos',factory:'119RID270',description:'Juego de topes de apertura y cierre para el brazo AXO 3024.'},
+        brakeDisc:{ref:'4',name:'Disco de freno',factory:'119RID273',description:'Disco de freno específico del conjunto CAME AXO 3024.'},
+        releaseKey:{ref:'5',name:'Llave trilobular de desbloqueo',factory:'119RIY077',description:'Llave para liberar el motor de forma manual.'},
+        encoderBoard:{ref:'6',name:'Tarjeta de control con encoder',factory:'88001-0042',description:'Tarjeta con encoder exclusiva de AXO 3024. No sustituir por tarjetas de otros brazos CAME.'},
+        nutBushing:{ref:'7',name:'Tuerca, buje y soporte',factory:'88001-0126',description:'Conjunto de tuerca, buje y soporte del mecanismo de avance.'},
+        reductionUnit:{ref:'8',name:'Unidad reductora',factory:'88001-0131',description:'Reductora interna que transmite la fuerza al husillo del actuador.'},
+        motorBrake:{ref:'9',name:'Motor y freno',factory:'88001-0141',description:'Conjunto de motor y freno del CAME AXO 3024.'},
+        shell143:{ref:'10',name:'Carcasa superior e inferior, versión A',factory:'88001-0143',description:'Juego de carcasas para la versión correspondiente del AXO 3024.'},
+        shell144:{ref:'11',name:'Carcasa superior e inferior, versión B',factory:'88001-0144',description:'Juego de carcasas alternativo. Validar físicamente la versión antes de pedirlo.'},
+        coupling:{ref:'12',name:'Acople de transmisión',factory:'88001-0152',description:'Acople entre la transmisión y el conjunto motriz.'},
+        accessoryBox:{ref:'13',name:'Caja de accesorios',factory:'88001-0155',description:'Caja con accesorios específicos del actuador AXO 3024.'},
+        electrobrake:{ref:'14',name:'Electrofreno',factory:'88001-0201',description:'Electrofreno propio de este actuador de 24 V.'}
+      };
+      const markerPositions = { tailJoint:[334,430], lockCylinder:[278,508], mechanicalStops:[605,407], brakeDisc:[470,184], releaseKey:[438,308], encoderBoard:[525,346], nutBushing:[414,174], reductionUnit:[504,222], motorBrake:[360,222], shell143:[485,326], shell144:[530,385], coupling:[513,132], accessoryBox:[585,442], electrobrake:[386,450] };
+      const savedMarkerLayout = (() => { try { return JSON.parse(localStorage.getItem('mg_came_axo_marker_layout_v1') || '{}').markers || {}; } catch (_) { return {}; } })();
+      Object.entries(savedMarkerLayout).forEach(([key, point]) => { const group=document.querySelector(`.image-markers [data-part="${key}"]`); const base=markerPositions[key]; if(group && base && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y))) group.setAttribute('transform', `translate(${Number(point.x)-base[0]} ${Number(point.y)-base[1]})`); });
+      const inventory = (() => { try { return JSON.parse(localStorage.getItem('mg_general_inventory_demo_v1') || '{}').products || []; } catch (_) { return []; } })();
+      const details=document.getElementById('details'); const list=document.getElementById('partsList');
+      function matchInventory(part) { const code=part.factory.toLowerCase(); return inventory.filter((item)=>[item.code,item.name,item.category,item.notes].join(' ').toLowerCase().includes(code)); }
+      function selectPart(key) { const part=parts[key]; const matches=matchInventory(part); document.querySelectorAll('.part,.list button').forEach((element)=>element.classList.toggle('active',element.dataset.part===key)); const stock=matches.length?matches.map((item)=>`<div class="stock-row"><span>${item.name}<br><small>${item.code||'Sin código'}</small></span><strong class="${Number(item.qty)>0?'ok':'none'}">${Number(item.qty||0)} un.</strong></div>`).join(''):'<div class="stock-row"><span>Inventario General</span><strong class="none">Sin asociar</strong></div>'; details.innerHTML=`<p class="eyebrow">Punto ${part.ref}</p><h3>${part.name}</h3><span class="code">Código CAME: ${part.factory}</span><p>${part.description}</p><div class="stock"><strong>Disponibilidad detectada</strong>${stock}</div><div class="actions"><a class="btn" href="../inventario-general/index.html">Abrir Inventario General</a><button class="secondary" type="button" onclick="alert('En la siguiente fase, este botón agregará la pieza directamente al reporte activo.')">Agregar al reporte</button></div>`; }
+      list.innerHTML=Object.entries(parts).map(([key,part])=>`<button type="button" data-part="${key}"><span><strong>${part.ref} · ${part.name}</strong><br><small>${part.factory}</small></span><span>›</span></button>`).join(''); document.querySelectorAll('[data-part]').forEach((element)=>{ element.addEventListener('click',()=>selectPart(element.dataset.part)); element.addEventListener('keydown',(event)=>{ if(event.key==='Enter'||event.key===' '){ event.preventDefault(); selectPart(element.dataset.part); } }); }); selectPart('motorBrake');
+    </script>
+  </body>
+</html>
