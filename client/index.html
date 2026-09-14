@@ -965,23 +965,24 @@
         clientes: 'Clientes',
         busqueda: 'Busqueda',
         apoyo: 'Apoyo tecnico',
+        diagramas: 'Diagramas',
         usuarios: 'Usuarios',
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.2';
+      const APP_VERSION = 'v65.5';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
-        { key: 'nice-road', label: 'Nice ROAD', diagramUrl: './piloto-repuestos-nice-road/nice-road-despiece.png', manualModel: 'ROAD', manualNote: 'Manual específico del motor Nice ROAD.' },
-        { key: 'beninca-bull5m', label: 'Beninca BULL 5M', diagramUrl: './piloto-repuestos-beninca-bull5m/beninca-bull5m-despiece.png', manualModel: 'BULL624', manualNote: 'Manual de la familia BULL: confirme la versión en la etiqueta.' },
-        { key: 'came-axo3024', label: 'CAME AXO 3024', diagramUrl: 'https://i0.wp.com/www.cameproducts.co.uk/wp-content/uploads/2023/03/119RID098.png?fit=416%2C392&ssl=1', manualModel: 'ZLJ24', manualNote: 'Manual de central compatible: confirme la central instalada.' },
-        { key: 'liftmaster-1240', label: 'LiftMaster 1240 / 1250', diagramUrl: './piloto-repuestos-liftmaster/liftmaster-1240-1250-unidad-motor.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
-        { key: 'beninca-bob50m', label: 'Beninca BOB 50M / 50ME', diagramUrl: './piloto-repuestos-beninca-bob50m/beninca-bob50m-despiece.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
-        { key: 'beninca-bill30m', label: 'Beninca BILL 30M', diagramUrl: './piloto-repuestos-beninca-bill30m/beninca-bill30m-despiece.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
-        { key: 'genius-gbat300', label: 'Genius G-BAT 300', diagramUrl: './piloto-repuestos-genius-gbat300/genius-gbat300-despiece.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
-        { key: 'genius-milord424', label: 'Genius MILORD 424', diagramUrl: './piloto-repuestos-genius-milord424/genius-milord424-despiece.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
-        { key: 'genius-blizzard400', label: 'Genius Blizzard 400', diagramUrl: './piloto-repuestos-genius-blizzard400/genius-blizzard400-despiece.png', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' }
+        { key: 'nice-road', label: 'Nice ROAD', diagramUrl: './piloto-repuestos-nice-road/index.html?vista=diagrama', manualModel: 'ROAD', manualNote: 'Manual específico del motor Nice ROAD.' },
+        { key: 'beninca-bull5m', label: 'Beninca BULL 5M', diagramUrl: './piloto-repuestos-beninca-bull5m/index.html?vista=diagrama', manualModel: 'BULL624', manualNote: 'Manual de la familia BULL: confirme la versión en la etiqueta.' },
+        { key: 'came-axo3024', label: 'CAME AXO 3024', diagramUrl: './piloto-repuestos-came-axo/index.html?vista=diagrama', manualModel: 'ZLJ24', manualNote: 'Manual de central compatible: confirme la central instalada.' },
+        { key: 'liftmaster-1240', label: 'LiftMaster 1240 / 1250', diagramUrl: './piloto-repuestos-liftmaster/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
+        { key: 'beninca-bob50m', label: 'Beninca BOB 50M / 50ME', diagramUrl: './piloto-repuestos-beninca-bob50m/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
+        { key: 'beninca-bill30m', label: 'Beninca BILL 30M', diagramUrl: './piloto-repuestos-beninca-bill30m/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
+        { key: 'genius-gbat300', label: 'Genius G-BAT 300', diagramUrl: './piloto-repuestos-genius-gbat300/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
+        { key: 'genius-milord424', label: 'Genius MILORD 424', diagramUrl: './piloto-repuestos-genius-milord424/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' },
+        { key: 'genius-blizzard400', label: 'Genius Blizzard 400', diagramUrl: './piloto-repuestos-genius-blizzard400/index.html?vista=diagrama', manualModel: '', manualNote: 'Manual exacto pendiente de cargar en Apoyo técnico.' }
       ];
       const retiredSeedUsernames = ['tecnico1', 'tecnico2', 'cliente1'];
 
@@ -1963,6 +1964,7 @@
           clientes: 'CL',
           busqueda: 'BQ',
           apoyo: 'AP',
+          diagramas: 'DG',
           usuarios: 'US',
           auditoria: 'AU'
         };
@@ -2013,7 +2015,7 @@
                 </div>
               </div>
               <nav class="nav">
-                ${navByRole[state.user.role].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
+                ${[...navByRole[state.user.role], ...(hasReportDiagramPilotAccess() ? ['diagramas'] : [])].map((item) => `<button class="${state.view === item ? 'active' : ''}" onclick="go('${item}')"><span>${icon(item)}</span>${labels[item]}</button>`).join('')}
                 ${hasGeneralInventoryAccess() ? `<button onclick="openGeneralInventoryModule()"><span>IG</span>Inventario general</button>` : ''}
                 ${canAccessWorkshop() ? `<button onclick="openWorkshopModule()"><span>TL</span>Taller</button>` : ''}
               </nav>
@@ -2089,6 +2091,23 @@
         `;
       }
 
+
+      let selectedDiagramModel = REPORT_DIAGRAM_MODELS[0].key;
+      function selectDiagramModel(key) {
+        if (!hasReportDiagramPilotAccess() || !reportDiagramConfig(key)) return;
+        selectedDiagramModel = key;
+        render();
+      }
+      function diagramsView() {
+        if (!hasReportDiagramPilotAccess()) return '';
+        const config = reportDiagramConfig(selectedDiagramModel) || REPORT_DIAGRAM_MODELS[0];
+        return `<section class="card" style="min-width:0;max-width:100%;">
+          <label>Modelo del motor<select style="width:100%;max-width:100%;margin:8px 0 14px;" onchange="selectDiagramModel(this.value)">${REPORT_DIAGRAM_MODELS.map(item => `<option value="${item.key}" ${item.key === config.key ? 'selected' : ''}>${escapeText(item.label)}</option>`).join('')}</select></label>
+          <p>Toque un número para consultar el nombre y código de la pieza.</p>
+          <iframe title="Diagrama interactivo ${escapeText(config.label)}" src="${escapeText(config.diagramUrl)}" style="display:block;width:100%;max-width:100%;height:75vh;min-height:440px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe>
+        </section>`;
+      }
+
       function viewMarkup() {
         const views = {
           dashboard: dashboardView,
@@ -2102,6 +2121,7 @@
           clientes: clientsView,
           busqueda: searchView,
           apoyo: supportView,
+          diagramas: diagramsView,
           usuarios: usersView,
           auditoria: auditView
         };
@@ -2896,7 +2916,7 @@
         ] : [];
         return `
           <div class="list-item"><strong>${escapeText(config.label)}</strong><br>${escapeText(config.manualNote)}</div>
-          <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Ver diagrama</summary><img alt="Diagrama de despiece ${escapeText(config.label)}" src="${escapeText(config.diagramUrl)}" loading="lazy" style="display:block;width:100%;height:auto;margin-top:10px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;" /></details>
+          <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Abrir diagrama interactivo</summary><p><small>Consulta visual. No agrega ni descuenta repuestos automáticamente.</small></p><iframe title="Diagrama ${escapeText(config.label)}" src="${escapeText(config.diagramUrl.split('?')[0])}" loading="lazy" style="width:100%;height:540px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe></details>
           ${manual ? `
             <div class="list-item" style="margin-top:10px;"><strong>Manual asociado:</strong> ${escapeText(manual.brand)} ${escapeText(manual.model)}<br><a href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver manual original</a></div>
             <div class="list" style="margin-top:10px;"><strong>Verificaciones realizadas según manual</strong><br><small>Marque solo lo que se realizó; aparecerá en el PDF.</small>${checks.map((item) => `<label style="margin-top:8px;"><input type="checkbox" name="manualCheck" value="${formValue(item)}" ${selectedChecks.has(item) ? 'checked' : ''} onchange="persistReportDraftFromDom()" /> ${escapeText(item)}</label>`).join('')}</div>
@@ -4082,6 +4102,7 @@
       }
 
       function go(view) {
+        if (view === 'diagramas' && !hasReportDiagramPilotAccess()) return;
         state.view = view;
         render();
       }
