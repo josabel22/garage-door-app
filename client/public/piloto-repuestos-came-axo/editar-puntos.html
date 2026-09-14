@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es">
-  <head>
+  <head><script>try { const user=JSON.parse(localStorage.getItem('mg_user')||'null'); const allowed=window.parent!==window && typeof window.parent.hasReportDiagramPilotAccess==='function' ? window.parent.hasReportDiagramPilotAccess() : String(user?.username||'').trim().toLowerCase()==='admin'; if(!allowed)location.replace('../..'); } catch (_) { location.replace('../..'); }</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MG Portones | Ajustar puntos CAME AXO</title>
@@ -24,9 +24,9 @@
           <label for="width">Grosor</label><input id="width" type="range" min="2" max="12" value="4" />
           <button id="clearLines" type="button" class="danger">Borrar trazos</button>
           <button id="clearMarkers" type="button" class="danger">Restablecer números</button>
-          <button id="apply" type="button">Aplicar al piloto</button>
+          <button id="apply" type="button">Guardar y ver diagrama</button>
         </div>
-        <p class="help"><strong>Uso:</strong> elija <em>Colocar número</em>, seleccione el número y toque la pieza correcta. Con <em>Lápiz</em> puede dibujar flechas o notas rojas. Cada cambio se guarda en este navegador; al presionar <strong>Aplicar al piloto</strong>, el piloto usará las posiciones que usted colocó.</p>
+        <p class="help"><strong>Uso:</strong> elija <em>Colocar número</em>, seleccione el número y toque la pieza correcta. Con <em>Lápiz</em> puede dibujar flechas o notas rojas. Cada cambio se guarda en este navegador; al presionar <strong>Guardar y ver diagrama</strong>, el piloto usará las posiciones que usted colocó.</p>
         <div class="canvas-wrap">
           <svg class="stage" id="stage" viewBox="0 0 900 560" role="img" aria-label="Despiece original del CAME AXO 3024 para editar los números">
             <image href="https://i0.wp.com/www.cameproducts.co.uk/wp-content/uploads/2023/03/119RID098.png?fit=416%2C392&amp;ssl=1" x="150" y="5" width="600" height="550" preserveAspectRatio="xMidYMid meet" />
@@ -57,7 +57,7 @@
       document.getElementById('undoTool').addEventListener('click',()=>{ if(state.strokes.length) { state.strokes.pop(); persist(); render(); status.textContent='Último trazo eliminado.'; } else status.textContent='No hay trazos para deshacer.'; });
       document.getElementById('clearLines').addEventListener('click',()=>{ state.strokes=[]; persist(); render(); status.textContent='Se borraron solo los trazos rojos.'; });
       document.getElementById('clearMarkers').addEventListener('click',()=>{ state.markers={}; persist(); render(); status.textContent='Los números volvieron a su posición inicial.'; });
-      document.getElementById('apply').addEventListener('click',()=>{ persist(); location.href='./index.html?ajustado=1'; }); render(); setMode('marker');
+      document.getElementById('apply').addEventListener('click',()=>{ persist(); location.href='./index.html?ajustado=1'+(new URLSearchParams(location.search).get('vista')==='diagrama'?'&vista=diagrama':''); }); render(); setMode('marker');
     </script>
   </body>
 </html>

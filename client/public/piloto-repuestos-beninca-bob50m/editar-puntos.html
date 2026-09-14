@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es">
-  <head>
+  <head><script>try { const user=JSON.parse(localStorage.getItem('mg_user')||'null'); const allowed=window.parent!==window && typeof window.parent.hasReportDiagramPilotAccess==='function' ? window.parent.hasReportDiagramPilotAccess() : String(user?.username||'').trim().toLowerCase()==='admin'; if(!allowed)location.replace('../..'); } catch (_) { location.replace('../..'); }</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MG Portones | Ajustar puntos Beninca</title>
@@ -12,8 +12,8 @@
     <main class="shell">
       <header><h1>Mover números — Beninca BOB50M</h1><p>Editor interno para corregir las posiciones del despiece BOB50M / BOB50ME.</p></header>
       <section class="panel">
-        <div class="tools"><label for="partNumber">Número que desea mover</label><select id="partNumber"></select><button id="reset" type="button" class="danger">Restablecer posiciones</button><button id="apply" type="button">Aplicar al piloto</button></div>
-        <p class="help"><strong>Uso:</strong> elija el número y toque su ubicación correcta en la imagen. Puede cambiar tantos puntos como necesite. Al terminar, presione <strong>Aplicar al piloto</strong>.</p>
+        <div class="tools"><label for="partNumber">Número que desea mover</label><select id="partNumber"></select><button id="reset" type="button" class="danger">Restablecer posiciones</button><button id="apply" type="button">Guardar y ver diagrama</button></div>
+        <p class="help"><strong>Uso:</strong> elija el número y toque su ubicación correcta en la imagen. Puede cambiar tantos puntos como necesite. Al terminar, presione <strong>Guardar y ver diagrama</strong>.</p>
         <div class="canvas-wrap"><svg class="stage" id="stage" viewBox="0 0 883 606" role="img" aria-label="Despiece Beninca BOB50M para ajustar números"><image href="./beninca-bob50m-despiece.png" width="883" height="606"/><g id="markers"></g></svg></div>
         <p class="status" id="status" aria-live="polite"></p><p class="footer">Los ajustes se guardan solamente en este navegador y no modifican inventario ni reportes.</p>
       </section>
@@ -28,8 +28,8 @@
       function point(event){const rect=stage.getBoundingClientRect();return{x:Math.max(0,Math.min(883,(event.clientX-rect.left)*883/rect.width)),y:Math.max(0,Math.min(606,(event.clientY-rect.top)*606/rect.height))}}
       function persist(){localStorage.setItem(storageKey,JSON.stringify(state))}function current(index){return state.markers[keys[index]]||{x:defaults[index][0],y:defaults[index][1]}}
       function render(){markers.innerHTML='';keys.forEach((key,index)=>{const pos=current(index);const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');circle.setAttribute('class','marker');circle.setAttribute('cx',pos.x);circle.setAttribute('cy',pos.y);circle.setAttribute('r','20');const text=document.createElementNS('http://www.w3.org/2000/svg','text');text.setAttribute('class','marker-text');text.setAttribute('x',pos.x);text.setAttribute('y',pos.y);text.textContent=String(index+1);markers.append(circle,text)})}
-      stage.addEventListener('pointerdown',(event)=>{const index=Number(select.value);state.markers[keys[index]]=point(event);persist();render();status.textContent=`Número ${index+1} colocado. Elija otro número o presione Aplicar al piloto.`});
-      document.getElementById('reset').addEventListener('click',()=>{state.markers={};persist();render();status.textContent='Los números volvieron a las posiciones iniciales.'});document.getElementById('apply').addEventListener('click',()=>{persist();location.href='./index.html?ajustado=1'});render();status.textContent='Elija un número y toque la pieza correcta.';
+      stage.addEventListener('pointerdown',(event)=>{const index=Number(select.value);state.markers[keys[index]]=point(event);persist();render();status.textContent=`Número ${index+1} colocado. Elija otro número o presione Guardar y ver diagrama.`});
+      document.getElementById('reset').addEventListener('click',()=>{state.markers={};persist();render();status.textContent='Los números volvieron a las posiciones iniciales.'});document.getElementById('apply').addEventListener('click',()=>{persist();location.href='./index.html?ajustado=1'+(new URLSearchParams(location.search).get('vista')==='diagrama'?'&vista=diagrama':'')});render();status.textContent='Elija un número y toque la pieza correcta.';
     </script>
   </body>
 </html>
