@@ -40,7 +40,17 @@
       footer { margin:17px 0 0; color:#5b7184; font-size:12px; line-height:1.45; }
       @media(max-width:780px) { .shell { padding:12px; } .layout { grid-template-columns:1fr; } h1 { font-size:23px; } .details { min-height:0; } }
     </style>
-  <script>if(new URLSearchParams(location.search).get('vista')==='diagrama')document.documentElement.classList.add('solo-diagrama');</script><style>.solo-diagrama body{background:#fff}.solo-diagrama .shell{width:100%;padding:6px}.solo-diagrama header,.solo-diagrama .notice,.solo-diagrama footer,.solo-diagrama .legend,.solo-diagrama .variant,.solo-diagrama .variant-box,.solo-diagrama .stock,.solo-diagrama .actions{display:none!important}.solo-diagrama .layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:14px;align-items:start}.solo-diagrama .layout>article{position:sticky;top:6px}.solo-diagrama .layout>*{min-width:0}.solo-diagrama .list button{white-space:normal;overflow-wrap:anywhere}.solo-diagrama .details{overflow-wrap:anywhere}@media(max-width:700px){.solo-diagrama .layout{grid-template-columns:minmax(0,1fr)}.solo-diagrama .layout>article{position:static}}.solo-diagrama .panel{box-shadow:none;border:0}.solo-diagrama .diagram-wrap{padding:4px;background:#fff}.solo-diagrama .panel>h2{font-size:16px;padding:8px}.solo-diagrama .details{min-height:0;padding:8px}.solo-diagrama .details h3{font-size:18px}.solo-diagrama .details p{margin:6px 0}.solo-diagrama .hotspot{touch-action:manipulation}</style></head>
+  <script>if(new URLSearchParams(location.search).get('vista')==='diagrama')document.documentElement.classList.add('solo-diagrama');</script><style>.solo-diagrama body{background:#fff}.solo-diagrama .shell{width:100%;padding:6px}.solo-diagrama header,.solo-diagrama .notice,.solo-diagrama footer,.solo-diagrama .legend,.solo-diagrama .variant,.solo-diagrama .variant-box,.solo-diagrama .stock,.solo-diagrama .actions{display:none!important}.solo-diagrama .layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:14px;align-items:start}.solo-diagrama .layout>article{position:sticky;top:6px}.solo-diagrama .layout>*{min-width:0}.solo-diagrama .list button{white-space:normal;overflow-wrap:anywhere}.solo-diagrama .details{overflow-wrap:anywhere}@media(max-width:700px){.solo-diagrama .layout{grid-template-columns:minmax(0,1fr)}.solo-diagrama .layout>article{position:static}}.solo-diagrama .panel{box-shadow:none;border:0}.solo-diagrama .diagram-wrap{padding:4px;background:#fff}.solo-diagrama .panel>h2{font-size:16px;padding:8px}.solo-diagrama .details{min-height:0;padding:8px}.solo-diagrama .details h3{font-size:18px}.solo-diagrama .details p{margin:6px 0}.solo-diagrama .hotspot{touch-action:manipulation}</style><style id="diagram-mobile-size">
+@media(max-width:700px){
+.solo-diagrama .shell{padding:0}.solo-diagrama .diagram-wrap{padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.solo-diagrama .diagram-wrap>.diagram,.solo-diagrama .diagram-wrap>svg{width:var(--diagram-width,150%);max-width:none}
+.solo-diagrama button.hotspot{width:22px;height:22px;border-width:2px;font-size:10px;box-shadow:0 1px 3px #3458}
+.solo-diagrama svg circle.marker,.solo-diagrama svg .hotspot circle.shape{r:13px;stroke-width:2px}
+.solo-diagrama svg .marker-label{font-size:11px}
+.solo-diagrama .diagram-zoom{display:flex;gap:8px;align-items:center;padding:8px;font-size:13px;flex-wrap:wrap}
+.solo-diagrama .diagram-zoom select{padding:7px;font:inherit}
+}.diagram-zoom{display:none}
+</style></head>
   <body>
     <main class="shell">
       <header>
@@ -106,5 +116,10 @@
       document.querySelectorAll('[data-part]').forEach((element) => { element.addEventListener('click', () => selectPart(element.dataset.part)); element.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPart(element.dataset.part); } }); });
       selectPart('gear');
     </script>
-  </body>
+  <script id="diagram-mobile-zoom">
+if(document.documentElement.classList.contains('solo-diagrama')){
+ const wrap=document.querySelector('.diagram-wrap');
+ if(wrap){const controls=document.createElement('label');controls.className='diagram-zoom';controls.append('Tamaño del diagrama ');const select=document.createElement('select');select.setAttribute('aria-label','Tamaño del diagrama');for(const n of [100,150,200]){const option=document.createElement('option');option.value=n;option.textContent=n+'%';option.selected=n===150;select.append(option)}select.addEventListener('change',()=>wrap.style.setProperty('--diagram-width',select.value+'%'));controls.append(select);const hint=document.createElement('span');hint.textContent='Deslice hacia los lados para ver el despiece.';controls.append(hint);wrap.before(controls);}
+}
+</script></body>
 </html>

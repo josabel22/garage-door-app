@@ -887,7 +887,7 @@
         }
       }
     </style>
-  </head>
+  <style>@media(max-width:700px){.diagrams-card{padding:8px!important}.diagrams-card #adminDiagramFrame{width:100%;border:0!important}}</style></head>
   <body>
     <div id="app"></div>
 
@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.8';
+      const APP_VERSION = 'v65.9';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -2127,7 +2127,7 @@
       function diagramsView() {
         if (!hasReportDiagramPilotAccess()) return '';
         const config = reportDiagramConfig(selectedDiagramModel) || REPORT_DIAGRAM_MODELS[0];
-        return `<section class="card" style="min-width:0;max-width:100%;">
+        return `<section class="card diagrams-card" style="min-width:0;max-width:100%;">
           <label>Modelo del motor<select style="width:100%;max-width:100%;margin:8px 0 14px;" onchange="selectDiagramModel(this.value)">${REPORT_DIAGRAM_MODELS.map(item => `<option value="${item.key}" ${item.key === config.key ? 'selected' : ''}>${escapeText(item.label)}</option>`).join('')}</select></label>
           <p>Toque un número para consultar el nombre y código de la pieza.</p>
           ${config.key !== 'liftmaster-1240' ? '<div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px;"><button class="btn" type="button" onclick="openDiagramEditor()">Editar posición de números</button><button class="btn secondary" type="button" onclick="closeDiagramEditor()">Ver diagrama</button></div><p><small>El editor recupera las posiciones guardadas en este navegador. Seleccione el número y toque su ubicación correcta.</small></p>' : ''}
