@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.7';
+      const APP_VERSION = 'v65.8';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -1995,7 +1995,17 @@
         window.location.href = './inventario-general/index.html';
       }
 
+      let diagramEditorActive = false;
+      function isDiagramEditorActive() {
+        return diagramEditorActive && state.view === 'diagramas' && hasReportDiagramPilotAccess();
+      }
+      function diagramFrameLoaded(frame) {
+        try {
+          diagramEditorActive = frame.contentWindow.location.pathname.endsWith('/editar-puntos.html');
+        } catch (_) {}
+      }
       function render() {
+        if (isDiagramEditorActive()) return;
         if (!state.user) return renderLogin();
 
         document.body.classList.remove('menu-open');
@@ -2095,6 +2105,7 @@
       let selectedDiagramModel = REPORT_DIAGRAM_MODELS[0].key;
       function selectDiagramModel(key) {
         if (!hasReportDiagramPilotAccess() || !reportDiagramConfig(key)) return;
+        diagramEditorActive = false;
         selectedDiagramModel = key;
         render();
       }
@@ -2104,11 +2115,13 @@
         if (!config || config.key === 'liftmaster-1240') return;
         const frame = document.getElementById('adminDiagramFrame');
         if (frame) {
+          diagramEditorActive = true;
           frame.src = config.diagramUrl.split('index.html')[0] + 'editar-puntos.html?vista=diagrama';
           frame.title = 'Editor de números ' + config.label;
         }
       }
       function closeDiagramEditor() {
+        diagramEditorActive = false;
         if (hasReportDiagramPilotAccess()) render();
       }
       function diagramsView() {
@@ -2118,7 +2131,7 @@
           <label>Modelo del motor<select style="width:100%;max-width:100%;margin:8px 0 14px;" onchange="selectDiagramModel(this.value)">${REPORT_DIAGRAM_MODELS.map(item => `<option value="${item.key}" ${item.key === config.key ? 'selected' : ''}>${escapeText(item.label)}</option>`).join('')}</select></label>
           <p>Toque un número para consultar el nombre y código de la pieza.</p>
           ${config.key !== 'liftmaster-1240' ? '<div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px;"><button class="btn" type="button" onclick="openDiagramEditor()">Editar posición de números</button><button class="btn secondary" type="button" onclick="closeDiagramEditor()">Ver diagrama</button></div><p><small>El editor recupera las posiciones guardadas en este navegador. Seleccione el número y toque su ubicación correcta.</small></p>' : ''}
-          <iframe id="adminDiagramFrame" title="Diagrama interactivo ${escapeText(config.label)}" src="${escapeText(config.diagramUrl)}" style="display:block;width:100%;max-width:100%;height:75vh;min-height:440px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe>
+          <iframe id="adminDiagramFrame" onload="diagramFrameLoaded(this)" title="Diagrama interactivo ${escapeText(config.label)}" src="${escapeText(config.diagramUrl)}" style="display:block;width:100%;max-width:100%;height:75vh;min-height:440px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe>
         </section>`;
       }
 
@@ -4117,6 +4130,7 @@
 
       function go(view) {
         if (view === 'diagramas' && !hasReportDiagramPilotAccess()) return;
+        diagramEditorActive = false;
         state.view = view;
         render();
       }
@@ -6291,6 +6305,7 @@
           } catch (_) {}
         });
         navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (isDiagramEditorActive()) return;
     if (sessionStorage.getItem('mg_sw_reloaded_v620')) return;
     sessionStorage.setItem('mg_sw_reloaded_v620', '1');
           window.location.reload();

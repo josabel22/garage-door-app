@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v65-7-editor-diagramas-admin';
+const CACHE_NAME = 'mg-portones-v65-8-editor-sin-interrupciones';
 const ASSETS = [
   './',
   './index.html',
