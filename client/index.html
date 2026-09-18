@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.12';
+      const APP_VERSION = 'v65.13';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -3350,7 +3350,7 @@
             ${reportPrintPhotos(job)}
             <br>
             <section class="pdf-grid">
-              <div class="pdf-box"><strong>Hora llegada</strong><br>${job.arrival || 'Pendiente'}<br><strong>Hora salida</strong><br>${job.departure || 'Pendiente'}<br><strong>Tiempo trabajado</strong><br>${job.time || workedTimeLabel(job.arrival, job.departure) || 'Pendiente'}</div>
+              <div class="pdf-box"><strong>Hora llegada</strong><br>${job.arrival || 'Pendiente'}<br><strong>Hora salida</strong><br>${job.departure || 'Pendiente'}${job.status === 'Cotización' ? '' : `<br><strong>Tiempo trabajado</strong><br>${job.time || workedTimeLabel(job.arrival, job.departure) || 'Pendiente'}`}</div>
             </section>
             <br><br>
             <section class="pdf-grid">
@@ -4441,7 +4441,7 @@
           description: form.get('description'),
           notes: form.get('notes'),
           photos,
-          time: form.get('time') || workedTimeLabel(form.get('arrival'), form.get('departure')),
+          time: isQuotationReport ? '' : (form.get('time') || workedTimeLabel(form.get('arrival'), form.get('departure'))),
           motorCount: Number(form.get('motorCount') || motorBrands.length || 0),
           motorBrands,
           reportGuide,
@@ -4576,7 +4576,17 @@
         `;
       }
 
+      function updateQuotationTimeField() {
+        const form = document.querySelector('.report-form');
+        if (!form) return;
+        const input = form.elements.time;
+        if (!input) return;
+        const quotation = form.elements.status?.value === 'Cotización';
+        input.closest('label').style.display = quotation ? 'none' : '';
+        input.disabled = quotation;
+      }
       function toggleWorkshopFields() {
+        updateQuotationTimeField();
         const status = document.querySelector('select[name="status"]')?.value;
         const target = document.getElementById('workshopFields');
         if (target) target.style.display = status === 'En taller' ? '' : 'none';

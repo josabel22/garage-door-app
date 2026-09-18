@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v65-12-cotizacion';
+const CACHE_NAME = 'mg-portones-v65-13-cotizacion-sin-tiempo';
 const ASSETS = [
   './',
   './index.html',
