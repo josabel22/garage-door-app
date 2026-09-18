@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.9';
+      const APP_VERSION = 'v65.11';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -1159,6 +1159,7 @@
 
       function mergeCloudData(cloudData, localData) {
         const merged = { ...cloudData };
+        merged.diagramLayouts = mergeDiagramLayouts(cloudData?.diagramLayouts, localData?.diagramLayouts);
         const localJobCount = (localData?.jobs || []).length;
         const cloudJobCount = (cloudData?.jobs || []).length;
         merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
@@ -1469,6 +1470,7 @@
 
       function mergeBeforeCloudWrite(cloudData, localData) {
         const merged = { ...cloudData, ...localData };
+        merged.diagramLayouts = mergeDiagramLayouts(cloudData?.diagramLayouts, localData?.diagramLayouts);
         merged.deletedJobs = mergeDeletedJobs(cloudData?.deletedJobs, localData?.deletedJobs);
         merged.deletedPhotos = mergeDeletedPhotos(cloudData?.deletedPhotos, localData?.deletedPhotos);
         merged.jobs = mergeJobs(cloudData?.jobs, localData?.jobs, merged.deletedPhotos).filter((job) => !isDeletedJob(job, merged.deletedJobs));
@@ -2109,6 +2111,51 @@
         selectedDiagramModel = key;
         render();
       }
+
+      const diagramLayoutKeys = {"nice-road":"mg_nice_road_marker_layout_v1","beninca-bull5m":"mg_beninca_bull5m_marker_layout_v1","came-axo3024":"mg_came_axo_marker_layout_v1","beninca-bob50m":"mg_beninca_bob50m_marker_layout_v1","beninca-bill30m":"mg_beninca_bill30m_marker_layout_v1","genius-gbat300":"mg_genius_gbat300_marker_layout_v1","genius-milord424":"mg_genius_milord424_marker_layout_v1","genius-blizzard400":"mg_genius_blizzard400_marker_layout_v1"};
+      function mergeDiagramLayouts(a = {}, b = {}) {
+        const result = { ...a };
+        for (const [key, value] of Object.entries(b || {})) {
+          if (!result[key] || String(value.updatedAt || '') > String(result[key].updatedAt || '')) result[key] = value;
+        }
+        return result;
+      }
+      async function shareDiagramPositions() {
+        if (!hasReportDiagramPilotAccess() || isDiagramEditorActive()) return;
+        const key = diagramLayoutKeys[selectedDiagramModel];
+        if (!key) return;
+        try {
+          const local = JSON.parse(localStorage.getItem(key) || '{}');
+          if (!local.markers || !Object.keys(local.markers).length) { alert('Este navegador no tiene posiciones corregidas para este modelo. Comparta desde la PC donde las acomodó.'); return; }
+          state.data.diagramLayouts = { ...(state.data.diagramLayouts || {}), [key]: { markers: local.markers, updatedAt: new Date().toISOString() } };
+          saveLocalData();
+          if (!navigator.onLine || !supabaseConfig().ready) { alert('Las posiciones se conservan aquí. Necesita conexión para compartirlas; vuelva a pulsar este botón cuando esté conectado.'); return; }
+          await saveCloudDataNow({ clearQueue: false });
+          alert('Posiciones compartidas. En el teléfono seleccione este mismo modelo y pulse Usar posiciones compartidas.');
+        } catch (_) { alert('No se pudieron compartir las posiciones. Sus ajustes locales se conservan; vuelva a intentar.'); }
+      }
+      async function useSharedDiagramPositions() {
+        if (!hasReportDiagramPilotAccess() || isDiagramEditorActive()) return;
+        const model = selectedDiagramModel;
+        const key = diagramLayoutKeys[model];
+        if (!key) return;
+        try {
+          if (!navigator.onLine || !supabaseConfig().ready) { alert('Conéctese para recuperar las posiciones compartidas.'); return; }
+          const rows = await supabaseRequest('app_state?select=data&id=eq.production');
+          if (!hasReportDiagramPilotAccess() || isDiagramEditorActive() || selectedDiagramModel !== model) return;
+          const layout = rows?.[0]?.data?.diagramLayouts?.[key];
+          if (!layout?.markers || !Object.keys(layout.markers).length) { alert('Primero pulse Compartir estas posiciones en la PC donde corrigió este modelo.'); return; }
+          for (const point of Object.values(layout.markers)) if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) throw new Error('Coordenadas inválidas');
+          const previous = localStorage.getItem(key);
+          if (previous) localStorage.setItem(key + '_backup_' + Date.now(), previous);
+          localStorage.setItem(key, JSON.stringify({ markers: layout.markers }));
+          state.data.diagramLayouts = mergeDiagramLayouts(state.data.diagramLayouts, { [key]: layout });
+          saveLocalData();
+          render();
+          alert('Posiciones compartidas aplicadas sin cambiar sus coordenadas.');
+        } catch (_) { alert('No se pudieron recuperar las posiciones compartidas. Vuelva a intentar.'); }
+      }
+
       function openDiagramEditor() {
         if (!hasReportDiagramPilotAccess()) return;
         const config = reportDiagramConfig(selectedDiagramModel);
@@ -2130,7 +2177,7 @@
         return `<section class="card diagrams-card" style="min-width:0;max-width:100%;">
           <label>Modelo del motor<select style="width:100%;max-width:100%;margin:8px 0 14px;" onchange="selectDiagramModel(this.value)">${REPORT_DIAGRAM_MODELS.map(item => `<option value="${item.key}" ${item.key === config.key ? 'selected' : ''}>${escapeText(item.label)}</option>`).join('')}</select></label>
           <p>Toque un número para consultar el nombre y código de la pieza.</p>
-          ${config.key !== 'liftmaster-1240' ? '<div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px;"><button class="btn" type="button" onclick="openDiagramEditor()">Editar posición de números</button><button class="btn secondary" type="button" onclick="closeDiagramEditor()">Ver diagrama</button></div><p><small>El editor recupera las posiciones guardadas en este navegador. Seleccione el número y toque su ubicación correcta.</small></p>' : ''}
+          ${config.key !== 'liftmaster-1240' ? '<div class="toolbar" style="flex-wrap:wrap;margin-bottom:12px;"><button class="btn" type="button" onclick="openDiagramEditor()">Editar posición de números</button><button class="btn secondary" type="button" onclick="closeDiagramEditor()">Ver diagrama</button><button class="btn secondary" type="button" onclick="shareDiagramPositions()">Compartir estas posiciones</button><button class="btn secondary" type="button" onclick="useSharedDiagramPositions()">Usar posiciones compartidas</button></div><p><small>El editor recupera las posiciones guardadas en este navegador. Seleccione el número y toque su ubicación correcta.</small></p>' : ''}
           <iframe id="adminDiagramFrame" onload="diagramFrameLoaded(this)" title="Diagrama interactivo ${escapeText(config.label)}" src="${escapeText(config.diagramUrl)}" style="display:block;width:100%;max-width:100%;height:75vh;min-height:440px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe>
         </section>`;
       }
@@ -2943,7 +2990,7 @@
         ] : [];
         return `
           <div class="list-item"><strong>${escapeText(config.label)}</strong><br>${escapeText(config.manualNote)}</div>
-          <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Abrir diagrama interactivo</summary><p><small>Consulta visual. No agrega ni descuenta repuestos automáticamente.</small></p><iframe title="Diagrama ${escapeText(config.label)}" src="${escapeText(config.diagramUrl.split('?')[0])}" loading="lazy" style="width:100%;height:540px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe></details>
+          <details style="margin-top:10px;"><summary style="cursor:pointer;font-weight:700;">Abrir diagrama interactivo</summary><p><small>Consulta visual. No agrega ni descuenta repuestos automáticamente.</small></p><iframe title="Diagrama ${escapeText(config.label)}" src="${escapeText(config.diagramUrl.split('?')[0] + '?vista=formulario')}" loading="lazy" style="width:100%;height:540px;border:1px solid #d9e2ec;border-radius:8px;background:#fff;"></iframe></details>
           ${manual ? `
             <div class="list-item" style="margin-top:10px;"><strong>Manual asociado:</strong> ${escapeText(manual.brand)} ${escapeText(manual.model)}<br><a href="${escapeText(manual.pdfUrl)}" target="_blank" rel="noopener">Ver manual original</a></div>
             <div class="list" style="margin-top:10px;"><strong>Verificaciones realizadas según manual</strong><br><small>Marque solo lo que se realizó; aparecerá en el PDF.</small>${checks.map((item) => `<label style="margin-top:8px;"><input type="checkbox" name="manualCheck" value="${formValue(item)}" ${selectedChecks.has(item) ? 'checked' : ''} onchange="persistReportDraftFromDom()" /> ${escapeText(item)}</label>`).join('')}</div>
