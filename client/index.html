@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.11';
+      const APP_VERSION = 'v65.12';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -1830,11 +1830,11 @@
       }
 
       function statuses() {
-        return ['Pendiente', 'Asignado', 'En camino', 'Trabajando', 'En taller', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado', 'Cancelado'];
+        return ['Pendiente', 'Cotización', 'Asignado', 'En camino', 'Trabajando', 'En taller', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado', 'Cancelado'];
       }
 
       function technicianStatuses() {
-        return ['Pendiente', 'Asignado', 'En camino', 'Trabajando', 'En taller', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado'];
+        return ['Pendiente', 'Cotización', 'Asignado', 'En camino', 'Trabajando', 'En taller', 'Esperando repuesto', 'Pausado', 'Garantia', 'Finalizado'];
       }
 
       function finalStatuses() {
@@ -2846,7 +2846,7 @@
         const fields = document.getElementById('reportWarrantyFields');
         if (!form || !target || !fields) return;
         const isWarranty = form.elements.status?.value === 'Garantia';
-        const isWorkshop = form.elements.status?.value === 'En taller';
+        const isWorkshop = ['En taller', 'Cotización'].includes(form.elements.status?.value);
         fields.style.display = isWorkshop ? 'none' : '';
         Array.from(fields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
         if (isWorkshop) {
@@ -4400,6 +4400,7 @@
         const usedParts = selectedReportParts(form);
         const additionalMaterials = String(form.get('materials') || '').trim();
         const isWorkshopReport = form.get('status') === 'En taller';
+        const isQuotationReport = form.get('status') === 'Cotización';
         const isWarrantyFollowUp = !isWorkshopReport && form.get('status') === 'Garantia';
         const warrantySourceTicket = String(form.get('warrantySourceTicket') || '').trim();
         const sourceWarranty = isWarrantyFollowUp
@@ -4409,7 +4410,7 @@
           alert('Seleccione una boleta anterior con garantia activa. Esta atencion no puede crear ni extender una garantia nueva.');
           return;
         }
-        const warrantyEnd = isWorkshopReport
+        const warrantyEnd = (isWorkshopReport || isQuotationReport)
           ? ''
           : (sourceWarranty
             ? sourceWarranty.end
@@ -4450,7 +4451,7 @@
           workshopWithdrawalJobId: workshopDelivery?.jobKey || '',
           workshopWithdrawalTicket: workshopDelivery?.ticket || '',
           materials,
-          warranty: isWorkshopReport
+          warranty: (isWorkshopReport || isQuotationReport)
             ? 'Sin garantia'
             : (sourceWarranty
               ? `Garantia de ${sourceWarranty.ticket} - ${warrantyDaysRemaining} dias restantes`
@@ -4581,7 +4582,7 @@
         if (target) target.style.display = status === 'En taller' ? '' : 'none';
         const warrantyFields = document.getElementById('editWarrantyFields');
         if (warrantyFields) {
-          const isWorkshop = status === 'En taller';
+          const isWorkshop = ['En taller', 'Cotización'].includes(status);
           warrantyFields.style.display = isWorkshop ? 'none' : '';
           Array.from(warrantyFields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
         }
@@ -5881,7 +5882,7 @@
         job.photos ||= { before: [], after: [] };
         job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
-        if (nextStatus === 'En taller') {
+        if (['En taller', 'Cotización'].includes(nextStatus)) {
           job.warranty = 'Sin garantia';
           job.warrantyEnd = '';
           job.warrantySourceTicket = '';
