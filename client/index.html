@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.16';
+      const APP_VERSION = 'v65.17';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -1100,9 +1100,9 @@
       }
 
       function hasUnsavedReportWork() {
-        // Toda ventana modal puede contener información que el usuario todavía no ha confirmado.
-        // Por seguridad, ninguna actualización remota redibuja la app hasta que se cierre o guarde.
-        return state.reportFormOpen || Boolean(state.modal) || activePhotoUploads.size > 0;
+        // Formularios, modales y la búsqueda pueden tener trabajo visible que no debe interrumpirse.
+        // La actualización remota se difiere hasta que el usuario salga de esa pantalla.
+        return state.reportFormOpen || Boolean(state.modal) || activePhotoUploads.size > 0 || state.view === 'busqueda';
       }
 
       function resumeCloudRefresh() {
@@ -4189,9 +4189,11 @@
 
       function go(view) {
         if (view === 'diagramas' && !hasReportDiagramPilotAccess()) return;
+        const wasSearching = state.view === 'busqueda';
         diagramEditorActive = false;
         state.view = view;
         render();
+        if (wasSearching && view !== 'busqueda') resumeCloudRefresh();
       }
 
       function newReportShortcut() {
