@@ -970,10 +970,12 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.13';
+      const APP_VERSION = 'v65.15';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
+        { key: 'motor-bg800', label: 'Motor BG800', diagramUrl: './piloto-repuestos-motor-bg800/index.html?vista=diagrama', manualModel: '', manualNote: 'Diagrama de desarme proporcionado por MG Portones. Manual pendiente.' },
+        { key: 'motor-bg', label: 'Motor BG', diagramUrl: './piloto-repuestos-motor-bg/index.html?vista=diagrama', manualModel: '', manualNote: 'Diagrama de desarme proporcionado por MG Portones. Manual pendiente.' },
         { key: 'nice-road', label: 'Nice ROAD', diagramUrl: './piloto-repuestos-nice-road/index.html?vista=diagrama', manualModel: 'ROAD', manualNote: 'Manual específico del motor Nice ROAD.' },
         { key: 'beninca-bull5m', label: 'Beninca BULL 5M', diagramUrl: './piloto-repuestos-beninca-bull5m/index.html?vista=diagrama', manualModel: 'BULL624', manualNote: 'Manual de la familia BULL: confirme la versión en la etiqueta.' },
         { key: 'came-axo3024', label: 'CAME AXO 3024', diagramUrl: './piloto-repuestos-came-axo/index.html?vista=diagrama', manualModel: 'ZLJ24', manualNote: 'Manual de central compatible: confirme la central instalada.' },
@@ -2112,7 +2114,7 @@
         render();
       }
 
-      const diagramLayoutKeys = {"nice-road":"mg_nice_road_marker_layout_v1","beninca-bull5m":"mg_beninca_bull5m_marker_layout_v1","came-axo3024":"mg_came_axo_marker_layout_v1","beninca-bob50m":"mg_beninca_bob50m_marker_layout_v1","beninca-bill30m":"mg_beninca_bill30m_marker_layout_v1","genius-gbat300":"mg_genius_gbat300_marker_layout_v1","genius-milord424":"mg_genius_milord424_marker_layout_v1","genius-blizzard400":"mg_genius_blizzard400_marker_layout_v1"};
+      const diagramLayoutKeys = {"motor-bg800":"mg_motor_bg800_marker_layout_v1","motor-bg":"mg_motor_bg_marker_layout_v1","nice-road":"mg_nice_road_marker_layout_v1","beninca-bull5m":"mg_beninca_bull5m_marker_layout_v1","came-axo3024":"mg_came_axo_marker_layout_v1","beninca-bob50m":"mg_beninca_bob50m_marker_layout_v1","beninca-bill30m":"mg_beninca_bill30m_marker_layout_v1","genius-gbat300":"mg_genius_gbat300_marker_layout_v1","genius-milord424":"mg_genius_milord424_marker_layout_v1","genius-blizzard400":"mg_genius_blizzard400_marker_layout_v1"};
       function mergeDiagramLayouts(a = {}, b = {}) {
         const result = { ...a };
         for (const [key, value] of Object.entries(b || {})) {
@@ -2343,7 +2345,7 @@
             ${workshopFieldsMarkup(job.workshopEntry, job.status === 'En taller')}
             <label>Prioridad<select name="priority">${priorities().map((priority) => `<option ${priority === job.priority ? 'selected' : ''}>${priority}</option>`).join('')}</select></label>
             <label>Tecnico<select name="technicianId" onchange="updateReportInventoryFields()">${technicians().map((tech) => `<option value="${formValue(tech.id)}" ${String(tech.id) === String(jobTech.id) ? 'selected' : ''}>${escapeText(tech.name)}  -  ${escapeText(reportVehicleForUser(tech) || 'Sin movil')}</option>`).join('')}</select></label>
-            <div id="editWarrantyFields" class="full form-grid" style="${job.status === 'En taller' ? 'display:none;' : ''}">
+            <div id="editWarrantyFields" class="full form-grid" style="${['Finalizado', 'Garantia'].includes(job.status) ? '' : 'display:none;'}">
               <label>Garantia<select name="warranty">${warrantyOptions().map((warranty) => `<option value="${warranty}" ${String(job.warranty || '').startsWith(warranty) ? 'selected' : ''}>${warranty}</option>`).join('')}</select></label>
               <label>Vence garantia<input name="warrantyEnd" type="date" value="${formValue(job.warrantyEnd)}" /></label>
               <div id="editWarrantySourceFields" class="full">${job.status === 'Garantia' ? editWarrantySourceFieldsMarkup(job) : ''}</div>
@@ -2750,9 +2752,9 @@
                 <div id="reportWarrantyFields" class="full form-grid">
                   <label>Garantia<select name="warranty">${['Pendiente', 'Activa', 'Sin garantia'].map((value) => `<option ${value === draftWarranty ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
                   <div id="warrantySourceFields" class="full"></div>
-                  <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="3" oninput="updateWarrantyEnd()" /></label>
+                  <label>Tiempo garantia<input name="warrantyDuration" type="number" min="0" value="1" oninput="updateWarrantyEnd()" /></label>
                   <label>Unidad garantia<select name="warrantyUnit" onchange="updateWarrantyEnd()"><option value="months">Meses</option><option value="weeks">Semanas</option><option value="days">Dias</option></select></label>
-                  <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${today(90)}" /></label>
+                  <label>Vencimiento garantia<input name="warrantyEnd" type="date" value="${calculateWarrantyEnd(1, 'months', '')}" /></label>
                 </div>
                 <label>Tiempo trabajado<input name="time" placeholder="2h 30m" readonly /></label>
                 <label>Hora llegada<input name="arrival" type="time" oninput="updateWorkedTime()" /></label>
@@ -2845,11 +2847,13 @@
         const target = document.getElementById('warrantySourceFields');
         const fields = document.getElementById('reportWarrantyFields');
         if (!form || !target || !fields) return;
-        const isWarranty = form.elements.status?.value === 'Garantia';
-        const isWorkshop = ['En taller', 'Cotización'].includes(form.elements.status?.value);
-        fields.style.display = isWorkshop ? 'none' : '';
-        Array.from(fields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
-        if (isWorkshop) {
+        const status = form.elements.status?.value || '';
+        const isWarranty = status === 'Garantia';
+        const canStartWarranty = status === 'Finalizado';
+        const showWarrantyFields = isWarranty || canStartWarranty;
+        fields.style.display = showWarrantyFields ? '' : 'none';
+        Array.from(fields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = !showWarrantyFields; });
+        if (!showWarrantyFields) {
           target.innerHTML = '';
           persistReportDraftFromDom(form);
           return;
@@ -4410,7 +4414,8 @@
           alert('Seleccione una boleta anterior con garantia activa. Esta atencion no puede crear ni extender una garantia nueva.');
           return;
         }
-        const warrantyEnd = (isWorkshopReport || isQuotationReport)
+        const isFinalizedReport = finalStatuses().includes(form.get('status'));
+        const warrantyEnd = !isFinalizedReport
           ? ''
           : (sourceWarranty
             ? sourceWarranty.end
@@ -4451,7 +4456,7 @@
           workshopWithdrawalJobId: workshopDelivery?.jobKey || '',
           workshopWithdrawalTicket: workshopDelivery?.ticket || '',
           materials,
-          warranty: (isWorkshopReport || isQuotationReport)
+          warranty: !isFinalizedReport
             ? 'Sin garantia'
             : (sourceWarranty
               ? `Garantia de ${sourceWarranty.ticket} - ${warrantyDaysRemaining} dias restantes`
@@ -4592,9 +4597,9 @@
         if (target) target.style.display = status === 'En taller' ? '' : 'none';
         const warrantyFields = document.getElementById('editWarrantyFields');
         if (warrantyFields) {
-          const isWorkshop = ['En taller', 'Cotización'].includes(status);
-          warrantyFields.style.display = isWorkshop ? 'none' : '';
-          Array.from(warrantyFields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = isWorkshop; });
+          const showWarrantyFields = ['Finalizado', 'Garantia'].includes(status);
+          warrantyFields.style.display = showWarrantyFields ? '' : 'none';
+          Array.from(warrantyFields.querySelectorAll('input, select, textarea')).forEach((field) => { field.disabled = !showWarrantyFields; });
         }
         persistReportDraftFromDom();
       }
@@ -5892,7 +5897,7 @@
         job.photos ||= { before: [], after: [] };
         job.photos.before = [...(job.photos.before || []), ...newPhotos.before];
         job.photos.after = [...(job.photos.after || []), ...newPhotos.after];
-        if (['En taller', 'Cotización'].includes(nextStatus)) {
+        if (!finalStatuses().includes(nextStatus) && nextStatus !== 'Garantia') {
           job.warranty = 'Sin garantia';
           job.warrantyEnd = '';
           job.warrantySourceTicket = '';

@@ -1,5 +1,11 @@
-const CACHE_NAME = 'mg-portones-v65-13-cotizacion-sin-tiempo';
+const CACHE_NAME = 'mg-portones-v65-15-garantia-finalizado';
 const ASSETS = [
+  './piloto-repuestos-motor-bg800/index.html',
+  './piloto-repuestos-motor-bg800/editar-puntos.html',
+  './piloto-repuestos-motor-bg800/motor-bg800-despiece.png',
+  './piloto-repuestos-motor-bg/index.html',
+  './piloto-repuestos-motor-bg/editar-puntos.html',
+  './piloto-repuestos-motor-bg/motor-bg-despiece.png',
   './',
   './index.html',
   './manuales-apoyo.js',
