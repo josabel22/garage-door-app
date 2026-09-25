@@ -970,7 +970,7 @@
         auditoria: 'Auditoria'
       };
 
-      const APP_VERSION = 'v65.15';
+      const APP_VERSION = 'v65.16';
       const DASHBOARD_RECENT_JOBS_LIMIT = 20;
       const technicalManuals = Array.isArray(window.MG_TECHNICAL_MANUALS) ? window.MG_TECHNICAL_MANUALS : [];
       const REPORT_DIAGRAM_MODELS = [
@@ -1884,7 +1884,12 @@
       function visibleNotifications() {
         return state.data.notifications.filter((notification) => {
           if (notification.role === 'admin') return state.user.role === 'admin';
-          if (notification.role === 'technician') return state.user.role === 'technician' && notification.technicianId === state.user.id;
+          if (notification.role === 'technician') {
+            if (state.user.role !== 'technician' || String(notification.technicianId) !== String(state.user.id)) return false;
+            const allowedTypes = ['Trabajo', 'Garantia', 'Inventario', 'Movil'];
+            if (!allowedTypes.includes(notification.type)) return false;
+            return !notification.vehicle || notification.vehicle === reportVehicleForUser(state.user);
+          }
           return notification.role === state.user.role;
         });
       }
@@ -3412,17 +3417,20 @@
         if (criticalInventory.length) add(1, 'Inventario crítico', `${criticalInventory.length} repuesto(s) sin existencias: ${criticalInventory.slice(0, 2).map((item) => `${item.part} (${item.vehicle})`).join(', ')}.`);
         else if (inventory.length) add(3, 'Inventario', `${inventory.length} repuesto(s) con stock bajo requieren reposición.`);
 
-        (state.data.warranties || []).forEach((warranty) => {
+        const isTechnician = state.user?.role === 'technician';
+        const technicianId = state.user?.id;
+
+        (state.data.warranties || []).filter((warranty) => !isTechnician || jobs.some((job) => String(job.ticket) === String(warranty.ticket))).forEach((warranty) => {
           const days = warrantyDaysLeft(warranty.end);
           if (days >= 0 && days <= 7) add(days <= 1 ? 1 : 2, 'Garantía', `${warranty.ticket} - ${warranty.client}: ${warrantyDaysText(warranty.end)}.`);
         });
 
-        (state.data.maintenances || []).forEach((maintenance) => {
+        (state.data.maintenances || []).filter((maintenance) => !isTechnician || String(maintenance.technicianId) === String(technicianId)).forEach((maintenance) => {
           const days = Math.ceil((parseDateOnly(maintenance.nextDate) - parseDateOnly(today(0))) / 86400000);
           if (maintenance.status === 'Pendiente' && days >= 0 && days <= 7) add(days <= 1 ? 1 : 2, 'Mantenimiento', `${maintenance.client}: programado para ${maintenance.nextDate}.`);
         });
 
-        (state.data.appointments || []).forEach((appointment) => {
+        (state.data.appointments || []).filter((appointment) => !isTechnician || String(appointment.technicianId) === String(technicianId)).forEach((appointment) => {
           const days = Math.ceil((parseDateOnly(appointment.date) - parseDateOnly(today(0))) / 86400000);
           if (appointment.status !== 'Completada' && days >= 0 && days <= 2) add(days === 0 ? 1 : 2, 'Cita', `${appointment.client}: ${appointment.date} ${appointment.hour || ''}`.trim());
         });
@@ -5087,6 +5095,7 @@
           id: Date.now() + Math.random(),
           role: 'technician',
           technicianId: job.technicianId,
+          vehicle: job.vehicle || '',
           text: `${job.status === 'Garantia' ? 'Garantia asignada' : 'Nuevo trabajo asignado'}: ${job.ticket}`,
           type: job.status === 'Garantia' ? 'Garantia' : 'Trabajo'
         });

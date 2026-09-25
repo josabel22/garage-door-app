@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mg-portones-v65-15-garantia-finalizado';
+const CACHE_NAME = 'mg-portones-v65-16-alertas-tecnico';
 const ASSETS = [
   './piloto-repuestos-motor-bg800/index.html',
   './piloto-repuestos-motor-bg800/editar-puntos.html',
